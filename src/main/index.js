@@ -562,6 +562,13 @@ function registerIpcHandlers() {
     return win ? win._displayId : screen.getPrimaryDisplay().id;
   });
 
+  // 获取应用版本和作者信息（设置面板"关于"用）
+  ipcMain.handle('get-app-info', () => ({
+    version: app.getVersion(),
+    name: '透明桌面看板',
+    author: '隔壁村布布'
+  }));
+
   // 告知渲染进程平台能力（穿透是否支持、是否 macOS 原生毛玻璃等）
   ipcMain.handle('get-platform-info', () => ({
     // Linux 上启用区域穿透：卡片可交互 + 空白处穿透到桌面（解决桌面图标点不到）

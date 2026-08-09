@@ -1,0 +1,16 @@
+Package: com.dashboard.transparent
+Version: 0.5.8
+Architecture: amd64
+Maintainer: 隔壁村布布 <bubu@example.com>
+Installed-Size: 200000
+Section: utils
+Priority: optional
+Depends: libappindicator3-1 | libayatana-appindicator3-1, libnotify4, libnss3, libxss1, libxtst6, libasound2, libgbm1
+Recommends: desktop-file-utils
+Description: 透明桌面信息看板
+ 透明、鼠标穿透的桌面常驻信息看板。
+ 功能：时钟、天气、A股行情、AI新闻、热搜、待办事项、倒数日。
+ .
+ 基于Electron，支持UOS/deepin，遵循UOS应用打包规范，
+ 所有文件安装到 /opt/apps/com.dashboard.transparent/。
+Homepage: https://github.com/example/transparent-desktop-dashboard

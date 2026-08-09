@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=透明桌面看板
+Name[zh_CN]=透明桌面看板
+Name[en_US]=Transparent Desktop Dashboard
+GenericName=桌面信息看板
+Comment=透明、鼠标穿透的桌面常驻信息看板（天气/A股/新闻/待办/热搜）
+Comment[zh_CN]=透明、鼠标穿透的桌面常驻信息看板（天气/A股/新闻/待办/热搜）
+Exec=/opt/apps/com.dashboard.transparent/files/bin/transparent-dashboard.sh %U
+Icon=com.dashboard.transparent
+Categories=Utility;DesktopSettings;
+Keywords=dashboard;widget;desktop;transparent;weather;stock;
+Terminal=false
+StartupNotify=true

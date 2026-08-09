@@ -1,0 +1,42 @@
+#!/bin/bash
+# UOS deb 安装后脚本：注册桌面入口到系统目录（让启动器显示图标）
+# 仅做 desktop 文件和图标的软链接，不修改其他系统文件
+set -e
+
+APPID="com.dashboard.transparent"
+APP_DIR="/opt/apps/$APPID"
+SYS_APP_DIR="/usr/share/applications"
+SYS_ICON_DIR="/usr/share/icons/hicolor"
+
+# 1. 注册 .desktop 到系统目录（软链接，不复制文件，便于卸载清理）
+if [ -d "$SYS_APP_DIR" ] && [ -f "$APP_DIR/entries/applications/$APPID.desktop" ]; then
+  ln -sf "$APP_DIR/entries/applications/$APPID.desktop" "$SYS_APP_DIR/$APPID.desktop"
+fi
+
+# 2. 注册图标到系统目录（软链接各级尺寸）
+if [ -d "$APP_DIR/entries/icons/hicolor" ]; then
+  for size_dir in "$APP_DIR/entries/icons/hicolor"/*/; do
+    size=$(basename "$size_dir")  # 如 256x256
+    target_icon_dir="$SYS_ICON_DIR/$size/apps"
+    mkdir -p "$target_icon_dir" 2>/dev/null || true
+    if [ -f "$size_dir/apps/$APPID.png" ]; then
+      ln -sf "$size_dir/apps/$APPID.png" "$target_icon_dir/$APPID.png"
+    fi
+  done
+fi
+
+# 3. 刷新桌面数据库和图标缓存（让启动器立即识别）
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database -q "$SYS_APP_DIR" 2>/dev/null || true
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -f -t "$SYS_ICON_DIR" 2>/dev/null || true
+fi
+
+# 兼容 UOS dde 启动器：触发应用列表刷新
+if command -v dde-desktop >/dev/null 2>&1; then
+  # UOS 桌面环境刷新（非必需，失败也无所谓）
+  true
+fi
+
+exit 0

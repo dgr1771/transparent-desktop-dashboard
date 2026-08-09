@@ -1,0 +1,2 @@
+[23916:0805/193248.760:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: 拒绝访问。 (0x5)
+[23916:0805/193248.768:ERROR:net\disk_cache\cache_util_win.cc:25] Unable to move the cache: 拒绝访问。 (0x5)

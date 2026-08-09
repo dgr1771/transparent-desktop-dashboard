@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>设置 - 透明桌面看板</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      background: #1a1d29;
+      color: #e5e7eb;
+      padding: 24px;
+      line-height: 1.6;
+    }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .subtitle { color: #9ca3af; font-size: 13px; margin-bottom: 20px; }
+    .section {
+      background: #232736;
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 14px;
+    }
+    .section h2 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: #60a5fa;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .field { margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+    label {
+      display: block;
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      background: #1a1d29;
+      border: 1px solid #374151;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #e5e7eb;
+      font-size: 13px;
+      outline: none;
+    }
+    input:focus { border-color: #60a5fa; }
+    .hint { font-size: 11px; color: #6b7280; margin-top: 3px; }
+    .hint a { color: #60a5fa; }
+    .sources-list { display: flex; flex-direction: column; gap: 6px; }
+    .source-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .source-row input { flex: 1; }
+    .source-row .name { max-width: 100px; }
+    .btn-remove {
+      background: #dc2626;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn-add {
+      background: #374151;
+      color: #d1d5db;
+      border: 1px dashed #6b7280;
+      border-radius: 6px;
+      padding: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      width: 100%;
+      margin-top: 6px;
+    }
+    .btn-add:hover { background: #4b5563; }
+    .widgets-checklist {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .widgets-checklist label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #1a1d29;
+      border: 1px solid #374151;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #d1d5db;
+      margin: 0;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .widgets-checklist label:hover { border-color: #60a5fa; }
+    .widgets-checklist label.checked { border-color: #3b82f6; background: rgba(59,130,246,0.12); }
+    .widgets-checklist input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #3b82f6;
+      cursor: pointer;
+    }
+    .templates-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .template-card {
+      padding: 12px;
+      background: #1a1d29;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      text-align: center;
+    }
+    .template-card:hover { border-color: #60a5fa; background: rgba(59,130,246,0.08); }
+    .template-card__icon { font-size: 22px; margin-bottom: 4px; }
+    .template-card__name { font-size: 13px; color: #e5e7eb; font-weight: 500; }
+    .template-card__desc { font-size: 10px; color: #6b7280; margin-top: 2px; }
+    .custom-template-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+    .custom-template-item button {
+      background: none;
+      border: none;
+      color: #f87171;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .btn-locate {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .btn-locate:hover { background: #1d4ed8; }
+    .btn-locate:disabled { background: #4b5563; cursor: wait; }
+    #locate-hint.success { color: #34d399; }
+    #locate-hint.error { color: #f87171; }
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+      justify-content: flex-end;
+    }
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: #374151; color: #d1d5db; }
+    .btn-secondary:hover { background: #4b5563; }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #10b981;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <h1>⚙️ 设置</h1>
+  <p class="subtitle">配置数据源与显示选项。修改后点击"保存"生效。</p>
+
+  <!-- 天气 -->
+  <div class="section">
+    <h2>🌤️ 天气</h2>
+    <div class="field">
+      <label>城市（留空则使用自动定位）</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="weather-city" placeholder="手动输入城市，或点右边自动定位" style="flex:1">
+        <button class="btn-locate" id="btn-locate" type="button">📍 自动定位</button>
+      </div>
+      <div class="hint" id="locate-hint">首次启动会自动定位。也可点"自动定位"重新获取当前位置。</div>
+    </div>
+    <div class="field">
+      <label>和风天气 API Key</label>
+      <input type="text" id="weather-apikey" placeholder="在此粘贴你的 Key">
+      <div class="hint">免费申请：<a href="https://dev.qweather.com/" id="link-qweather">dev.qweather.com</a>（注册后在控制台创建项目获取 Key）</div>
+    </div>
+    <div class="field">
+      <label>API Host（和风控制台里该 Key 绑定的域名）</label>
+      <input type="text" id="weather-apihost" placeholder="例如：devapi.qweather.com 或 你的专属域名.qweatherapi.com">
+      <div class="hint">若天气报"Invalid Host"错误，请填写和风控制台 → 应用设置 → API Host 里显示的域名。2024 年后注册的账号通常需要填这个。</div>
+    </div>
+  </div>
+
+  <!-- A股 -->
+  <div class="section">
+    <h2>📈 A股自选</h2>
+    <div class="field">
+      <label>股票代码（逗号分隔）</label>
+      <input type="text" id="stock-codes" placeholder="sh000001,sh600519,sz000001">
+      <div class="hint">沪市 sh + 6位代码，深市 sz + 6位代码。例：sh000001（上证指数）、sh600519（贵州茅台）</div>
+    </div>
+  </div>
+
+  <!-- 新闻 -->
+  <div class="section">
+    <h2>📰 新闻 RSS 源（中文）</h2>
+    <div class="sources-list" id="news-sources"></div>
+    <button class="btn-add" id="btn-add-source">+ 添加 RSS 源</button>
+    <div class="hint" style="margin-top:8px">推荐中文源：量子位、少数派、36氪、机器之心。可在 <a href="https://docs.rsshub.app/" id="link-rsshub">RSSHub</a> 找到更多中文媒体 RSS。</div>
+  </div>
+
+
+  <!-- 多显示器选择 -->
+  <div class="section" id="display-section" style="display:none">
+    <h2>🖥️ 显示器</h2>
+    <div class="hint" style="margin-bottom:10px">检测到多个显示器，可分别为每个屏幕配置显示的模块。</div>
+    <div class="field">
+      <select id="display-select" style="width:100%;padding:8px;background:#1a1d29;border:1px solid #374151;border-radius:6px;color:#e5e7eb;font-size:13px"></select>
+    </div>
+    <div id="display-widgets-config" style="margin-top:10px">
+      <div class="hint" style="margin-bottom:6px;color:#9ca3af">当前选择的屏幕显示的模块：</div>
+      <div class="widgets-checklist" id="display-widgets-checklist"></div>
+    </div>
+  </div>
+
+  <!-- 模块显隐（主屏/全局默认） -->
+  <div class="section">
+    <h2>🔲 桌面模块</h2>
+    <div class="hint" style="margin-bottom:10px">勾选要在主屏桌面上显示的模块，取消勾选则隐藏。多屏模式下可在上方"显示器"区域单独配置副屏。</div>
+    <div class="widgets-checklist" id="widgets-checklist"></div>
+  </div>
+
+  <!-- 显示 -->
+  <div class="section">
+    <h2>🎨 显示</h2>
+    <div class="field">
+      <label style="margin-bottom:8px;display:block">主题颜色</label>
+      <div id="theme-picker" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
+    </div>
+    <div class="field">
+      <label>卡片透明度：<span id="opacity-value">100%</span></label>
+      <input type="range" id="global-opacity" min="20" max="100" value="100" style="width:100%">
+    </div>
+  </div>
+
+  <!-- 关于 -->
+  <div class="section">
+    <h2>ℹ️ 关于</h2>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <img src="assets/icons/icon-64.png" style="width:48px;height:48px;border-radius:8px" onerror="this.style.display='none'">
+      <div>
+        <div style="font-size:16px;font-weight:600;color:#e5e7eb">透明桌面看板</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:2px">透明、鼠标穿透的桌面常驻信息看板</div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:#9ca3af;line-height:1.8">
+      <div>版本：<span id="about-version" style="color:#60a5fa;font-weight:500">—</span></div>
+      <div>作者：<span style="color:#e5e7eb">隔壁村布布</span></div>
+      <div>技术栈：Electron + 原生 HTML/CSS/JS</div>
+      <div>平台：Windows / UOS / deepin</div>
+    </div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid #1f2937;font-size:11px;color:#4b5563">
+      功能：时钟 · 天气 · A股 · 新闻 · 热搜 · 待办 · 倒数日 · 系统监控 · 日历 · 番茄钟 · 快捷链接 · 舒尔特方格 · 桌面整理 · 多屏支持
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-secondary" id="btn-cancel">取消</button>
+    <button class="btn btn-primary" id="btn-save">保存并应用</button>
+  </div>
+
+  <div class="toast" id="toast">已保存</div>
+
+  <script src="scripts/lib/store.js"></script>
+  <script src="scripts/lib/layout-templates.js"></script>
+  <script src="scripts/settings.js"></script>
+</body>
+</html>

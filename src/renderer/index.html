@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>透明桌面看板</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/widgets.css">
+</head>
+<body>
+  <!-- 模式指示器（编辑模式时显示） -->
+  <div id="mode-banner" class="mode-banner hidden">
+    <span class="mode-banner__dot"></span>
+    <span>编辑模式 — 拖顶部手柄移动，拖右下角调整大小（Ctrl+Shift+D 退出）</span>
+  </div>
+
+  <!-- 卡片容器 -->
+  <div id="dashboard" class="dashboard">
+
+    <!-- 时钟 -->
+    <div class="widget" data-widget="clock" style="left:40px; top:40px; width:280px; height:160px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">时钟</span></div>
+      <div class="widget__inner">
+        <div class="clock">
+          <div class="clock__time" id="clock-time">--:--:--</div>
+          <div class="clock__date" id="clock-date">加载中...</div>
+        </div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 天气 -->
+    <div class="widget" data-widget="weather" style="left:40px; top:220px; width:280px; height:180px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">天气</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载天气中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- A股 -->
+    <div class="widget" data-widget="stock" style="left:40px; top:420px; width:280px; height:240px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">A股</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载行情中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 新闻 -->
+    <div class="widget" data-widget="news" style="right:40px; top:40px; width:380px; height:480px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">新闻</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载新闻中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 待办 -->
+    <div class="widget" data-widget="todo" style="right:40px; bottom:40px; width:380px; height:320px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">待办</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载待办中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 倒数日 -->
+    <div class="widget" data-widget="countdown" style="left:340px; top:40px; width:300px; height:300px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">倒数日</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 系统监控 -->
+    <div class="widget" data-widget="sysmonitor" style="left:340px; top:360px; width:300px; height:280px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">监控</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载监控中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 日历 -->
+    <div class="widget" data-widget="calendar" style="left:340px; top:660px; width:300px; height:300px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">日历</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载日历中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 番茄时钟 -->
+    <div class="widget" data-widget="pomodoro" style="left:660px; top:860px; width:300px; height:340px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">番茄</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 快捷链接 -->
+    <div class="widget" data-widget="links" style="left:340px; top:360px; width:300px; height:280px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">链接</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 舒尔特方格 -->
+    <div class="widget" data-widget="schulte" style="left:660px; top:440px; width:300px; height:380px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">方格</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 桌面应用 -->
+    <div class="widget" data-widget="apps" style="left:980px; top:40px; width:240px; height:300px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">应用</span></div>
+      <div class="widget__inner"><div class="widget__loading">扫描桌面...</div></div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 桌面文件夹 -->
+    <div class="widget" data-widget="deskfolders" style="left:980px; top:360px; width:240px; height:240px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">文件夹</span></div>
+      <div class="widget__inner"><div class="widget__loading">扫描桌面...</div></div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 桌面文件 -->
+    <div class="widget" data-widget="deskfiles" style="left:980px; top:620px; width:240px; height:280px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">文件</span></div>
+      <div class="widget__inner"><div class="widget__loading">扫描桌面...</div></div>
+      <div class="widget__resize"></div>
+    </div>
+
+    <!-- 热搜 -->
+    <div class="widget" data-widget="hotsearch" style="left:660px; top:40px; width:300px; height:380px;">
+      <div class="widget__handle" data-handle><span class="widget__handle-icon">⠿</span><span class="widget__handle-name">热搜</span></div>
+      <div class="widget__inner">
+        <div class="widget__loading">加载热搜中...</div>
+      </div>
+      <div class="widget__resize"></div>
+    </div>
+
+  </div>
+
+  <script src="scripts/lib/store.js"></script>
+  <script src="scripts/lib/drag-resize.js"></script>
+  <script src="scripts/lib/auto-layout.js"></script>
+  <script src="scripts/lib/click-through.js"></script>
+  <script src="scripts/lib/lunar.js"></script>
+  <script src="scripts/lib/magnetic.js"></script>
+  <script src="scripts/lib/layout-templates.js"></script>
+  <script src="scripts/lib/auto-resize.js"></script>
+  <script src="scripts/widgets/clock.js"></script>
+  <script src="scripts/widgets/weather.js"></script>
+  <script src="scripts/widgets/stock.js"></script>
+  <script src="scripts/widgets/news.js"></script>
+  <script src="scripts/widgets/todo.js"></script>
+  <script src="scripts/widgets/countdown.js"></script>
+  <script src="scripts/widgets/hotsearch.js"></script>
+  <script src="scripts/widgets/pomodoro.js"></script>
+  <script src="scripts/widgets/links.js"></script>
+  <script src="scripts/widgets/schulte.js"></script>
+  <script src="scripts/widgets/desktop.js"></script>
+  <script src="scripts/widgets/sysmonitor.js"></script>
+  <script src="scripts/widgets/calendar.js"></script>
+  <script src="scripts/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+#!/bin/bash
+# UOS deb 卸载前脚本：清理注册到系统目录的软链接
+set -e
+
+APPID="com.dashboard.transparent"
+
+# 删除 desktop 软链接
+rm -f "/usr/share/applications/$APPID.desktop" 2>/dev/null || true
+
+# 删除图标软链接
+find /usr/share/icons/hicolor -name "$APPID.png" -type l -delete 2>/dev/null || true
+
+# 刷新缓存
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database -q /usr/share/applications 2>/dev/null || true
+fi
+
+exit 0

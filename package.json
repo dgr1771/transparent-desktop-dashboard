@@ -1,0 +1,88 @@
+{
+  "name": "transparent-desktop-dashboard",
+  "version": "0.8.0",
+  "description": "透明桌面信息看板 - 鼠标穿透的桌面常驻信息展示（天气/A股/新闻/待办/时钟/倒数日/热搜）",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder -mwl",
+    "build:dir": "electron-builder --dir"
+  },
+  "keywords": [
+    "electron",
+    "desktop-widget",
+    "transparent",
+    "click-through",
+    "dashboard"
+  ],
+  "author": "隔壁村布布",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.dashboard.transparent",
+    "productName": "透明桌面看板",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json",
+      "!src/**/*.md"
+    ],
+    "win": {
+      "icon": "assets/icons/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "透明桌面看板"
+    },
+    "mac": {
+      "icon": "assets/icons/icon-512.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "artifactName": "${productName}-${version}.${ext}",
+      "extendInfo": {
+        "NSAccessibilityUsageDescription": "需要辅助功能权限以支持全局快捷键",
+        "LSUIElement": true
+      }
+    },
+    "linux": {
+      "icon": "assets/icons/icon-256.png",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Utility",
+      "maintainer": "dashboard",
+      "artifactName": "${productName}-${version}.${ext}"
+    }
+  }
+}

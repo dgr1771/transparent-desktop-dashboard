@@ -1,0 +1,81 @@
+/* ============================================================
+   透明桌面看板 - 全局样式
+   ============================================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: 'Segoe UI', 'Microsoft YaHei', -apple-system, sans-serif;
+  color: #fff;
+}
+
+/* 文字可选区域（如待办输入） */
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ============================================================
+   模式指示横幅
+   ============================================================ */
+
+.mode-banner {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: rgba(30, 120, 220, 0.92);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 9999;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.2s;
+}
+
+.mode-banner.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-banner__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ============================================================
+   仪表板容器
+   ============================================================ */
+
+.dashboard {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.hidden { display: none !important; }

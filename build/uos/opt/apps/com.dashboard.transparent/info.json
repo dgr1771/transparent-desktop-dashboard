@@ -1,0 +1,20 @@
+{
+  "appid": "com.dashboard.transparent",
+  "name": "透明桌面看板",
+  "version": "0.2.0",
+  "arch": ["amd64"],
+  "sector": "deepin",
+  "permissions": {
+    "autostart": false,
+    "notification": false,
+    "trayicon": true,
+    "clipboard": false,
+    "account": false,
+    "bluetooth": false,
+    "camera": false,
+    "audio_record": false,
+    "installed_apps": false
+  },
+  "support-plugins": [],
+  "plugins": []
+}

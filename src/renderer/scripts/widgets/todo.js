@@ -20,7 +20,7 @@ const TodoWidget = {
       const textClass = status === 'done' ? 'todo__text--done' : (status === 'doing' ? 'todo__text--doing' : '');
       return `
         <li class="todo__item ${status==='done'?'todo__item--done':''}" data-idx="${i}">
-          <span class="todo__check ${statusClass}" data-action="cycle" data-idx="${i}" title="${status}">${statusIcon}</span>
+          <span class="todo__check ${statusClass} no-drag" data-action="cycle" data-idx="${i}">${statusIcon}</span>
           <span class="todo__text ${textClass}">${this._escape(t.text)}</span>
           <span class="todo__del no-drag" data-action="delete" data-idx="${i}" title="删除">✕</span>
         </li>

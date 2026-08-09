@@ -34,9 +34,9 @@ function isDev() {
 }
 
 /**
- * 设置窗口为工具窗口样式（WS_EX_TOOLWINDOW）
- * 工具窗口不受 Win+D / MinimizeAll 影响——Shell 天然跳过这类窗口。
- * 比事后恢复或 WorkerW 附加更简单可靠。
+ * 设置窗口扩展样式，阻止 Win+D 最小化
+ * WS_EX_TOOLWINDOW(0x80) + WS_EX_NOACTIVATE(0x08000000)
+ * NOACTIVATE 让窗口完全不参与 Shell 窗口管理（MinimizeAll 跳过它）
  */
 function _setToolWindowStyle(win) {
   try {
@@ -54,16 +54,17 @@ public class Win32Tool {
 "@
 $hwnd = [IntPtr]${hwndNum}
 $ex = [Win32Tool]::GetWindowLong($hwnd, -20)
-$result = [Win32Tool]::SetWindowLong($hwnd, -20, $ex -bor 0x80)
+# WS_EX_TOOLWINDOW=0x80 | WS_EX_NOACTIVATE=0x08000000
+$result = [Win32Tool]::SetWindowLong($hwnd, -20, $ex -bor 0x80 -bor 0x08000000)
 if ($result -ne 0) { Write-Output "OK" } else { Write-Output "FAIL" }
 `;
     const filled = script.replace('${hwndNum}', hwndNum);
     const result = execSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', filled], {
       encoding: 'utf8', timeout: 5000, windowsHide: true
     }).trim();
-    console.log('[ToolWindow] 设置结果:', result);
+    console.log('[NoActivate] 设置结果:', result);
   } catch (e) {
-    console.error('[ToolWindow] 设置失败:', e.message);
+    console.error('[NoActivate] 设置失败:', e.message);
   }
 }
 

@@ -19,35 +19,31 @@ class AttachDesktop {
     long hwndVal = long.Parse(args[0]);
     IntPtr hwnd = new IntPtr(hwndVal);
 
-    // 1. 找 Progman
     IntPtr progman = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "Progman", null);
     if (progman == IntPtr.Zero) { Console.WriteLine("NO_PROGMAN"); return 2; }
 
-    // 2. 发送 0x052C 触发 WorkerW 创建
     SendMessage(progman, 0x052C, IntPtr.Zero, IntPtr.Zero);
 
-    // 3. 找包含 SHELLDLL_DefView 的 WorkerW
     IntPtr desktop = GetDesktopWindow();
     IntPtr workerW = IntPtr.Zero;
-    IntPtr shellView = IntPtr.Zero;
-    do {
+    IntPtr targetWorkerW = IntPtr.Zero;
+
+    while (true) {
       workerW = FindWindowEx(desktop, workerW, "WorkerW", null);
-      if (workerW != IntPtr.Zero) {
-        shellView = FindWindowEx(workerW, IntPtr.Zero, "SHELLDLL_DefView", null);
-        if (shellView != IntPtr.Zero) break;
-      }
-    } while (workerW != IntPtr.Zero);
+      if (workerW == IntPtr.Zero) break;
+      targetWorkerW = workerW;
+    }
 
-    if (shellView == IntPtr.Zero) { Console.WriteLine("NO_SHELLVIEW"); return 3; }
+    if (targetWorkerW == IntPtr.Zero) {
+      IntPtr result = SetParent(hwnd, progman);
+      if (result != IntPtr.Zero) { Console.WriteLine("OK_PROGMAN"); return 0; }
+      Console.WriteLine("SETPARENT_FAILED_PROGMAN");
+      return 5;
+    }
 
-    // 4. 取下一个 WorkerW
-    IntPtr nextWorkerW = FindWindowEx(desktop, workerW, "WorkerW", null);
-    if (nextWorkerW == IntPtr.Zero) { Console.WriteLine("NO_NEXT_WORKERW"); return 4; }
-
-    // 5. SetParent
-    IntPtr result = SetParent(hwnd, nextWorkerW);
-    if (result != IntPtr.Zero) { Console.WriteLine("OK"); return 0; }
+    IntPtr res = SetParent(hwnd, targetWorkerW);
+    if (res != IntPtr.Zero) { Console.WriteLine("OK"); return 0; }
     Console.WriteLine("SETPARENT_FAILED");
-    return 5;
+    return 6;
   }
 }

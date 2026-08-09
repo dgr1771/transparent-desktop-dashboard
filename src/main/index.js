@@ -34,37 +34,74 @@ function isDev() {
 }
 
 /**
- * 设置窗口扩展样式，阻止 Win+D 最小化
- * WS_EX_TOOLWINDOW(0x80) + WS_EX_NOACTIVATE(0x08000000)
- * NOACTIVATE 让窗口完全不参与 Shell 窗口管理（MinimizeAll 跳过它）
+ * 将窗口附加到 WorkerW 桌面壁纸层
+ * 参考方案：https://codeberg.org/f05fk/desktop-widgets
+ *
+ * 关键步骤（和之前错误版本的区别）：
+ * 1. 向 Progman 发送 0x052C 触发 WorkerW 创建
+ * 2. 遍历找到【包含 SHELLDLL_DefView 的那个 WorkerW】
+ * 3. 取该 WorkerW 的【下一个 WorkerW】作为父窗口
+ * 4. SetParent(我们的窗口, 正确的 WorkerW)
  */
 function _setToolWindowStyle(win) {
   try {
     const hwnd = win.getNativeWindowHandle();
     const hwndNum = hwnd.readInt32LE(0);
     const { execSync } = require('child_process');
+    // 用 C# 编译执行（比 PowerShell 脚本更可靠，避免转义问题）
     const script = `
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
-public class Win32Tool {
-  [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-  [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+public class DeskAttach {
+  [DllImport("user32.dll")]
+  public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+  [DllImport("user32.dll")]
+  public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll")]
+  public static extern IntPtr GetDesktopWindow();
+  [DllImport("user32.dll")]
+  public static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
+
+  public static string Attach(long childHwnd) {
+    IntPtr hwnd = new IntPtr(childHwnd);
+    // 1. 找到 Progman
+    IntPtr progman = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "Progman", null);
+    if (progman == IntPtr.Zero) return "NO_PROGMAN";
+    // 2. 发送 0x052C 触发 WorkerW 创建
+    SendMessage(progman, 0x052C, IntPtr.Zero, IntPtr.Zero);
+    // 3. 遍历找到包含 SHELLDLL_DefView 的 WorkerW
+    IntPtr desktop = GetDesktopWindow();
+    IntPtr workerW = IntPtr.Zero;
+    IntPtr shellView = IntPtr.Zero;
+    do {
+      workerW = FindWindowEx(desktop, workerW, "WorkerW", null);
+      if (workerW != IntPtr.Zero) {
+        shellView = FindWindowEx(workerW, IntPtr.Zero, "SHELLDLL_DefView", null);
+        if (shellView != IntPtr.Zero) break;
+      }
+    } while (workerW != IntPtr.Zero);
+    if (shellView == IntPtr.Zero) return "NO_SHELLVIEW";
+    // 4. 取【下一个】WorkerW（DefView 后面的那个）
+    IntPtr nextWorkerW = FindWindowEx(desktop, workerW, "WorkerW", null);
+    if (nextWorkerW == IntPtr.Zero) return "NO_NEXT_WORKERW";
+    // 5. SetParent
+    IntPtr result = SetParent(hwnd, nextWorkerW);
+    if (result != IntPtr.Zero) return "OK";
+    return "SETPARENT_FAILED";
+  }
 }
 "@
-$hwnd = [IntPtr]${hwndNum}
-$ex = [Win32Tool]::GetWindowLong($hwnd, -20)
-# WS_EX_TOOLWINDOW=0x80 | WS_EX_NOACTIVATE=0x08000000
-$result = [Win32Tool]::SetWindowLong($hwnd, -20, $ex -bor 0x80 -bor 0x08000000)
-if ($result -ne 0) { Write-Output "OK" } else { Write-Output "FAIL" }
+$r = [DeskAttach]::Attach(${hwndNum})
+Write-Output $r
 `;
     const filled = script.replace('${hwndNum}', hwndNum);
     const result = execSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', filled], {
-      encoding: 'utf8', timeout: 5000, windowsHide: true
+      encoding: 'utf8', timeout: 8000, windowsHide: true
     }).trim();
-    console.log('[NoActivate] 设置结果:', result);
+    console.log('[DeskAttach] 结果:', result);
   } catch (e) {
-    console.error('[NoActivate] 设置失败:', e.message);
+    console.error('[DeskAttach] 失败:', e.message);
   }
 }
 

@@ -44,7 +44,7 @@ function _attachToDesktop(win) {
     const hwndNum = hwnd.readInt32LE(0);
     // attach-desktop.exe 在 resources 目录下（打包后）或 tools 目录下（开发态）
     const exePath = app.isPackaged
-      ? path.join(process.resourcesPath, 'attach-desktop.exe')
+      ? path.join(process.resourcesPath, 'tools', 'attach-desktop.exe')
       : path.join(__dirname, '..', '..', 'tools', 'attach-desktop.exe');
     const { execSync } = require('child_process');
     const result = execSync('"' + exePath + '" ' + hwndNum, {

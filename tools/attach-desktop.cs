@@ -5,7 +5,7 @@ class AttachDesktop {
   [DllImport("user32.dll")]
   static extern IntPtr FindWindowEx(IntPtr p, IntPtr c, string cls, string win);
   [DllImport("user32.dll")]
-  static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+  static extern IntPtr SendMessageTimeout(IntPtr h, uint m, IntPtr w, IntPtr l, uint f, uint t, out IntPtr r);
   [DllImport("user32.dll")]
   static extern IntPtr GetDesktopWindow();
   [DllImport("user32.dll")]
@@ -22,7 +22,9 @@ class AttachDesktop {
     IntPtr progman = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "Progman", null);
     if (progman == IntPtr.Zero) { Console.WriteLine("NO_PROGMAN"); return 2; }
 
-    SendMessage(progman, 0x052C, IntPtr.Zero, IntPtr.Zero);
+    // 用 SendMessageTimeout 避免阻塞（SMTO_ABORTIFHUNG=0x2, 超时2秒）
+    IntPtr dummy;
+    SendMessageTimeout(progman, 0x052C, IntPtr.Zero, IntPtr.Zero, 0x2, 2000, out dummy);
 
     IntPtr desktop = GetDesktopWindow();
     IntPtr workerW = IntPtr.Zero;

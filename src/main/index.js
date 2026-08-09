@@ -52,11 +52,19 @@ function _attachToDesktop(win) {
       : path.join(__dirname, '..', '..', 'tools', 'attach-desktop.exe');
     log(`开始: hwnd=${hwndNum} exe=${exePath} exists=${fs2.existsSync(exePath)}`);
 
-    const { execFileSync } = require('child_process');
-    const result = execFileSync(exePath, [String(hwndNum)], {
-      encoding: 'utf8', timeout: 5000, windowsHide: true
-    }).trim();
-    log(`结果: ${result}`);
+    const { execFile } = require('child_process');
+    log(`执行中...`);
+    execFile(exePath, [String(hwndNum)], {
+      encoding: 'utf8', timeout: 15000, windowsHide: true
+    }, (err, stdout, stderr) => {
+      const result = (stdout || '').trim();
+      if (err) {
+        log(`execFile错误: ${err.message} stdout=${result} stderr=${(stderr||'').trim()}`);
+      } else {
+        log(`结果: ${result}`);
+      }
+    });
+    return true;
     return result === 'OK';
   } catch (e) {
     log(`错误: ${e.message}`);

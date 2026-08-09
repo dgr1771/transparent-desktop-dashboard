@@ -123,7 +123,7 @@ const PomodoroWidget = {
           <span>🍅 番茄时钟</span>
           <span class="pomo__header-right">
             <span class="pomo__count">✓${this._completedCount}</span>
-            <span class="pomo__gear ${this._showSettings?'pomo__gear--active':''}" id="pomo-gear" title="设置">⚙</span>
+            <span class="pomo__gear no-drag ${this._showSettings?'pomo__gear--active':''}" id="pomo-gear" title="设置">⚙</span>
           </span>
         </div>
         ${settingsHtml}

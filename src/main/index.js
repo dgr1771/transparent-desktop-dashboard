@@ -100,6 +100,10 @@ Write-Output $r
       encoding: 'utf8', timeout: 8000, windowsHide: true
     }).trim();
     console.log('[DeskAttach] 结果:', result);
+    // 写诊断文件
+    const os = require('os');
+    try { require('fs').appendFileSync(require('path').join(os.tmpdir(), 'desk-attach.log'),
+      `${new Date().toISOString()} hwnd=${hwndNum} result=${result}\n`); } catch(e){}
   } catch (e) {
     console.error('[DeskAttach] 失败:', e.message);
   }
@@ -171,12 +175,15 @@ function createWindowForDisplay(display) {
   // 平台特定的窗口初始化
   platform.initWindowForPlatform(win);
 
-  // Windows：设置工具窗口样式，避免 Win+D 最小化
-  if (platform.isWin) {
-    _setToolWindowStyle(win);
-  }
-
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+
+  // Windows：窗口加载完成后附加到 WorkerW 桌面壁纸层
+  // 必须在 did-finish-load 后执行——此时窗口 HWND 已稳定
+  if (platform.isWin) {
+    win.webContents.once('did-finish-load', () => {
+      setTimeout(() => _setToolWindowStyle(win), 500);
+    });
+  }
 
   // 开发模式：只给主屏窗口开 DevTools
   if (process.argv.includes('--dev') && win._isPrimary) {

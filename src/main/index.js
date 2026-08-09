@@ -177,12 +177,15 @@ function createWindowForDisplay(display) {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
-  // Windows：窗口加载完成后附加到 WorkerW 桌面壁纸层
-  // 必须在 did-finish-load 后执行——此时窗口 HWND 已稳定
+  // Windows：附加到 WorkerW 桌面壁纸层（延迟 1 秒确保窗口已创建）
   if (platform.isWin) {
-    win.webContents.once('did-finish-load', () => {
-      setTimeout(() => _setToolWindowStyle(win), 500);
-    });
+    setTimeout(() => {
+      if (!win.isDestroyed()) _setToolWindowStyle(win);
+    }, 1000);
+    // 3 秒后再试一次（防止第一次时 WorkerW 还没创建）
+    setTimeout(() => {
+      if (!win.isDestroyed()) _setToolWindowStyle(win);
+    }, 3000);
   }
 
   // 开发模式：只给主屏窗口开 DevTools

@@ -66,9 +66,25 @@ const WeatherWidget = {
       } else {
         el.innerHTML = this._render(data, cfg);
       }
+      // 内容渲染后自适应高度
+      this._adjustHeight();
     } catch (e) {
       el.innerHTML = `<div class="widget__error">获取失败：${this._escape(e.message)}</div>`;
     }
+  },
+
+  /** 根据内容实际高度调整卡片高度 */
+  _adjustHeight() {
+    const widget = document.querySelector('.widget[data-widget="weather"]');
+    if (!widget) return;
+    const inner = widget.querySelector('.widget__inner');
+    if (!inner) return;
+    // 临时移除高度限制测量内容
+    const oldH = widget.style.height;
+    widget.style.height = 'auto';
+    const contentH = inner.scrollHeight;
+    // 恢复并设为内容高度（加 padding 余量）
+    widget.style.height = (contentH + 4) + 'px';
   },
 
   _render(data, cfg) {

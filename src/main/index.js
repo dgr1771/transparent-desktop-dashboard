@@ -144,7 +144,7 @@ function createWindowForDisplay(display) {
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
-  // Win+D 兜底：每 2 秒检测窗口是否被最小化
+  // Win+D 兜底：高频检测窗口是否被最小化（250ms，确保快速恢复）
   if (platform.isWin) {
     setInterval(() => {
       for (const win of windows.values()) {
@@ -153,12 +153,13 @@ function startProtectionTimers() {
           try {
             win.setSkipTaskbar(true);
             win.restore();
+            win.showInactive();
             platform.setWindowLevel(win, interactionMode);
             platform.setClickThrough(win, !interactionMode);
           } catch (err) {}
         }
       }
-    }, 2000);
+    }, 250);
   }
 
   // ===== 区域穿透：主进程 cursor 轮询（核心穿透机制）=====

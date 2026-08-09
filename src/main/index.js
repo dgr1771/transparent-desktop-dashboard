@@ -34,6 +34,35 @@ function isDev() {
 }
 
 /**
+ * 将窗口附加到 WorkerW 桌面壁纸层
+ * 用独立的 attach-desktop.exe（C# 编译的 Win32 API 调用）执行
+ * 附加后窗口不受 Win+D / 显示桌面 影响
+ */
+function _attachToDesktop(win) {
+  try {
+    const hwnd = win.getNativeWindowHandle();
+    const hwndNum = hwnd.readInt32LE(0);
+    // attach-desktop.exe 在 resources 目录下（打包后）或 tools 目录下（开发态）
+    const exePath = app.isPackaged
+      ? path.join(process.resourcesPath, 'attach-desktop.exe')
+      : path.join(__dirname, '..', '..', 'tools', 'attach-desktop.exe');
+    const { execSync } = require('child_process');
+    const result = execSync('"' + exePath + '" ' + hwndNum, {
+      encoding: 'utf8', timeout: 5000, windowsHide: true
+    }).trim();
+    console.log('[DeskAttach]', result);
+    // 写诊断
+    const os = require('os');
+    try { require('fs').appendFileSync(require('path').join(os.tmpdir(), 'desk-attach.log'),
+      `${new Date().toISOString()} hwnd=${hwndNum} result=${result}\n`); } catch(e){}
+    return result === 'OK';
+  } catch (e) {
+    console.error('[DeskAttach]', e.message);
+    return false;
+  }
+}
+
+/**
  * 为所有显示器创建透明窗口（多屏支持）
  * 每个显示器一个窗口，共享同一份配置和数据。
  */
@@ -102,7 +131,6 @@ function createWindowForDisplay(display) {
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   // Windows：Win+D 防护——minimize 事件同步立即恢复
-  // 不用 WorkerW/ToolWindow（副作用太大），用事件级拦截 + 高频兜底
   win.on('minimize', () => {
     if (win._userHidden) return;
     try { win.restore(); win.showInactive(); } catch (e) {}
@@ -111,6 +139,14 @@ function createWindowForDisplay(display) {
     if (win._userHidden) return;
     try { win.showInactive(); } catch (e) {}
   });
+
+  // Windows：窗口创建后延迟附加到 WorkerW 桌面壁纸层
+  // 附加后窗口不受 Win+D / 显示桌面 影响
+  if (platform.isWin) {
+    setTimeout(() => {
+      if (!win.isDestroyed()) _attachToDesktop(win);
+    }, 1500);
+  }
 
   // 开发模式：只给主屏窗口开 DevTools
   if (process.argv.includes('--dev') && win._isPrimary) {

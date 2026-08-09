@@ -182,13 +182,15 @@ function startProtectionTimers() {
           } catch (e) {}
           continue;
         }
-        // 查询鼠标位置下是否有 .widget 元素
+        // 查询鼠标位置下是否有交互元素（输入框、按钮、链接等）
+        // 卡片背景区域也穿透——只有真正的交互元素才不穿透
+        // 这样被卡片遮挡的桌面图标也能点击到
         const localX = Math.round(cursor.x - bounds.x);
         const localY = Math.round(cursor.y - bounds.y);
         win.webContents.executeJavaScript(
-          `(()=>{const el=document.elementFromPoint(${localX},${localY});return !!(el&&el.closest&&el.closest('.widget'));})()`,
+          `(()=>{const el=document.elementFromPoint(${localX},${localY});if(!el)return false;const tag=el.tagName.toLowerCase();if(['input','button','a','select','textarea'].includes(tag))return true;if(el.contentEditable==='true')return true;if(el.classList&&el.classList.contains('no-drag'))return true;return false;})()`,
           true
-        ).then(onWidget => {
+        ).then(onInteractive => {
           if (win.isDestroyed()) return;
           const shouldIgnore = !onWidget;
           // 状态去重：只在变化时才调 setIgnoreMouseEvents

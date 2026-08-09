@@ -90,12 +90,26 @@ const ClickThrough = {
       this._setIgnore(false);
       return;
     }
-    // 穿透模式：elementFromPoint 判断
+    // 穿透模式：判断鼠标是否在交互元素上（输入框、按钮、链接等）
+    // 卡片背景区域也穿透——只有真正的交互元素才不穿透
     const el = document.elementFromPoint(e.clientX, e.clientY);
-    const onWidget = !!(el && el.closest && el.closest('.widget'));
-    // 同步计数（防止 pointer 事件漏触）
-    this._onWidgetCount = onWidget ? 1 : 0;
-    this._setIgnore(!onWidget);
+    const onInteractive = !!(el && this._isInteractive(el));
+    this._onWidgetCount = onInteractive ? 1 : 0;
+    this._setIgnore(!onInteractive);
+  },
+
+  /** 判断元素是否是交互元素（需要鼠标响应的）*/
+  _isInteractive(el) {
+    if (!el) return false;
+    const tag = el.tagName.toLowerCase();
+    if (['input', 'button', 'a', 'select', 'textarea'].includes(tag)) return true;
+    if (el.contentEditable === 'true') return true;
+    if (el.classList && el.classList.contains('no-drag')) return true;
+    // 向上查找：元素本身或父级是交互元素
+    if (el.closest) {
+      return !!el.closest('input, button, a, select, textarea, .no-drag, [contenteditable]');
+    }
+    return false;
   },
 
   _update() {

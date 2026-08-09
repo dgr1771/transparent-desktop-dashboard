@@ -144,7 +144,7 @@ function createWindowForDisplay(display) {
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
-  // 保险3：高频兜底定时器（每 250ms 检测所有窗口）
+  // Win+D 兜底：每 2 秒检测窗口是否被最小化
   if (platform.isWin) {
     setInterval(() => {
       for (const win of windows.values()) {
@@ -153,33 +153,55 @@ function startProtectionTimers() {
           try {
             win.setSkipTaskbar(true);
             win.restore();
-            win.showInactive();
+            platform.setWindowLevel(win, interactionMode);
             platform.setClickThrough(win, !interactionMode);
           } catch (err) {}
         }
       }
-    }, 250);
+    }, 2000);
   }
 
-  // 保险5：定期强制重新应用穿透状态（每 3 秒）
-  if (platform.isWin) {
+  // ===== 区域穿透：主进程 cursor 轮询（核心穿透机制）=====
+  // 不依赖 forward（实测在本系统不生效），主进程主动检测鼠标位置。
+  // 每 100ms 用 getCursorScreenPoint 获取鼠标坐标，
+  // executeJavaScript 查询 elementFromPoint 判断是否在卡片上。
+  if (platform.isWin || platform.isLinux) {
     setInterval(() => {
+      if (interactionMode) return;  // 编辑模式不干预
+      const cursor = screen.getCursorScreenPoint();
       for (const win of windows.values()) {
         if (!win || win.isDestroyed() || win._userHidden) continue;
-        if (!interactionMode) {
-          const now = Date.now();
-          const lastActive = win._lastWidgetActiveTime || 0;
-          if (now - lastActive > 5000) {
-            win._lastRendererIgnore = true;
-          }
-          if (win._lastRendererIgnore !== false) {
-            try {
-              win.setIgnoreMouseEvents(true, { forward: true });
-            } catch (err) {}
-          }
+        const bounds = win.getBounds();
+        const inWindow = cursor.x >= bounds.x && cursor.x < bounds.x + bounds.width &&
+                         cursor.y >= bounds.y && cursor.y < bounds.y + bounds.height;
+        if (!inWindow) {
+          // 鼠标不在窗口内：确保穿透
+          try {
+            if (platform.isWin) win.setIgnoreMouseEvents(true, { forward: true });
+            else win.setIgnoreMouseEvents(true);
+          } catch (e) {}
+          continue;
         }
+        // 查询鼠标位置下是否有 .widget 元素
+        const localX = Math.round(cursor.x - bounds.x);
+        const localY = Math.round(cursor.y - bounds.y);
+        win.webContents.executeJavaScript(
+          `(()=>{const el=document.elementFromPoint(${localX},${localY});return !!(el&&el.closest&&el.closest('.widget'));})()`,
+          true
+        ).then(onWidget => {
+          if (win.isDestroyed()) return;
+          const shouldIgnore = !onWidget;
+          // 状态去重：只在变化时才调 setIgnoreMouseEvents
+          if (win._cursorIgnore !== shouldIgnore) {
+            win._cursorIgnore = shouldIgnore;
+            try {
+              if (platform.isWin) win.setIgnoreMouseEvents(shouldIgnore, { forward: true });
+              else win.setIgnoreMouseEvents(shouldIgnore);
+            } catch (e) {}
+          }
+        }).catch(() => {});
       }
-    }, 3000);
+    }, 100);
   }
 }
 

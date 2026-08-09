@@ -38,7 +38,7 @@ const SchulteWidget = {
     const history = cfg.history || [];
 
     const cells = this._nums.map(n => {
-      return `<div class="schulte__cell" data-n="${n}">${n}</div>`;
+      return `<div class="schulte__cell no-drag" data-n="${n}">${n}</div>`;
     }).join('');
 
     // 历史成绩条形图（最近5次）

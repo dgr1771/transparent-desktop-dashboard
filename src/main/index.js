@@ -106,10 +106,6 @@ function createWindowForDisplay(display) {
     win.webContents.openDevTools({ mode: 'detach' });
   }
 
-  // 同步当前交互模式到新窗口
-  platform.setWindowLevel(win, interactionMode);
-  platform.setClickThrough(win, !interactionMode);
-
   // ===== 窗口级 Win+D 防护 =====
   win.on('minimize', () => {
     if (win._userHidden) return;
@@ -145,12 +141,10 @@ function createWindowForDisplay(display) {
 }
 
 /**
- * Win+D 防护定时器
- * 区域穿透完全由 renderer 的 click-through.js 负责（forward+mousemove），
- * 主进程不介入穿透控制——避免主进程和 renderer 互相干扰。
+ * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
-  // Win+D 兜底：每 2 秒检测窗口是否被最小化/隐藏
+  // 保险3：高频兜底定时器（每 250ms 检测所有窗口）
   if (platform.isWin) {
     setInterval(() => {
       for (const win of windows.values()) {
@@ -159,39 +153,33 @@ function startProtectionTimers() {
           try {
             win.setSkipTaskbar(true);
             win.restore();
-            platform.setWindowLevel(win, interactionMode);
+            win.showInactive();
             platform.setClickThrough(win, !interactionMode);
           } catch (err) {}
         }
       }
-    }, 2000);
+    }, 250);
   }
 
-  // Linux 专用：forward 不生效，需要主进程 cursor 轮询做区域穿透
-  if (platform.isLinux) {
+  // 保险5：定期强制重新应用穿透状态（每 3 秒）
+  if (platform.isWin) {
     setInterval(() => {
-      if (interactionMode) return;
-      const cursor = screen.getCursorScreenPoint();
       for (const win of windows.values()) {
         if (!win || win.isDestroyed() || win._userHidden) continue;
-        const bounds = win.getBounds();
-        const inWindow = cursor.x >= bounds.x && cursor.x < bounds.x + bounds.width &&
-                         cursor.y >= bounds.y && cursor.y < bounds.y + bounds.height;
-        if (!inWindow) {
-          try { win.setIgnoreMouseEvents(true); } catch (e) {}
-          continue;
+        if (!interactionMode) {
+          const now = Date.now();
+          const lastActive = win._lastWidgetActiveTime || 0;
+          if (now - lastActive > 5000) {
+            win._lastRendererIgnore = true;
+          }
+          if (win._lastRendererIgnore !== false) {
+            try {
+              win.setIgnoreMouseEvents(true, { forward: true });
+            } catch (err) {}
+          }
         }
-        const localX = Math.round(cursor.x - bounds.x);
-        const localY = Math.round(cursor.y - bounds.y);
-        win.webContents.executeJavaScript(
-          `(()=>{const el=document.elementFromPoint(${localX},${localY});return !!(el&&el.closest&&el.closest('.widget'));})()`,
-          true
-        ).then(onWidget => {
-          if (win.isDestroyed()) return;
-          try { win.setIgnoreMouseEvents(!onWidget); } catch (e) {}
-        }).catch(() => {});
       }
-    }, 60);
+    }, 3000);
   }
 }
 
@@ -265,11 +253,14 @@ function setInteractionMode(interactive) {
   interactionMode = interactive;
   if (windows.size === 0) return;
 
-  // 对所有窗口应用模式（v0.6.0 验证通过的顺序）
+  // 对所有窗口应用模式
   for (const win of windows.values()) {
     if (!win || win.isDestroyed()) continue;
+    // 鼠标穿透
     platform.setClickThrough(win, !interactive);
+    // 窗口层级
     platform.setWindowLevel(win, interactive);
+    // 通知渲染进程更新 UI（边框高亮等）
     win.webContents.send('interaction-mode-changed', interactive);
   }
 
@@ -334,22 +325,12 @@ function updateTrayMenu() {
   if (!tray) return;
   const menuTemplate = [
     {
-      label: interactionMode ? '✅ 编辑模式（可拖动卡片）' : '🖱️ 穿透模式（透明壁纸）',
+      label: `交互模式：${interactionMode ? '开启（可编辑）' : '关闭（穿透中）'}`,
       enabled: false
     },
     { type: 'separator' },
     {
-      label: '🪄 自动排列卡片',
-      click: () => {
-        for (const win of windows.values()) {
-          if (win && !win.isDestroyed()) {
-            win.webContents.send('auto-arrange');
-          }
-        }
-      }
-    },
-    {
-      label: '切换编辑/穿透模式 (Ctrl+Shift+D)',
+      label: '切换编辑模式 (Ctrl+Shift+D)',
       click: () => toggleInteractionMode(),
       type: 'checkbox',
       checked: interactionMode
@@ -358,12 +339,6 @@ function updateTrayMenu() {
     {
       label: '显示/隐藏看板 (Ctrl+Shift+H)',
       click: () => {
-        // 如果没有窗口（全部被关闭），重新创建
-        if (windows.size === 0) {
-          createAllWindows();
-          setInteractionMode(interactionMode);
-          return;
-        }
         // 所有窗口一起显示/隐藏
         const anyVisible = [...windows.values()].some(w => w && !w.isDestroyed() && w.isVisible());
         for (const win of windows.values()) {
@@ -374,7 +349,6 @@ function updateTrayMenu() {
           } else {
             win._userHidden = false;
             win.show();
-            platform.setWindowLevel(win, interactionMode);
             platform.setClickThrough(win, !interactionMode);
           }
         }
@@ -386,6 +360,16 @@ function updateTrayMenu() {
         for (const win of windows.values()) {
           if (win && !win.isDestroyed()) {
             win.webContents.send('refresh-all');
+          }
+        }
+      }
+    },
+    {
+      label: '🪄 自动排列卡片',
+      click: () => {
+        for (const win of windows.values()) {
+          if (win && !win.isDestroyed()) {
+            win.webContents.send('auto-arrange');
           }
         }
       }
@@ -429,11 +413,6 @@ function registerShortcuts() {
 
   // Ctrl+Shift+H 隐藏/显示所有窗口
   globalShortcut.register('CommandOrControl+Shift+H', () => {
-    if (windows.size === 0) {
-      createAllWindows();
-      setInteractionMode(interactionMode);
-      return;
-    }
     const anyVisible = [...windows.values()].some(w => w && !w.isDestroyed() && w.isVisible());
     for (const win of windows.values()) {
       if (!win || win.isDestroyed()) continue;
@@ -443,7 +422,6 @@ function registerShortcuts() {
       } else {
         win._userHidden = false;
         win.show();
-        platform.setWindowLevel(win, interactionMode);
         platform.setClickThrough(win, !interactionMode);
       }
     }
@@ -468,27 +446,29 @@ if (!gotTheLock) {
 // 防止窗口关闭即退出应用（保持托盘常驻）
 app.on('window-all-closed', (e) => {
   // 不调用 app.quit()，让应用常驻托盘
-  // 如果所有窗口被关闭（如 Alt+F4），通过托盘菜单可以重新创建
 });
 
 app.whenReady().then(() => {
   configStore = new ConfigStore();
 
-  // 先注册 IPC，再创建窗口——避免渲染进程初始 IPC 请求丢失
-  registerIpcHandlers();
-
+  createAllWindows();
   createTray();
   registerShortcuts();
-  createAllWindows();
+
+  // 注册 IPC
+  registerIpcHandlers();
 
   // 初始状态：鼠标穿透（所有窗口）
   setInteractionMode(false);
 });
 
-// 退出时清理
+// 退出时清理（不再操作桌面图标——从不修改，无需恢复）
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
 });
+
+// 额外保险：窗口关闭时也恢复（比 will-quit 更早执行）
+app.on('browser-window-blur', () => {});  // 占位，实际在 tray 退出菜单处理
 
 // ========== IPC 处理 ==========
 
@@ -505,17 +485,19 @@ function registerIpcHandlers() {
     toggleInteractionMode();
   });
 
-  // 渲染进程动态控制鼠标穿透（区域穿透的主力机制）
-  // renderer 用 forward+mousemove 实时检测鼠标位置：
-  //   鼠标在卡片上 → 调 setMouseIgnore(false) → 窗口可交互（零延迟）
-  //   鼠标在空白处 → 调 setMouseIgnore(true)  → 穿透到桌面（零延迟）
-  // 主进程的定时器只做低频兜底，不干扰 renderer 的实时控制。
-  // 区域穿透：renderer 用 forward+mousemove 实时检测鼠标位置，
-  // 命中卡片时调 setMouseIgnore(false)，离开时调 setMouseIgnore(true)
+  // 渲染进程动态控制鼠标穿透（实现区域穿透：卡片可点、空白穿透）
+  // ignore=true → 该区域穿透到桌面；ignore=false → 该区域接收鼠标事件
+  // 注意：多窗口模式下，需要找到发出此请求的窗口（通过 event.sender）
   ipcMain.on('set-mouse-ignore', (event, ignore) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    if (win && !win.isDestroyed() && !interactionMode) {
-      platform.setClickThrough(win, ignore);
+    if (win && !win.isDestroyed()) {
+      win._lastRendererIgnore = ignore;
+      if (ignore === false) {
+        win._lastWidgetActiveTime = Date.now();
+      }
+      if (!interactionMode) {
+        platform.setClickThrough(win, ignore);
+      }
     }
   });
 
@@ -546,25 +528,16 @@ function registerIpcHandlers() {
     }));
   });
 
-  // 获取应用版本和作者信息（设置面板"关于"用）
-  ipcMain.handle('get-app-info', () => ({
-    version: app.getVersion(),
-    name: '透明桌面看板',
-    author: '隔壁村布布'
-  }));
-
   // 获取当前窗口所属显示器 ID
   ipcMain.handle('get-current-display-id', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     return win ? win._displayId : screen.getPrimaryDisplay().id;
   });
 
-  // 告知渲染进程平台能力
-  // Windows/Mac：clickThroughSupported=true，renderer 用 forward+mousemove 做区域穿透
-  // Linux：clickThroughSupported=false，renderer 不参与穿透控制，
-  //        主进程用 cursor 轮询 + executeJavaScript 实现区域穿透
+  // 告知渲染进程平台能力（穿透是否支持、是否 macOS 原生毛玻璃等）
   ipcMain.handle('get-platform-info', () => ({
-    clickThroughSupported: !platform.isLinux,
+    // Linux 上启用区域穿透：卡片可交互 + 空白处穿透到桌面（解决桌面图标点不到）
+    clickThroughSupported: true,
     isMac: platform.isMac,
     isWin: platform.isWin,
     isLinux: platform.isLinux

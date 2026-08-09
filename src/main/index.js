@@ -349,12 +349,22 @@ function updateTrayMenu() {
   if (!tray) return;
   const menuTemplate = [
     {
-      label: `交互模式：${interactionMode ? '开启（可编辑）' : '关闭（穿透中）'}`,
+      label: interactionMode ? '✅ 编辑模式（可拖动卡片）' : '🖱️ 穿透模式（透明壁纸）',
       enabled: false
     },
     { type: 'separator' },
     {
-      label: '切换编辑模式 (Ctrl+Shift+D)',
+      label: '🪄 自动排列卡片',
+      click: () => {
+        for (const win of windows.values()) {
+          if (win && !win.isDestroyed()) {
+            win.webContents.send('auto-arrange');
+          }
+        }
+      }
+    },
+    {
+      label: '切换编辑/穿透模式 (Ctrl+Shift+D)',
       click: () => toggleInteractionMode(),
       type: 'checkbox',
       checked: interactionMode
@@ -363,7 +373,11 @@ function updateTrayMenu() {
     {
       label: '显示/隐藏看板 (Ctrl+Shift+H)',
       click: () => {
-        // 所有窗口一起显示/隐藏
+        if (windows.size === 0) {
+          createAllWindows();
+          setInteractionMode(interactionMode);
+          return;
+        }
         const anyVisible = [...windows.values()].some(w => w && !w.isDestroyed() && w.isVisible());
         for (const win of windows.values()) {
           if (!win || win.isDestroyed()) continue;
@@ -384,16 +398,6 @@ function updateTrayMenu() {
         for (const win of windows.values()) {
           if (win && !win.isDestroyed()) {
             win.webContents.send('refresh-all');
-          }
-        }
-      }
-    },
-    {
-      label: '🪄 自动排列卡片',
-      click: () => {
-        for (const win of windows.values()) {
-          if (win && !win.isDestroyed()) {
-            win.webContents.send('auto-arrange');
           }
         }
       }

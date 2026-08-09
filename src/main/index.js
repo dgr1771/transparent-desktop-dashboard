@@ -34,82 +34,6 @@ function isDev() {
 }
 
 /**
- * 将窗口附加到 WorkerW 桌面壁纸层
- * 参考方案：https://codeberg.org/f05fk/desktop-widgets
- *
- * 关键步骤（和之前错误版本的区别）：
- * 1. 向 Progman 发送 0x052C 触发 WorkerW 创建
- * 2. 遍历找到【包含 SHELLDLL_DefView 的那个 WorkerW】
- * 3. 取该 WorkerW 的【下一个 WorkerW】作为父窗口
- * 4. SetParent(我们的窗口, 正确的 WorkerW)
- */
-function _setToolWindowStyle(win) {
-  try {
-    const hwnd = win.getNativeWindowHandle();
-    const hwndNum = hwnd.readInt32LE(0);
-    const { execSync } = require('child_process');
-    // 用 C# 编译执行（比 PowerShell 脚本更可靠，避免转义问题）
-    const script = `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class DeskAttach {
-  [DllImport("user32.dll")]
-  public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
-  [DllImport("user32.dll")]
-  public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-  [DllImport("user32.dll")]
-  public static extern IntPtr GetDesktopWindow();
-  [DllImport("user32.dll")]
-  public static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
-
-  public static string Attach(long childHwnd) {
-    IntPtr hwnd = new IntPtr(childHwnd);
-    // 1. 找到 Progman
-    IntPtr progman = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "Progman", null);
-    if (progman == IntPtr.Zero) return "NO_PROGMAN";
-    // 2. 发送 0x052C 触发 WorkerW 创建
-    SendMessage(progman, 0x052C, IntPtr.Zero, IntPtr.Zero);
-    // 3. 遍历找到包含 SHELLDLL_DefView 的 WorkerW
-    IntPtr desktop = GetDesktopWindow();
-    IntPtr workerW = IntPtr.Zero;
-    IntPtr shellView = IntPtr.Zero;
-    do {
-      workerW = FindWindowEx(desktop, workerW, "WorkerW", null);
-      if (workerW != IntPtr.Zero) {
-        shellView = FindWindowEx(workerW, IntPtr.Zero, "SHELLDLL_DefView", null);
-        if (shellView != IntPtr.Zero) break;
-      }
-    } while (workerW != IntPtr.Zero);
-    if (shellView == IntPtr.Zero) return "NO_SHELLVIEW";
-    // 4. 取【下一个】WorkerW（DefView 后面的那个）
-    IntPtr nextWorkerW = FindWindowEx(desktop, workerW, "WorkerW", null);
-    if (nextWorkerW == IntPtr.Zero) return "NO_NEXT_WORKERW";
-    // 5. SetParent
-    IntPtr result = SetParent(hwnd, nextWorkerW);
-    if (result != IntPtr.Zero) return "OK";
-    return "SETPARENT_FAILED";
-  }
-}
-"@
-$r = [DeskAttach]::Attach(${hwndNum})
-Write-Output $r
-`;
-    const filled = script.replace('${hwndNum}', hwndNum);
-    const result = execSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', filled], {
-      encoding: 'utf8', timeout: 8000, windowsHide: true
-    }).trim();
-    console.log('[DeskAttach] 结果:', result);
-    // 写诊断文件
-    const os = require('os');
-    try { require('fs').appendFileSync(require('path').join(os.tmpdir(), 'desk-attach.log'),
-      `${new Date().toISOString()} hwnd=${hwndNum} result=${result}\n`); } catch(e){}
-  } catch (e) {
-    console.error('[DeskAttach] 失败:', e.message);
-  }
-}
-
-/**
  * 为所有显示器创建透明窗口（多屏支持）
  * 每个显示器一个窗口，共享同一份配置和数据。
  */
@@ -177,35 +101,21 @@ function createWindowForDisplay(display) {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
-  // Windows：附加到 WorkerW 桌面壁纸层（延迟 1 秒确保窗口已创建）
-  if (platform.isWin) {
-    setTimeout(() => {
-      if (!win.isDestroyed()) _setToolWindowStyle(win);
-    }, 1000);
-    // 3 秒后再试一次（防止第一次时 WorkerW 还没创建）
-    setTimeout(() => {
-      if (!win.isDestroyed()) _setToolWindowStyle(win);
-    }, 3000);
-  }
+  // Windows：Win+D 防护——minimize 事件同步立即恢复
+  // 不用 WorkerW/ToolWindow（副作用太大），用事件级拦截 + 高频兜底
+  win.on('minimize', () => {
+    if (win._userHidden) return;
+    try { win.restore(); win.showInactive(); } catch (e) {}
+  });
+  win.on('hide', () => {
+    if (win._userHidden) return;
+    try { win.showInactive(); } catch (e) {}
+  });
 
   // 开发模式：只给主屏窗口开 DevTools
   if (process.argv.includes('--dev') && win._isPrimary) {
     win.webContents.openDevTools({ mode: 'detach' });
   }
-
-  // ===== 窗口级 Win+D 防护 =====
-  // Win+D（显示桌面）走的是 Shell MinimizeAll，绕过 minimizable:false。
-  // 在 minimize 事件中同步立即恢复（不给动画完成的机会）。
-  win.on('minimize', () => {
-    if (win._userHidden) return;
-    // 同步立即恢复，不延迟
-    try { win.restore(); } catch (e) {}
-  });
-
-  win.on('hide', () => {
-    if (win._userHidden) return;
-    try { win.showInactive(); } catch (e) {}
-  });
 
   win.on('closed', () => {
     windows.delete(displayId);

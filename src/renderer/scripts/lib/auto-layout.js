@@ -158,6 +158,7 @@ const AutoLayout = {
   },
 
   apply(layout, clearOldPosition = true) {
+    // 第一遍：按计算的位置渲染
     Object.entries(layout).forEach(([name, pos]) => {
       const el = document.querySelector(`.widget[data-widget="${name}"]`);
       if (!el) return;
@@ -166,14 +167,114 @@ const AutoLayout = {
       el.style.right = 'auto';
       el.style.bottom = 'auto';
       el.style.width = pos.width || '';
-      el.style.height = pos.height || '';
+      el.style.height = 'auto';  // 先用 auto 让内容撑开
     });
+
+    // 第二遍：测量实际内容高度，重新排列（修正瀑布流）
+    if (Object.keys(layout).length > 0) {
+      this._reflowWithActualHeights(layout);
+    }
+
     if (clearOldPosition) {
-      // 清空当前屏的手动布局（多显示器：按 displayKey 分桶）
       const displayKey = (window.__dashboard && window.__dashboard.displayKey) || 'primary';
       const displayLayout = Store.get('displayLayout') || {};
       displayLayout[displayKey] = {};
       Store.set('displayLayout', displayLayout);
+    }
+  },
+
+  /**
+   * 测量每个卡片的实际内容高度，重新用瀑布流排列
+   * 这样卡片不会因为固定高度被截断，也不会因为等比压缩而挤压
+   */
+  _reflowWithActualHeights(layout) {
+    const margin = 24;
+    const gap = 20;
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
+
+    // 收集可见卡片及其实际高度
+    const widgets = [];
+    for (const [key, pos] of Object.entries(layout)) {
+      const el = document.querySelector(`.widget[data-widget="${key}"]`);
+      if (!el) continue;
+      const spec = this.WIDGET_SPEC[key] || { area: 'side', priority: 9 };
+      // 测量实际内容高度（scrollHeight 包含 padding）
+      const actualH = Math.max(el.scrollHeight, 80);
+      widgets.push({
+        key, area: spec.area, priority: spec.priority,
+        w: parseInt(pos.width) || 280,
+        h: actualH
+      });
+    }
+
+    if (widgets.length === 0) return;
+
+    // 按区域分组
+    const mainWidgets = widgets.filter(w => w.area === 'main').sort((a, b) => a.priority - b.priority);
+    const sideWidgets = widgets.filter(w => w.area === 'side').sort((a, b) => a.priority - b.priority);
+
+    // 黄金比例分区
+    const availW = screenW - margin * 2 - gap;
+    let mainW = Math.round(availW / this.GOLDEN);
+    let sideW = availW - mainW;
+
+    const MIN_SIDE = 260, MIN_MAIN = 320;
+    if (sideW < MIN_SIDE) { sideW = MIN_SIDE; mainW = availW - sideW; }
+
+    const newLayout = {};
+
+    if (mainW < MIN_MAIN) {
+      // 单列
+      let y = margin;
+      [...mainWidgets, ...sideWidgets].forEach(w => {
+        newLayout[w.key] = { left: margin + 'px', top: y + 'px', width: (screenW - margin * 2) + 'px', height: w.h + 'px' };
+        y += w.h + gap;
+      });
+    } else {
+      // 主区 + 侧区瀑布流
+      const mainCols = mainW >= 760 ? 2 : 1;
+      this._masonryFillReal(mainWidgets, mainW, mainCols, margin, screenH - margin, gap, newLayout);
+
+      const sideX = margin + mainW + gap;
+      const sideCols = sideW >= 520 ? 2 : 1;
+      this._masonryFillReal(sideWidgets, sideW, sideCols, sideX, screenH - margin, gap, newLayout);
+    }
+
+    // 应用新布局
+    Object.entries(newLayout).forEach(([key, pos]) => {
+      const el = document.querySelector(`.widget[data-widget="${key}"]`);
+      if (!el) return;
+      el.style.left = pos.left;
+      el.style.top = pos.top;
+      el.style.width = pos.width;
+      el.style.height = pos.height;
+    });
+  },
+
+  /** 用实际高度的瀑布流填充（不做等比压缩，允许超出屏幕底部）*/
+  _masonryFillReal(widgets, areaW, cols, startX, maxH, gap, layout) {
+    if (widgets.length === 0) return;
+    const colW = Math.floor((areaW - gap * (cols - 1)) / cols);
+    const startY = 24;
+    const colHeights = new Array(cols).fill(startY);
+
+    for (const w of widgets) {
+      // 找最矮的列
+      let bestCol = 0;
+      for (let c = 1; c < cols; c++) {
+        if (colHeights[c] < colHeights[bestCol]) bestCol = c;
+      }
+      const left = startX + bestCol * (colW + gap);
+      const top = colHeights[bestCol];
+
+      layout[w.key] = {
+        left: left + 'px',
+        top: top + 'px',
+        width: colW + 'px',
+        height: w.h + 'px'
+      };
+      colHeights[bestCol] = top + w.h + gap;
     }
   }
 };

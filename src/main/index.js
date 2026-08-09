@@ -34,45 +34,6 @@ function isDev() {
 }
 
 /**
- * 将窗口附加到 WorkerW 桌面壁纸层
- * 用独立的 attach-desktop.exe（C# 编译的 Win32 API 调用）执行
- * 附加后窗口不受 Win+D / 显示桌面 影响
- */
-function _attachToDesktop(win) {
-  const os = require('os');
-  const fs2 = require('fs');
-  const logFile = require('path').join(os.tmpdir(), 'desk-attach.log');
-  function log(msg) { try { fs2.appendFileSync(logFile, `${new Date().toISOString()} ${msg}\n`); } catch(e){} }
-
-  try {
-    const hwnd = win.getNativeWindowHandle();
-    const hwndNum = hwnd.readInt32LE(0);
-    const exePath = app.isPackaged
-      ? path.join(process.resourcesPath, 'tools', 'attach-desktop.exe')
-      : path.join(__dirname, '..', '..', 'tools', 'attach-desktop.exe');
-    log(`开始: hwnd=${hwndNum} exe=${exePath} exists=${fs2.existsSync(exePath)}`);
-
-    const { execFile } = require('child_process');
-    log(`执行中...`);
-    execFile(exePath, [String(hwndNum)], {
-      encoding: 'utf8', timeout: 15000, windowsHide: true
-    }, (err, stdout, stderr) => {
-      const result = (stdout || '').trim();
-      if (err) {
-        log(`execFile错误: ${err.message} stdout=${result} stderr=${(stderr||'').trim()}`);
-      } else {
-        log(`结果: ${result}`);
-      }
-    });
-    return true;
-    return result === 'OK';
-  } catch (e) {
-    log(`错误: ${e.message}`);
-    return false;
-  }
-}
-
-/**
  * 为所有显示器创建透明窗口（多屏支持）
  * 每个显示器一个窗口，共享同一份配置和数据。
  */
@@ -141,6 +102,7 @@ function createWindowForDisplay(display) {
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   // Windows：Win+D 防护——minimize 事件同步立即恢复
+  // 不用 WorkerW/ToolWindow（副作用太大），用事件级拦截 + 高频兜底
   win.on('minimize', () => {
     if (win._userHidden) return;
     try { win.restore(); win.showInactive(); } catch (e) {}
@@ -149,14 +111,6 @@ function createWindowForDisplay(display) {
     if (win._userHidden) return;
     try { win.showInactive(); } catch (e) {}
   });
-
-  // Windows：窗口创建后延迟附加到 WorkerW 桌面壁纸层
-  // 附加后窗口不受 Win+D / 显示桌面 影响
-  if (platform.isWin) {
-    setTimeout(() => {
-      if (!win.isDestroyed()) _attachToDesktop(win);
-    }, 1500);
-  }
 
   // 开发模式：只给主屏窗口开 DevTools
   if (process.argv.includes('--dev') && win._isPrimary) {

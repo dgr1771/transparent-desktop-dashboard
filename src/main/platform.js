@@ -41,22 +41,6 @@ module.exports = {
     if (isMac) {
       win.setVisibleOnAllWorkspaces(true, { transformProcessType: false });
       win.setAlwaysOnTop(true, 'floating');
-    } else if (isWin) {
-      // Windows：拦截系统命令，阻止最小化
-      // WM_SYSCOMMAND = 0x0112
-      // SC_MINIMIZE = 0xF020
-      try {
-        win.hookWindowMessage(0x0112, (wParam, lParam) => {
-          // wParam 低位是命令类型，SC_MINIMIZE = 0xF020
-          const cmd = wParam.readInt16LE(0) & 0xFFF0;
-          if (cmd === 0xF020) {
-            // 拦截最小化命令，直接返回 true 阻止系统处理
-            return true;
-          }
-        });
-      } catch (e) {
-        console.error('[Platform] hookWindowMessage 失败:', e.message);
-      }
     }
   },
 

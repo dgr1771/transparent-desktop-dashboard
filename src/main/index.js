@@ -107,30 +107,17 @@ function createWindowForDisplay(display) {
   }
 
   // ===== 窗口级 Win+D 防护 =====
+  // Win+D（显示桌面）走的是 Shell MinimizeAll，绕过 minimizable:false。
+  // 在 minimize 事件中同步立即恢复（不给动画完成的机会）。
   win.on('minimize', () => {
     if (win._userHidden) return;
-    setImmediate(() => {
-      if (!win.isDestroyed() && win.isMinimized()) {
-        try {
-          win.setSkipTaskbar(true);
-          win.restore();
-          win.showInactive();
-          platform.setClickThrough(win, !interactionMode);
-        } catch (err) {}
-      }
-    });
+    // 同步立即恢复，不延迟
+    try { win.restore(); } catch (e) {}
   });
 
   win.on('hide', () => {
     if (win._userHidden) return;
-    setImmediate(() => {
-      if (!win.isDestroyed() && !win.isVisible()) {
-        try {
-          win.showInactive();
-          platform.setClickThrough(win, !interactionMode);
-        } catch (err) {}
-      }
-    });
+    try { win.showInactive(); } catch (e) {}
   });
 
   win.on('closed', () => {
@@ -144,7 +131,7 @@ function createWindowForDisplay(display) {
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
-  // Win+D 兜底：高频检测窗口是否被最小化（250ms，确保快速恢复）
+  // Win+D 兜底：极高频率检测（50ms），近乎实时恢复
   if (platform.isWin) {
     setInterval(() => {
       for (const win of windows.values()) {
@@ -159,7 +146,7 @@ function startProtectionTimers() {
           } catch (err) {}
         }
       }
-    }, 250);
+    }, 50);
   }
 
   // ===== 区域穿透：主进程 cursor 轮询（核心穿透机制）=====

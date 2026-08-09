@@ -39,25 +39,27 @@ function isDev() {
  * 附加后窗口不受 Win+D / 显示桌面 影响
  */
 function _attachToDesktop(win) {
+  const os = require('os');
+  const fs2 = require('fs');
+  const logFile = require('path').join(os.tmpdir(), 'desk-attach.log');
+  function log(msg) { try { fs2.appendFileSync(logFile, `${new Date().toISOString()} ${msg}\n`); } catch(e){} }
+
   try {
     const hwnd = win.getNativeWindowHandle();
     const hwndNum = hwnd.readInt32LE(0);
-    // attach-desktop.exe 在 resources 目录下（打包后）或 tools 目录下（开发态）
     const exePath = app.isPackaged
       ? path.join(process.resourcesPath, 'tools', 'attach-desktop.exe')
       : path.join(__dirname, '..', '..', 'tools', 'attach-desktop.exe');
-    const { execSync } = require('child_process');
-    const result = execSync('"' + exePath + '" ' + hwndNum, {
+    log(`开始: hwnd=${hwndNum} exe=${exePath} exists=${fs2.existsSync(exePath)}`);
+
+    const { execFileSync } = require('child_process');
+    const result = execFileSync(exePath, [String(hwndNum)], {
       encoding: 'utf8', timeout: 5000, windowsHide: true
     }).trim();
-    console.log('[DeskAttach]', result);
-    // 写诊断
-    const os = require('os');
-    try { require('fs').appendFileSync(require('path').join(os.tmpdir(), 'desk-attach.log'),
-      `${new Date().toISOString()} hwnd=${hwndNum} result=${result}\n`); } catch(e){}
+    log(`结果: ${result}`);
     return result === 'OK';
   } catch (e) {
-    console.error('[DeskAttach]', e.message);
+    log(`错误: ${e.message}`);
     return false;
   }
 }

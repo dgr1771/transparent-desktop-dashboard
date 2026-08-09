@@ -34,6 +34,55 @@ function isDev() {
 }
 
 /**
+ * 将窗口附加到 WorkerW（桌面壁纸层）
+ * 附加后窗口不受 Win+D / 显示桌面 影响（Shell MinimizeAll 跳过桌面层子窗口）
+ * 原理：
+ * 1. 向 Progman 发送未知消息 0x052C，触发 WorkerW 创建
+ * 2. 找到 WorkerW 窗口
+ * 3. SetParent(我们的窗口, WorkerW)
+ */
+function _attachToWorkerW(win) {
+  try {
+    const hwnd = win.getNativeWindowHandle();  // Buffer
+    const hwndNum = hwnd.readInt32LE(0);
+    const { execSync } = require('child_process');
+    // PowerShell 脚本：通过 user32 API 把窗口附加到 WorkerW
+    const ps = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32Desk {
+  [DllImport("user32.dll")] public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+  [DllImport("user32.dll")] public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+  [DllImport("user32.dll")] public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam, uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
+  [DllImport("user32.dll")] public static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
+}
+"@
+$progman = [Win32Desk]::FindWindow("Progman", $null)
+$ret = New-Object IntPtr
+[void][Win32Desk]::SendMessageTimeout($progman, 0x052C, [IntPtr]::Zero, [IntPtr]::Zero, 0, 1000, [ref]$ret)
+# 找到 WorkerW（在 Progman 下的 SHELLDLL_DefView 后面）
+$defView = [Win32Desk]::FindWindowEx($progman, [IntPtr]::Zero, "SHELLDLL_DefView", $null)
+$workerW = [Win32Desk]::FindWindowEx([IntPtr]::Zero, $defView, "WorkerW", $null)
+if ($workerW -ne [IntPtr]::Zero) {
+  $result = [Win32Desk]::SetParent([IntPtr]${hwndNum}, $workerW)
+  if ($result -ne [IntPtr]::Zero) { Write-Output "OK" }
+  else { Write-Output "SETPARENT_FAILED" }
+} else {
+  Write-Output "WORKERW_NOT_FOUND"
+}
+`;
+    const script = ps.replace('${hwndNum}', hwndNum);
+    const result = execSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8', timeout: 5000, windowsHide: true
+    }).trim();
+    console.log('[WorkerW] 附加结果:', result);
+  } catch (e) {
+    console.error('[WorkerW] 附加失败:', e.message);
+  }
+}
+
+/**
  * 为所有显示器创建透明窗口（多屏支持）
  * 每个显示器一个窗口，共享同一份配置和数据。
  */
@@ -98,6 +147,11 @@ function createWindowForDisplay(display) {
 
   // 平台特定的窗口初始化
   platform.initWindowForPlatform(win);
+
+  // Windows：将窗口附加到 WorkerW 桌面层，彻底避免 Win+D 最小化
+  if (platform.isWin) {
+    _attachToWorkerW(win);
+  }
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 

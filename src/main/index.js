@@ -34,50 +34,36 @@ function isDev() {
 }
 
 /**
- * 将窗口附加到 WorkerW（桌面壁纸层）
- * 附加后窗口不受 Win+D / 显示桌面 影响（Shell MinimizeAll 跳过桌面层子窗口）
+ * 设置窗口为工具窗口样式（WS_EX_TOOLWINDOW）
+ * 工具窗口不受 Win+D / MinimizeAll 影响——Shell 天然跳过这类窗口。
+ * 比事后恢复或 WorkerW 附加更简单可靠。
  */
-function _attachToWorkerW(win) {
+function _setToolWindowStyle(win) {
   try {
     const hwnd = win.getNativeWindowHandle();
     const hwndNum = hwnd.readInt32LE(0);
     const { execSync } = require('child_process');
-    // PowerShell：直接查找所有 WorkerW 窗口，把看板窗口附加到第一个找到的 WorkerW
     const script = `
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
-using System.Text;
-public class Win32Desk2 {
-  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
-  [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
-  [DllImport("user32.dll")] public static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
+public class Win32Tool {
+  [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+  [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 }
 "@
-$workerW = [IntPtr]::Zero
-$callback = [Win32Desk2+EnumWindowsProc]{
-  param($hWnd, $lParam)
-  $sb = New-Object System.Text.StringBuilder 256
-  [Win32Desk2]::GetClassName($hWnd, $sb, 256) | Out-Null
-  if ($sb.ToString() -eq 'WorkerW') { $script:workerW = $hWnd; return $false }
-  return $true
-}
-[void][Win32Desk2]::EnumWindows($callback, [IntPtr]::Zero)
-if ($script:workerW -ne [IntPtr]::Zero) {
-  $result = [Win32Desk2]::SetParent([IntPtr]' + hwndNum + ', $script:workerW)
-  if ($result -ne [IntPtr]::Zero) { Write-Output 'OK' }
-  else { Write-Output 'SETPARENT_FAILED' }
-} else {
-  Write-Output 'WORKERW_NOT_FOUND'
-}
+$hwnd = [IntPtr]${hwndNum}
+$ex = [Win32Tool]::GetWindowLong($hwnd, -20)
+$result = [Win32Tool]::SetWindowLong($hwnd, -20, $ex -bor 0x80)
+if ($result -ne 0) { Write-Output "OK" } else { Write-Output "FAIL" }
 `;
-    const result = execSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    const filled = script.replace('${hwndNum}', hwndNum);
+    const result = execSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', filled], {
       encoding: 'utf8', timeout: 5000, windowsHide: true
     }).trim();
-    console.log('[WorkerW] 附加结果:', result);
+    console.log('[ToolWindow] 设置结果:', result);
   } catch (e) {
-    console.error('[WorkerW] 附加失败:', e.message);
+    console.error('[ToolWindow] 设置失败:', e.message);
   }
 }
 
@@ -147,9 +133,9 @@ function createWindowForDisplay(display) {
   // 平台特定的窗口初始化
   platform.initWindowForPlatform(win);
 
-  // Windows：将窗口附加到 WorkerW 桌面层，彻底避免 Win+D 最小化
+  // Windows：设置工具窗口样式，避免 Win+D 最小化
   if (platform.isWin) {
-    _attachToWorkerW(win);
+    _setToolWindowStyle(win);
   }
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));

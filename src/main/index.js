@@ -38,8 +38,24 @@ function isDev() {
  * 每个显示器一个窗口，共享同一份配置和数据。
  */
 function createAllWindows() {
-  const displays = screen.getAllDisplays();
-  for (const display of displays) {
+  const allDisplays = screen.getAllDisplays();
+
+  // 检测复制模式：如果多个显示器的 bounds 完全相同，说明是复制/镜像模式
+  // 只需为主屏创建一个窗口（复制模式下两个屏幕显示相同内容）
+  const uniqueDisplays = [];
+  const seenBounds = new Set();
+  for (const d of allDisplays) {
+    const key = `${d.bounds.x},${d.bounds.y},${d.bounds.width},${d.bounds.height}`;
+    if (!seenBounds.has(key)) {
+      seenBounds.add(key);
+      uniqueDisplays.push(d);
+    }
+  }
+  if (uniqueDisplays.length < allDisplays.length) {
+    console.log(`[Display] 检测到复制模式（${allDisplays.length}个显示器，${uniqueDisplays.length}个唯一分辨率），只为唯一显示器创建窗口`);
+  }
+
+  for (const display of uniqueDisplays) {
     createWindowForDisplay(display);
   }
 
@@ -177,8 +193,7 @@ function startProtectionTimers() {
           true
         ).then(onInteractive => {
           if (win.isDestroyed()) return;
-          const shouldIgnore = !onWidget;
-          // 状态去重：只在变化时才调 setIgnoreMouseEvents
+          const shouldIgnore = !onInteractive;  // 在交互元素上 → 不穿透；否则 → 穿透
           if (win._cursorIgnore !== shouldIgnore) {
             win._cursorIgnore = shouldIgnore;
             try {

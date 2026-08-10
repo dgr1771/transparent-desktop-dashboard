@@ -144,7 +144,7 @@ function createWindowForDisplay(display) {
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
-  // Win+D 兜底：极高频率检测（50ms），近乎实时恢复
+  // Win+D 兜底：500ms 检测（事件级防护已处理绝大多数情况，这里只兜底）
   if (platform.isWin) {
     setInterval(() => {
       for (const win of windows.values()) {
@@ -159,17 +159,18 @@ function startProtectionTimers() {
           } catch (err) {}
         }
       }
-    }, 50);
+    }, 500);
   }
 
-  // ===== 区域穿透：主进程 cursor 轮询（核心穿透机制）=====
-  // 不依赖 forward（实测在本系统不生效），主进程主动检测鼠标位置。
-  // 每 100ms 用 getCursorScreenPoint 获取鼠标坐标，
-  // executeJavaScript 查询 elementFromPoint 判断是否在卡片上。
+  // ===== 区域穿透：主进程 cursor 轮询 =====
+  // 优化：executeJavaScript 是昂贵的跨进程 IPC，用状态缓存避免重复调用
+  // 只在鼠标位置实际变化时才执行 executeJavaScript
   if (platform.isWin || platform.isLinux) {
+    let lastCursor = { x: -999, y: -999 };
     setInterval(() => {
-      if (interactionMode) return;  // 编辑模式不干预
+      if (interactionMode) return;
       const cursor = screen.getCursorScreenPoint();
+
       for (const win of windows.values()) {
         if (!win || win.isDestroyed() || win._userHidden) continue;
         const bounds = win.getBounds();
@@ -183,9 +184,9 @@ function startProtectionTimers() {
           } catch (e) {}
           continue;
         }
-        // 查询鼠标位置下是否有交互元素（输入框、按钮、链接等）
-        // 卡片背景区域也穿透——只有真正的交互元素才不穿透
-        // 这样被卡片遮挡的桌面图标也能点击到
+        // 鼠标位置没变（静止不动）：跳过 executeJavaScript，保持上次状态
+        if (cursor.x === lastCursor.x && cursor.y === lastCursor.y) continue;
+
         const localX = Math.round(cursor.x - bounds.x);
         const localY = Math.round(cursor.y - bounds.y);
         win.webContents.executeJavaScript(
@@ -193,7 +194,7 @@ function startProtectionTimers() {
           true
         ).then(onInteractive => {
           if (win.isDestroyed()) return;
-          const shouldIgnore = !onInteractive;  // 在交互元素上 → 不穿透；否则 → 穿透
+          const shouldIgnore = !onInteractive;
           if (win._cursorIgnore !== shouldIgnore) {
             win._cursorIgnore = shouldIgnore;
             try {
@@ -203,7 +204,8 @@ function startProtectionTimers() {
           }
         }).catch(() => {});
       }
-    }, 100);
+      lastCursor = { x: cursor.x, y: cursor.y };
+    }, 200);
   }
 }
 

@@ -572,20 +572,23 @@ body.interactive .news__item:hover {
 
 .stock__list::-webkit-scrollbar,
 .news__list::-webkit-scrollbar,
-.todo__list::-webkit-scrollbar {
+.todo__list::-webkit-scrollbar,
+.links__list::-webkit-scrollbar {
   width: 4px;
 }
 
 .stock__list::-webkit-scrollbar-thumb,
 .news__list::-webkit-scrollbar-thumb,
-.todo__list::-webkit-scrollbar-thumb {
+.todo__list::-webkit-scrollbar-thumb,
+.links__list::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 2px;
 }
 
 .stock__list::-webkit-scrollbar-track,
 .news__list::-webkit-scrollbar-track,
-.todo__list::-webkit-scrollbar-track {
+.todo__list::-webkit-scrollbar-track,
+.links__list::-webkit-scrollbar-track {
   background: transparent;
 }
 

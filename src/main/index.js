@@ -40,19 +40,32 @@ function isDev() {
 function createAllWindows() {
   const allDisplays = screen.getAllDisplays();
 
-  // 检测复制模式：如果多个显示器的 bounds 完全相同，说明是复制/镜像模式
-  // 只需为主屏创建一个窗口（复制模式下两个屏幕显示相同内容）
+  // 检测复制/镜像模式：
+  // 1. bounds 完全相同 → 肯定是复制模式
+  // 2. bounds 大面积重叠（>90%）→ 很可能是复制模式
+  // 复制模式下只为主屏创建一个窗口
   const uniqueDisplays = [];
-  const seenBounds = new Set();
   for (const d of allDisplays) {
-    const key = `${d.bounds.x},${d.bounds.y},${d.bounds.width},${d.bounds.height}`;
-    if (!seenBounds.has(key)) {
-      seenBounds.add(key);
+    const isDuplicate = uniqueDisplays.some(existing => {
+      // bounds 完全相同
+      if (d.bounds.x === existing.bounds.x &&
+          d.bounds.y === existing.bounds.y &&
+          d.bounds.width === existing.bounds.width &&
+          d.bounds.height === existing.bounds.height) return true;
+      // 检测重叠面积
+      const overlapX = Math.min(d.bounds.x + d.bounds.width, existing.bounds.x + existing.bounds.width) - Math.max(d.bounds.x, existing.bounds.x);
+      const overlapY = Math.min(d.bounds.y + d.bounds.height, existing.bounds.y + existing.bounds.height) - Math.max(d.bounds.y, existing.bounds.y);
+      if (overlapX <= 0 || overlapY <= 0) return false;
+      const overlapArea = overlapX * overlapY;
+      const displayArea = d.bounds.width * d.bounds.height;
+      return overlapArea / displayArea > 0.9;  // 90% 重叠视为复制模式
+    });
+    if (!isDuplicate) {
       uniqueDisplays.push(d);
     }
   }
   if (uniqueDisplays.length < allDisplays.length) {
-    console.log(`[Display] 检测到复制模式（${allDisplays.length}个显示器，${uniqueDisplays.length}个唯一分辨率），只为唯一显示器创建窗口`);
+    console.log(`[Display] 检测到复制/镜像模式（${allDisplays.length}个显示器，${uniqueDisplays.length}个唯一），只创建${uniqueDisplays.length}个窗口`);
   }
 
   for (const display of uniqueDisplays) {
@@ -573,8 +586,9 @@ function registerIpcHandlers() {
 
   // 告知渲染进程平台能力（穿透是否支持、是否 macOS 原生毛玻璃等）
   ipcMain.handle('get-platform-info', () => ({
-    // Linux 上启用区域穿透：卡片可交互 + 空白处穿透到桌面（解决桌面图标点不到）
-    clickThroughSupported: true,
+    // Linux 上 forward 不生效，renderer 的 mousemove 穿透无效
+    // 穿透完全由主进程 cursor 轮询控制
+    clickThroughSupported: !platform.isLinux,
     isMac: platform.isMac,
     isWin: platform.isWin,
     isLinux: platform.isLinux

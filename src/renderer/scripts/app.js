@@ -112,31 +112,46 @@
     // 监听配置更新（设置窗口保存后触发）→ 重新加载配置并刷新
     if (window.dashboard && window.dashboard.onConfigUpdated) {
       window.dashboard.onConfigUpdated(async () => {
+        // 记录修改前可见的卡片
+        const prevVisible = {};
+        document.querySelectorAll('.widget[data-widget]').forEach(el => {
+          if (el.style.display !== 'none') prevVisible[el.dataset.widget] = true;
+        });
+
         await Store.load();
         applyTheme(Store.get('settings')?.theme);
         applyGlobalOpacity();
+
+        // 找出新增的卡片（之前不可见，现在可见）
+        const newWidgets = [];
+        document.querySelectorAll('.widget[data-widget]').forEach(el => {
+          const name = el.dataset.widget;
+          const nowVisible = isWidgetVisible(name);
+          if (nowVisible && !prevVisible[name]) {
+            newWidgets.push(name);
+          }
+        });
+
         applyWidgetVisibility();
-        // 清理被隐藏 widget 的定时器（避免后台空转浪费 CPU）
+
+        // 清理被隐藏 widget 的定时器
         Object.keys(timers).forEach(key => {
           if (!isWidgetVisible(key)) {
             clearInterval(timers[key]);
             delete timers[key];
           }
         });
-        // 重新初始化所有数据 widget（刚显示出来的卡片需要加载数据）
-        if (isWidgetVisible('weather')) WeatherWidget.init();
-        if (isWidgetVisible('stock')) StockWidget.init();
-        if (isWidgetVisible('news')) NewsWidget.init();
-        if (isWidgetVisible('todo')) TodoWidget.init();
-        if (isWidgetVisible('countdown')) CountdownWidget.init();
-        if (isWidgetVisible('hotsearch')) HotSearchWidget.init();
-        if (isWidgetVisible('sysmonitor')) SysMonitorWidget.init();
-        if (isWidgetVisible('calendar')) CalendarWidget.init();
-        if (isWidgetVisible('pomodoro')) PomodoroWidget.init();
-        if (isWidgetVisible('links')) LinksWidget.init();
-        if (isWidgetVisible('schulte')) SchulteWidget.init();
-        if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) DesktopWidget.init();
-        console.log('[Dashboard] 配置已更新，已刷新所有模块');
+
+        if (newWidgets.length > 0) {
+          // 新增卡片：以最小尺寸放到右上角，不打乱已有布局
+          placeNewWidgetsMinimized(newWidgets);
+          // 只初始化新增的 widget
+          newWidgets.forEach(name => initWidget(name));
+        } else {
+          // 没有新增：只刷新数据
+          refreshAllWidgets();
+        }
+        console.log('[Dashboard] 配置已更新，新增卡片:', newWidgets);
       });
     }
 
@@ -316,6 +331,56 @@
     if (typeof DesktopWidget !== 'undefined' && DesktopWidget.refreshAll) DesktopWidget.refreshAll();
     // 内容可能变化，触发自动避让检测
     if (typeof AutoResize !== 'undefined') AutoResize.schedule();
+  }
+
+  // ============================================================
+  // 新增卡片最小化放置 + 单组件初始化
+  // ============================================================
+
+  /** 把新增卡片以最小尺寸放到右上角，不打乱已有布局 */
+  function placeNewWidgetsMinimized(widgetNames) {
+    const MIN_W = 200, MIN_H = 100;
+    const gap = 20;
+    // 从右上角开始往下排
+    let startX = window.innerWidth - MIN_W - 30;
+    let startY = 50;
+    widgetNames.forEach((name, i) => {
+      const el = document.querySelector(`.widget[data-widget="${name}"]`);
+      if (!el) return;
+      el.style.display = '';
+      el.style.left = startX + 'px';
+      el.style.top = (startY + i * (MIN_H + gap)) + 'px';
+      el.style.width = MIN_W + 'px';
+      el.style.height = MIN_H + 'px';
+      el.style.right = 'auto';
+      el.style.bottom = 'auto';
+    });
+  }
+
+  /** 初始化单个 widget */
+  function initWidget(name) {
+    const map = {
+      clock: () => ClockWidget.init(),
+      weather: () => WeatherWidget.init(),
+      stock: () => StockWidget.init(),
+      news: () => NewsWidget.init(),
+      todo: () => TodoWidget.init(),
+      countdown: () => CountdownWidget.init(),
+      hotsearch: () => HotSearchWidget.init(),
+      sysmonitor: () => SysMonitorWidget.init(),
+      calendar: () => CalendarWidget.init(),
+      pomodoro: () => PomodoroWidget.init(),
+      links: () => LinksWidget.init(),
+      schulte: () => SchulteWidget.init(),
+    };
+    // desktop 特殊处理
+    if (name === 'apps' || name === 'deskfolders' || name === 'deskfiles') {
+      DesktopWidget.init();
+      return;
+    }
+    if (map[name]) {
+      try { map[name](); } catch (e) { console.error('[Dashboard] 初始化失败:', name, e); }
+    }
   }
 
   // 暴露给 widget 用的调度工具

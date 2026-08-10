@@ -34,7 +34,7 @@ const AutoLayout = {
 
   compute(screenW, screenH, visible) {
     const margin = 24;
-    const gap = 20;
+    const gap = 16;
 
     // 收集可见卡片
     const all = Object.keys(this.WIDGET_SPEC)
@@ -48,32 +48,40 @@ const AutoLayout = {
     const sideWidgets = all.filter(w => w.area === 'side').sort((a, b) => a.priority - b.priority);
 
     // ===== 按黄金比例划分屏幕宽度 =====
-    // 主区 : 侧区 = 1.618 : 1 （约 62% : 38%）
     const availW = screenW - margin * 2 - gap;
     let mainW = Math.round(availW / this.GOLDEN);
     let sideW = availW - mainW;
 
-    // 窄屏特殊处理：侧区最小 260，主区最小 320
-    const MIN_SIDE = 260, MIN_MAIN = 320;
+    // 窄屏特殊处理
+    const MIN_SIDE = 240, MIN_MAIN = 280;
     if (sideW < MIN_SIDE) {
       sideW = MIN_SIDE;
       mainW = availW - sideW;
     }
     if (mainW < MIN_MAIN) {
-      // 屏幕太窄，主侧合并为单列瀑布流
       return this._singleColumnMasonry(all, screenW, screenH, margin, gap);
     }
 
     const layout = {};
 
-    // ===== 主区 Masonry 瀑布流 =====
-    const mainCols = mainW >= 760 ? 2 : 1;
+    // ===== 自适应列数：卡片越多，列越多，密度越高 =====
+    // 主区：根据主区宽度和卡片数量决定列数
+    const MIN_COL_W = 200;  // 最小列宽
+    let mainMaxCols = Math.floor(mainW / (MIN_COL_W + gap));
+    // 卡片少时不浪费空间（每列至少 2 个卡片）
+    let mainCols = Math.min(mainMaxCols, Math.max(1, Math.ceil(mainWidgets.length / 2)));
+    mainCols = Math.min(mainCols, mainMaxCols);
+    if (mainW >= 760 && mainCols < 2 && mainWidgets.length > 2) mainCols = 2;
+
     this._masonryFill(mainWidgets, mainW, mainCols, margin, screenH - margin, gap, layout);
 
-    // ===== 侧区 Masonry 瀑布流 =====
-    // 侧区宽度足够（>520）时分2列，避免小卡片堆太高
+    // 侧区：同理
     const sideX = margin + mainW + gap;
-    const sideCols = sideW >= 520 ? 2 : 1;
+    let sideMaxCols = Math.floor(sideW / (MIN_COL_W + gap));
+    let sideCols = Math.min(sideMaxCols, Math.max(1, Math.ceil(sideWidgets.length / 2)));
+    sideCols = Math.min(sideCols, sideMaxCols);
+    if (sideW >= 480 && sideCols < 2 && sideWidgets.length > 3) sideCols = 2;
+
     this._masonryFill(sideWidgets, sideW, sideCols, sideX, screenH - margin, gap, layout);
 
     return layout;

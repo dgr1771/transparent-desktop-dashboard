@@ -68,20 +68,12 @@
     // 初始化交互模式
     initInteractionMode();
 
-    // 初始化各 widget（只初始化可见的）
-    if (isWidgetVisible('clock')) ClockWidget.init();
-    if (isWidgetVisible('weather')) WeatherWidget.init();
-    if (isWidgetVisible('stock')) StockWidget.init();
-    if (isWidgetVisible('news')) NewsWidget.init();
-    if (isWidgetVisible('todo')) TodoWidget.init();
-    if (isWidgetVisible('countdown')) CountdownWidget.init();
-    if (isWidgetVisible('hotsearch')) HotSearchWidget.init();
-    if (isWidgetVisible('sysmonitor')) SysMonitorWidget.init();
-    if (isWidgetVisible('calendar')) CalendarWidget.init();
-    if (isWidgetVisible('pomodoro')) PomodoroWidget.init();
-    if (isWidgetVisible('links')) LinksWidget.init();
-    if (isWidgetVisible('schulte')) SchulteWidget.init();
-    if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) DesktopWidget.init();
+    // 懒加载可见 widget 的脚本（减少内存：隐藏的 widget 不加载脚本不初始化）
+    await loadVisibleWidgets();
+    // 加载 lunar.js（日历组件需要，但只在 calendar 可见时加载）
+    if (isWidgetVisible('calendar')) {
+      await loadScript('scripts/lib/lunar.js');
+    }
 
     // 监听刷新
     if (window.dashboard && window.dashboard.onRefreshAll) {
@@ -123,19 +115,12 @@
             delete timers[key];
           }
         });
-        // 重新初始化所有数据 widget（刚显示出来的卡片需要加载数据）
-        if (isWidgetVisible('weather')) WeatherWidget.init();
-        if (isWidgetVisible('stock')) StockWidget.init();
-        if (isWidgetVisible('news')) NewsWidget.init();
-        if (isWidgetVisible('todo')) TodoWidget.init();
-        if (isWidgetVisible('countdown')) CountdownWidget.init();
-        if (isWidgetVisible('hotsearch')) HotSearchWidget.init();
-        if (isWidgetVisible('sysmonitor')) SysMonitorWidget.init();
-        if (isWidgetVisible('calendar')) CalendarWidget.init();
-        if (isWidgetVisible('pomodoro')) PomodoroWidget.init();
-        if (isWidgetVisible('links')) LinksWidget.init();
-        if (isWidgetVisible('schulte')) SchulteWidget.init();
-        if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) DesktopWidget.init();
+        // 重新加载并初始化可见 widget（懒加载：新启用的卡片会动态加载脚本）
+        await loadVisibleWidgets();
+        if (isWidgetVisible('calendar')) {
+          await loadScript('scripts/lib/lunar.js');
+          if (window.CalendarWidget) CalendarWidget.init();
+        }
         console.log('[Dashboard] 配置已更新，已刷新所有模块');
       });
     }
@@ -301,20 +286,70 @@
   }
 
   // ============================================================
+  // 懒加载：只加载可见 widget 的脚本
+  // ============================================================
+
+  /** 动态加载单个脚本 */
+  function loadScript(src) {
+    return new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = resolve;  // 出错也继续，不阻塞
+      document.head.appendChild(s);
+    });
+  }
+
+  /** widget 名称 → 脚本路径 + 全局变量名 + init 函数映射 */
+  const WIDGET_LOADERS = {
+    clock:      { src: 'scripts/widgets/clock.js',      cls: 'ClockWidget' },
+    weather:    { src: 'scripts/widgets/weather.js',    cls: 'WeatherWidget' },
+    stock:      { src: 'scripts/widgets/stock.js',      cls: 'StockWidget' },
+    news:       { src: 'scripts/widgets/news.js',       cls: 'NewsWidget' },
+    todo:       { src: 'scripts/widgets/todo.js',       cls: 'TodoWidget' },
+    countdown:  { src: 'scripts/widgets/countdown.js',  cls: 'CountdownWidget' },
+    hotsearch:  { src: 'scripts/widgets/hotsearch.js',  cls: 'HotSearchWidget' },
+    sysmonitor: { src: 'scripts/widgets/sysmonitor.js', cls: 'SysMonitorWidget' },
+    calendar:   { src: 'scripts/widgets/calendar.js',   cls: 'CalendarWidget' },
+    pomodoro:   { src: 'scripts/widgets/pomodoro.js',   cls: 'PomodoroWidget' },
+    links:      { src: 'scripts/widgets/links.js',      cls: 'LinksWidget' },
+    schulte:    { src: 'scripts/widgets/schulte.js',    cls: 'SchulteWidget' },
+    desktop:    { src: 'scripts/widgets/desktop.js',    cls: 'DesktopWidget', deps: ['apps','deskfolders','deskfiles'] },
+  };
+
+  /** 加载并初始化所有可见 widget */
+  async function loadVisibleWidgets() {
+    const tasks = [];
+    for (const [key, loader] of Object.entries(WIDGET_LOADERS)) {
+      // desktop 特殊：apps/deskfolders/deskfiles 任一可见就加载
+      const visible = loader.deps
+        ? loader.deps.some(d => isWidgetVisible(d))
+        : isWidgetVisible(key);
+      if (!visible) continue;
+
+      tasks.push(loadScript(loader.src).then(() => {
+        const cls = window[loader.cls];
+        if (cls && cls.init) cls.init();
+      }));
+    }
+    await Promise.all(tasks);
+  }
+
+  // ============================================================
   // 刷新所有 widget
   // ============================================================
 
   function refreshAllWidgets() {
-    if (ClockWidget.update) ClockWidget.update();
-    if (WeatherWidget.update) WeatherWidget.update();
-    if (StockWidget.update) StockWidget.update();
-    if (NewsWidget.update) NewsWidget.update();
-    if (typeof HotSearchWidget !== 'undefined' && HotSearchWidget.update) HotSearchWidget.update();
-    if (typeof SysMonitorWidget !== 'undefined' && SysMonitorWidget.update) SysMonitorWidget.update();
-    if (typeof CalendarWidget !== 'undefined' && CalendarWidget.update) CalendarWidget.update();
-    // 刷新桌面扫描（检测新建/删除的文件）
-    if (typeof DesktopWidget !== 'undefined' && DesktopWidget.refreshAll) DesktopWidget.refreshAll();
-    // 内容可能变化，触发自动避让检测
+    // 安全刷新：widget 可能因懒加载未定义
+    const safe = (name, fn) => { try { const w = window[name]; if (w && w.update) w.update(); } catch(e){} };
+    safe('ClockWidget');
+    safe('WeatherWidget');
+    safe('StockWidget');
+    safe('NewsWidget');
+    safe('HotSearchWidget');
+    safe('SysMonitorWidget');
+    safe('CalendarWidget');
+    try { const dw = window.DesktopWidget; if (dw && dw.refreshAll) dw.refreshAll(); } catch(e){}
     if (typeof AutoResize !== 'undefined') AutoResize.schedule();
   }
 

@@ -1,0 +1,13 @@
+{
+  "name": "example-bilibili-hot",
+  "version": "1.0.0",
+  "author": "隔壁村布布",
+  "displayName": "📺 B站热门",
+  "description": "显示Bilibili热门视频列表",
+  "area": "side",
+  "defaultSize": { "w": 280, "h": 320 },
+  "priority": 3,
+  "permissions": ["network"],
+  "refreshInterval": 600,
+  "entry": "index.js"
+}

@@ -134,7 +134,7 @@ const WoodfishWidget = {
     try {
       if (!this._audioCtx) {
         this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
+      }
       const ctx = this._audioCtx;
       const now = ctx.currentTime;
 

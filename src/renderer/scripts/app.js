@@ -114,26 +114,17 @@
     // 监听配置更新（设置窗口保存后触发）→ 重新加载配置并刷新
     if (window.dashboard && window.dashboard.onConfigUpdated) {
       window.dashboard.onConfigUpdated(async () => {
-        // 记录修改前可见的卡片
+        await Store.load();
+        applyTheme(Store.get('settings')?.theme);
+        applyGlobalOpacity();
+
+        // 记录修改前的 DOM 显示状态
         const prevVisible = {};
         document.querySelectorAll('.widget[data-widget]').forEach(el => {
           if (el.style.display !== 'none') prevVisible[el.dataset.widget] = true;
         });
 
-        await Store.load();
-        applyTheme(Store.get('settings')?.theme);
-        applyGlobalOpacity();
-
-        // 找出新增的卡片（之前不可见，现在可见）
-        const newWidgets = [];
-        document.querySelectorAll('.widget[data-widget]').forEach(el => {
-          const name = el.dataset.widget;
-          const nowVisible = isWidgetVisible(name);
-          if (nowVisible && !prevVisible[name]) {
-            newWidgets.push(name);
-          }
-        });
-
+        // 应用新的可见性
         applyWidgetVisibility();
 
         // 清理被隐藏 widget 的定时器
@@ -144,15 +135,23 @@
           }
         });
 
+        // 检测新增卡片（之前不可见，现在可见）
+        const newWidgets = [];
+        document.querySelectorAll('.widget[data-widget]').forEach(el => {
+          const name = el.dataset.widget;
+          const nowVisible = el.style.display !== 'none';
+          if (nowVisible && !prevVisible[name]) {
+            newWidgets.push(name);
+          }
+        });
+
         if (newWidgets.length > 0) {
-          // 新增卡片：以最小尺寸放到右上角，不打乱已有布局
           placeNewWidgetsMinimized(newWidgets);
-          // 只初始化新增的 widget
           newWidgets.forEach(name => initWidget(name));
-        } else {
-          // 没有新增：只刷新数据
-          refreshAllWidgets();
         }
+
+        // 刷新已有 widget 的数据
+        refreshAllWidgets();
         console.log('[Dashboard] 配置已更新，新增卡片:', newWidgets);
       });
     }

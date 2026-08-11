@@ -248,7 +248,7 @@ const Plants = {
 
   /** 点击回应动画 */
   _onClick() {
-    const inner = document.getElementById('plant-inner');
+    const inner = document.getElementById('plant-img');
     const response = document.getElementById('plant-response');
     if (!inner) return;
 

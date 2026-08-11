@@ -99,11 +99,12 @@ const LinksWidget = {
     try {
       const u = new URL(url);
       const domain = u.hostname;
-      // 用 Google Favicon API 获取网站真实图标
-      // 如果加载失败，后备用网站自己的 /favicon.ico，再失败用 emoji
-      const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-      return `<img class="links__favicon" src="${faviconUrl}"
-        onerror="this.onerror=null;this.src='${u.origin}/favicon.ico';this.onerror=()=>{this.style.display='none';this.nextElementSibling.style.display='inline'}"
+      // 优先用网站自己的 favicon（国内可直接访问）
+      // 备用：favicon.im（国内可用的 favicon 服务）
+      const directFavicon = u.origin + '/favicon.ico';
+      const serviceFavicon = `https://favicon.im/${domain}?largest=true`;
+      return `<img class="links__favicon" src="${directFavicon}"
+        onerror="this.onerror=null;this.src='${serviceFavicon}';this.onerror=()=>{this.style.display='none';this.nextElementSibling.style.display='inline'}"
       ><span class="links__icon-fallback" style="display:none">🌐</span>`;
     } catch (e) {
       return '<span class="links__icon">🌐</span>';

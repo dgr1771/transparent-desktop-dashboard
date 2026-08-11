@@ -277,12 +277,9 @@
    */
   /**
    * 智能整理：保持卡片的位置和大小不变，
-   * 只做对齐（左右边缘、顶部底部、中心线）和统一间距。
-   * 类似 IDE 的"格式化代码"——不改变结构，只美化排列。
+   * 只做同行顶部对齐（微调 top，不改变 left/width/height）。
    */
   function autoArrange() {
-    const GAP = 16;  // 统一间距
-
     // 收集可见卡片及其位置
     const cards = [];
     document.querySelectorAll('.widget[data-widget]').forEach(el => {
@@ -291,44 +288,18 @@
       const top = parseInt(el.style.top) || 0;
       const w = parseInt(el.style.width) || 280;
       const h = parseInt(el.style.height) || 200;
-      cards.push({ el, left, top, right: left + w, bottom: top + h, w, h });
+      cards.push({ el, left, top, w, h });
     });
     if (cards.length === 0) return;
 
-    // 1. 统一左边距（找最左边的卡片，其他卡片向它对齐）
-    //    只对左侧的卡片（left < 屏幕一半）做左对齐
-    const screenMid = window.innerWidth / 2;
-    const leftCards = cards.filter(c => c.left < screenMid);
-    if (leftCards.length > 1) {
-      const minLeft = Math.min(...leftCards.map(c => c.left));
-      leftCards.forEach(c => {
-        // 按行分组：top 接近的视为同一行
-        const rowCards = leftCards.filter(o => Math.abs(o.top - c.top) < c.h * 0.5);
-        if (c === rowCards[0]) {
-          // 每行最左的卡片对齐
-          const rowMinLeft = Math.min(...rowCards.map(o => o.left));
-          // 微调到统一左边距
-          if (Math.abs(c.left - minLeft) < 100) c.left = minLeft;
-        }
-      });
-    }
-
-    // 2. 统一顶部对齐（找最顶部卡片，同行卡片向它对齐）
-    cards.forEach(c => {
-      const rowCards = cards.filter(o => Math.abs(o.top - c.top) < Math.min(c.h, o.h) * 0.5);
-      if (rowCards.length > 1) {
-        const minTop = Math.min(...rowCards.map(o => o.top));
-        c.top = minTop;
-      }
-    });
-
-    // 3. 统一行间距（同行卡片之间统一 GAP 间距）
-    // 先按 top 分行
+    // 按位置分组：top 接近（差距 < 最小高度的一半）的卡片视为同行
     cards.sort((a, b) => a.top - b.top || a.left - b.left);
     const rows = [];
     let currentRow = [cards[0]];
     for (let i = 1; i < cards.length; i++) {
-      if (Math.abs(cards[i].top - currentRow[0].top) < cards[i].h * 0.5) {
+      const refTop = currentRow[0].top;
+      const minH = Math.min(...currentRow.map(c => c.h));
+      if (Math.abs(cards[i].top - refTop) < minH * 0.5) {
         currentRow.push(cards[i]);
       } else {
         rows.push(currentRow);
@@ -337,41 +308,20 @@
     }
     rows.push(currentRow);
 
-    // 4. 行间统一间距
-    let prevRowBottom = null;
-    rows.forEach((row, rowIdx) => {
-      row.sort((a, b) => a.left - b.left);
-
-      if (prevRowBottom !== null) {
-        // 本行 top = 上一行 bottom + GAP
-        const newTop = prevRowBottom + GAP;
-        row.forEach(c => c.top = newTop);
-      }
-
-      // 5. 列间统一间距（同行卡片左到右排列）
-      let prevRight = null;
-      row.forEach(c => {
-        if (prevRight !== null) {
-          // 保持相对间距但统一为 GAP
-          if (Math.abs(c.left - prevRight) < 200) {
-            c.left = prevRight + GAP;
-          }
-        }
-        prevRight = c.left + c.w;
-      });
-
-      prevRowBottom = Math.max(...row.map(c => c.top + c.h));
+    // 只做一件事：同行卡片顶部对齐（统一到该行最上面的 top 值）
+    // 不改 left，不改 width，不改 height
+    rows.forEach(row => {
+      const minTop = Math.min(...row.map(c => c.top));
+      row.forEach(c => { c.top = minTop; });
     });
 
-    // 6. 应用到 DOM 并保存
+    // 应用到 DOM 并保存
     const displayKey = (window.__dashboard && window.__dashboard.displayKey) || 'primary';
     const displayLayout = Store.get('displayLayout') || {};
     if (!displayLayout[displayKey]) displayLayout[displayKey] = {};
 
     cards.forEach(c => {
-      c.el.style.left = c.left + 'px';
       c.el.style.top = c.top + 'px';
-      // 尺寸不变
       displayLayout[displayKey][c.el.dataset.widget] = {
         left: c.left + 'px', top: c.top + 'px',
         width: c.w + 'px', height: c.h + 'px'
@@ -379,7 +329,7 @@
     });
 
     Store.set('displayLayout', displayLayout);
-    console.log('[Dashboard] 智能整理完成：', cards.length, '个卡片');
+    console.log('[Dashboard] 智能整理完成：', cards.length, '个卡片，', rows.length, '行');
   }
 
   /** 主题定义表 */

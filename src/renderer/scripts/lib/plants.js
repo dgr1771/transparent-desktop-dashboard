@@ -73,6 +73,7 @@ const Plants = {
     if (this._clickEnabled) {
       this._container.style.pointerEvents = 'auto';
       this._container.style.cursor = 'pointer';
+      this._container.classList.add('no-drag');  // 让穿透轮询识别为可交互元素
       this._container.addEventListener('click', () => this._onClick());
     }
   },

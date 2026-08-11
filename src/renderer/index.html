@@ -9,7 +9,7 @@
 </head>
 <body>
   <!-- 桌面绿植容器（由 plants.js 动态渲染） -->
-  <div id="grass-deco" style="position:fixed;bottom:0;right:20px;width:80px;height:160px;pointer-events:none;z-index:0;opacity:0.65;"></div>
+  <div id="grass-deco" class="no-drag" style="position:fixed;bottom:0;right:20px;width:80px;height:160px;pointer-events:auto;cursor:pointer;z-index:1;opacity:0.65;"></div>
   <style>
     @keyframes plantFloat {
       0% { transform: translateY(0) scale(0.8); opacity: 0; }

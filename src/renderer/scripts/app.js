@@ -277,15 +277,54 @@
   /**
    * 智能自动排列：根据屏幕尺寸排布可见卡片
    */
+  /**
+   * 自适应尺寸：保持卡片当前位置不变，只调整宽高以适配内容
+   * 不重排位置，不打乱用户手动摆放的布局
+   */
   function autoArrange() {
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
-    const visible = getDisplayVisible();
-    const layout = AutoLayout.compute(screenW, screenH, visible);
-    AutoLayout.apply(layout, true);
-    // 自动排列后清空当前屏的手动布局
-    setDisplayLayout({});
-    console.log('[Dashboard] 已自动排列 [' + _displayKey + ']，屏幕', screenW + 'x' + screenH);
+    document.querySelectorAll('.widget[data-widget]').forEach(el => {
+      if (el.style.display === 'none') return;
+      // 临时设为 auto 高度，测量内容实际需求
+      const oldW = el.style.width;
+      const oldH = el.style.height;
+      el.style.height = 'auto';
+      el.style.width = oldW || '280px';  // 宽度保持不变
+
+      // 测量内容高度
+      const inner = el.querySelector('.widget__inner');
+      const contentH = inner ? inner.scrollHeight : 200;
+      const minH = 100;
+      const maxH = window.innerHeight - 60;
+      const newH = Math.max(minH, Math.min(contentH + 4, maxH));
+
+      // 恢复宽度，设新高度
+      el.style.width = oldW;
+      el.style.height = newH + 'px';
+    });
+
+    // 保存调整后的尺寸到布局
+    saveCurrentSizes();
+    console.log('[Dashboard] 已自适应卡片尺寸（保持位置不变）');
+  }
+
+  /** 保存当前所有卡片的尺寸 */
+  function saveCurrentSizes() {
+    const displayKey = (window.__dashboard && window.__dashboard.displayKey) || 'primary';
+    const displayLayout = Store.get('displayLayout') || {};
+    if (!displayLayout[displayKey]) displayLayout[displayKey] = {};
+
+    document.querySelectorAll('.widget[data-widget]').forEach(el => {
+      if (el.style.display === 'none') return;
+      const name = el.dataset.widget;
+      if (!displayLayout[displayKey][name]) displayLayout[displayKey][name] = {};
+      // 只更新尺寸，保留位置
+      displayLayout[displayKey][name].left = el.style.left;
+      displayLayout[displayKey][name].top = el.style.top;
+      displayLayout[displayKey][name].width = el.style.width;
+      displayLayout[displayKey][name].height = el.style.height;
+    });
+
+    Store.set('displayLayout', displayLayout);
   }
 
   /** 主题定义表 */

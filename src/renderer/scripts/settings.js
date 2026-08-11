@@ -80,8 +80,6 @@
     { key: 'deskfolders',name: '📂 桌面文件夹', desc: '目录' },
     { key: 'deskfiles',  name: '📄 桌面文件', desc: '文档等' },
     { key: 'news',       name: '📰 新闻',    desc: 'AI 资讯' },
-    { key: 'woodfish',   name: '🔔 电子木鱼', desc: '解压功德' },
-    { key: 'tarot',     name: '🔮 每日塔罗', desc: '每日占卜' },
     { key: 'hotsearch',  name: '🔥 热搜',    desc: '头条热榜' }
   ];
 

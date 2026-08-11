@@ -30,8 +30,6 @@ const AutoLayout = {
     apps:       { area: 'side',  w: 240, h: 300, priority: 3 },
     deskfolders:{ area: 'side',  w: 240, h: 240, priority: 3 },
     deskfiles:  { area: 'side',  w: 240, h: 280, priority: 3 },
-    woodfish:   { area: 'side',  w: 220, h: 280, priority: 4 },
-    tarot:      { area: 'side',  w: 220, h: 320, priority: 4 },
   },
 
   compute(screenW, screenH, visible) {

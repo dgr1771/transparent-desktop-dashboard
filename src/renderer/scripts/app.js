@@ -81,8 +81,6 @@
     if (isWidgetVisible('pomodoro')) PomodoroWidget.init();
     if (isWidgetVisible('links')) LinksWidget.init();
     if (isWidgetVisible('schulte')) SchulteWidget.init();
-    if (isWidgetVisible('woodfish')) WoodfishWidget.init();
-    if (isWidgetVisible('tarot')) TarotWidget.init();
     if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) DesktopWidget.init();
 
     // 监听刷新
@@ -114,17 +112,26 @@
     // 监听配置更新（设置窗口保存后触发）→ 重新加载配置并刷新
     if (window.dashboard && window.dashboard.onConfigUpdated) {
       window.dashboard.onConfigUpdated(async () => {
-        await Store.load();
-        applyTheme(Store.get('settings')?.theme);
-        applyGlobalOpacity();
-
-        // 记录修改前的 DOM 显示状态
+        // 记录修改前可见的卡片
         const prevVisible = {};
         document.querySelectorAll('.widget[data-widget]').forEach(el => {
           if (el.style.display !== 'none') prevVisible[el.dataset.widget] = true;
         });
 
-        // 应用新的可见性
+        await Store.load();
+        applyTheme(Store.get('settings')?.theme);
+        applyGlobalOpacity();
+
+        // 找出新增的卡片（之前不可见，现在可见）
+        const newWidgets = [];
+        document.querySelectorAll('.widget[data-widget]').forEach(el => {
+          const name = el.dataset.widget;
+          const nowVisible = isWidgetVisible(name);
+          if (nowVisible && !prevVisible[name]) {
+            newWidgets.push(name);
+          }
+        });
+
         applyWidgetVisibility();
 
         // 清理被隐藏 widget 的定时器
@@ -135,23 +142,15 @@
           }
         });
 
-        // 检测新增卡片（之前不可见，现在可见）
-        const newWidgets = [];
-        document.querySelectorAll('.widget[data-widget]').forEach(el => {
-          const name = el.dataset.widget;
-          const nowVisible = el.style.display !== 'none';
-          if (nowVisible && !prevVisible[name]) {
-            newWidgets.push(name);
-          }
-        });
-
         if (newWidgets.length > 0) {
+          // 新增卡片：以最小尺寸放到右上角，不打乱已有布局
           placeNewWidgetsMinimized(newWidgets);
+          // 只初始化新增的 widget
           newWidgets.forEach(name => initWidget(name));
+        } else {
+          // 没有新增：只刷新数据
+          refreshAllWidgets();
         }
-
-        // 刷新已有 widget 的数据
-        refreshAllWidgets();
         console.log('[Dashboard] 配置已更新，新增卡片:', newWidgets);
       });
     }
@@ -277,53 +276,35 @@
    * 智能自动排列：根据屏幕尺寸排布可见卡片
    */
   /**
-   * 自适应尺寸：保持卡片当前位置不变，只调整宽高以适配内容
-   * 不重排位置，不打乱用户手动摆放的布局
+   * 自适应尺寸：保持卡片当前位置不变，只根据内容调整高度
    */
   function autoArrange() {
     document.querySelectorAll('.widget[data-widget]').forEach(el => {
       if (el.style.display === 'none') return;
-      // 临时设为 auto 高度，测量内容实际需求
-      const oldW = el.style.width;
-      const oldH = el.style.height;
+      const oldW = el.style.width || '280px';
+      // 临时用 auto 高度测量内容
       el.style.height = 'auto';
-      el.style.width = oldW || '280px';  // 宽度保持不变
-
-      // 测量内容高度
+      el.style.width = oldW;
       const inner = el.querySelector('.widget__inner');
       const contentH = inner ? inner.scrollHeight : 200;
-      const minH = 100;
-      const maxH = window.innerHeight - 60;
-      const newH = Math.max(minH, Math.min(contentH + 4, maxH));
-
-      // 恢复宽度，设新高度
-      el.style.width = oldW;
+      const newH = Math.max(100, Math.min(contentH + 4, window.innerHeight - 60));
       el.style.height = newH + 'px';
     });
 
-    // 保存调整后的尺寸到布局
-    saveCurrentSizes();
-    console.log('[Dashboard] 已自适应卡片尺寸（保持位置不变）');
-  }
-
-  /** 保存当前所有卡片的尺寸 */
-  function saveCurrentSizes() {
+    // 保存调整后的布局（位置+尺寸）
     const displayKey = (window.__dashboard && window.__dashboard.displayKey) || 'primary';
     const displayLayout = Store.get('displayLayout') || {};
     if (!displayLayout[displayKey]) displayLayout[displayKey] = {};
-
     document.querySelectorAll('.widget[data-widget]').forEach(el => {
       if (el.style.display === 'none') return;
       const name = el.dataset.widget;
-      if (!displayLayout[displayKey][name]) displayLayout[displayKey][name] = {};
-      // 只更新尺寸，保留位置
-      displayLayout[displayKey][name].left = el.style.left;
-      displayLayout[displayKey][name].top = el.style.top;
-      displayLayout[displayKey][name].width = el.style.width;
-      displayLayout[displayKey][name].height = el.style.height;
+      displayLayout[displayKey][name] = {
+        left: el.style.left, top: el.style.top,
+        width: el.style.width, height: el.style.height
+      };
     });
-
     Store.set('displayLayout', displayLayout);
+    console.log('[Dashboard] 已自适应卡片尺寸（位置不变）');
   }
 
   /** 主题定义表 */

@@ -64,6 +64,68 @@
     });
   }
 
+  // ===== 绿植选择器 =====
+  let _selectedPlant = 'grass';
+  const PLANT_LIST = [
+    { key: 'grass',     name: '狗尾草',   emoji: '🌿', desc: '顽强、随遇而安' },
+    { key: 'clover',    name: '四叶草',   emoji: '🍀', desc: '幸运、好运' },
+    { key: 'cherry',    name: '樱花',     emoji: '🌸', desc: '短暂美好、珍惜当下' },
+    { key: 'sunflower', name: '向日葵',   emoji: '🌻', desc: '阳光、积极向上' },
+    { key: 'bamboo',    name: '竹子',     emoji: '🎋', desc: '节节高升、坚韧' },
+    { key: 'cactus',    name: '仙人掌',   emoji: '🌵', desc: '坚强、坚韧不拔' },
+    { key: 'lotus',     name: '荷花',     emoji: '🪷', desc: '纯洁、出淤泥不染' },
+    { key: 'sapling',   name: '发财树苗', emoji: '🌱', desc: '财运、招财' },
+    { key: 'maple',     name: '枫叶',     emoji: '🍁', desc: '收获、沉淀' },
+    { key: 'lavender',  name: '薰衣草',   emoji: '💐', desc: '宁静、安眠' },
+    { key: 'rose',      name: '玫瑰',     emoji: '🌹', desc: '浪漫、热爱' },
+  ];
+
+  function initPlantPicker() {
+    const container = document.getElementById('plant-picker');
+    if (!container) return;
+    container.innerHTML = '';
+    PLANT_LIST.forEach(p => {
+      const btn = document.createElement('div');
+      btn.style.cssText = `width:42px;height:42px;border-radius:8px;cursor:pointer;
+        background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.1);
+        display:flex;align-items:center;justify-content:center;font-size:20px;
+        transition:border-color 0.15s,transform 0.1s;`;
+      btn.textContent = p.emoji;
+      btn.title = p.name;
+      btn.dataset.plantKey = p.key;
+      btn.addEventListener('click', () => {
+        _selectedPlant = p.key;
+        container.querySelectorAll('[data-plant-key]').forEach(el => {
+          el.style.borderColor = 'rgba(255,255,255,0.1)';
+          el.style.transform = 'scale(1)';
+        });
+        btn.style.borderColor = '#4ade80';
+        btn.style.transform = 'scale(1.1)';
+        const desc = document.getElementById('plant-desc');
+        if (desc) desc.textContent = p.name + ' — ' + p.desc;
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function selectPlantInPicker(plantKey) {
+    _selectedPlant = plantKey || 'grass';
+    const container = document.getElementById('plant-picker');
+    if (!container) return;
+    const plant = PLANT_LIST.find(p => p.key === _selectedPlant);
+    container.querySelectorAll('[data-plant-key]').forEach(el => {
+      if (el.dataset.plantKey === _selectedPlant) {
+        el.style.borderColor = '#4ade80';
+        el.style.transform = 'scale(1.1)';
+      } else {
+        el.style.borderColor = 'rgba(255,255,255,0.1)';
+        el.style.transform = 'scale(1)';
+      }
+    });
+    const desc = document.getElementById('plant-desc');
+    if (desc && plant) desc.textContent = plant.name + ' — ' + plant.desc;
+  }
+
   // 桌面模块清单（key 必须与 HTML 里 data-widget 一致）
   const WIDGETS = [
     { key: 'clock',      name: '🕐 时钟',    desc: '时间日期' },
@@ -88,6 +150,7 @@
 
     // 先初始化主题选择器（生成色块），再 renderForm（回填选中状态）
     initThemePicker();
+    initPlantPicker();
     renderForm(config);
 
     // 多显示器检测
@@ -244,6 +307,7 @@
 
     // 主题
     selectThemeInPicker(cfg.settings?.theme);
+    selectPlantInPicker(cfg.plant || 'grass');
 
     // 关于：版本号
     const versionEl = document.getElementById('about-version');
@@ -333,6 +397,7 @@
       weather,
       stock: { codes },
       news: { sources },
+      plant: _selectedPlant,
       displayWidgets,
       settings: {
         globalOpacity: parseInt(document.getElementById('global-opacity').value, 10) / 100,

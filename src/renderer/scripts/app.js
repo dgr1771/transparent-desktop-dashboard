@@ -55,6 +55,8 @@
 
     // 初始化区域穿透（卡片可点、空白穿透）
     ClickThrough.init();
+    // 初始化桌面绿植
+    if (typeof Plants !== "undefined") Plants.init();
 
     // 自动避让：不再用 MutationObserver 全局监听（太耗 CPU）
     // 改为只在 refreshAllWidgets 后触发一次（数据更新时才检查）
@@ -121,6 +123,7 @@
         await Store.load();
         applyTheme(Store.get('settings')?.theme);
         applyGlobalOpacity();
+        if (typeof Plants !== 'undefined') Plants.setPlant(Store.get('plant') || 'grass');
 
         // 找出新增的卡片（之前不可见，现在可见）
         const newWidgets = [];

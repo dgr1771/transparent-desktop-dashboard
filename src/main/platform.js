@@ -65,9 +65,8 @@ module.exports = {
 
   setClickThrough(win, ignore) {
     if (isLinux) {
-      // Linux 上不使用 setIgnoreMouseEvents（会导致整窗穿透后无法恢复）
-      // 改用窗口层级控制：看板始终在底层，不挡桌面图标
-      // ignore 参数在 Linux 上被忽略
+      // Linux 上不使用 setIgnoreMouseEvents（会导致整窗无法恢复）
+      // 用 X11 SHAPE 扩展实现区域穿透（由主进程定时调用 shape-input）
       return;
     }
     try { win.setIgnoreMouseEvents(ignore, { forward: true }); } catch (e) {}

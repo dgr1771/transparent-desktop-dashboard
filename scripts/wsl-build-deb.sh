@@ -100,6 +100,11 @@ cp "$WORK/assets/icons/"icon-22.png "$FILESDIR/icons/" 2>/dev/null || cp "$WORK/
 cp "$WORK/assets/icons/"icon-32.png "$FILESDIR/icons/" 2>/dev/null || true
 echo "  ✓ 图标已复制到 files/icons/"
 
+# 编译 shape-input（X11 SHAPE 穿透工具）并复制
+echo "  编译 shape-input..."
+echo 1 | sudo -S apt install -y libx11-dev libxext-dev >/dev/null 2>&1 || true
+gcc -o "$FILESDIR/shape-input" "$SRC/tools/shape-input.c" -lX11 -lXext 2>/dev/null && echo "  ✓ shape-input 编译成功" || echo "  ⚠️ shape-input 编译失败（穿透功能不可用）"
+
 # DEBIAN/control（更新实际大小 + 版本号）+ postinst/prerm 脚本
 mkdir -p "$PKGDIR/DEBIAN"
 cp "$WORK/build/uos/DEBIAN/control" "$PKGDIR/DEBIAN/"

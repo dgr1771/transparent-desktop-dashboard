@@ -154,6 +154,52 @@ function createWindowForDisplay(display) {
 }
 
 /**
+ * Linux X11 SHAPE 穿透：收集 widget 位置，设置窗口输入区域
+ * 卡片区域接收鼠标，背景区域穿透到桌面图标
+ */
+function _updateLinuxShape(win) {
+  try {
+    const hwnd = win.getNativeWindowHandle();
+    const hwndNum = hwnd.readInt32LE(0);
+
+    // 查询渲染进程中所有可见 widget 的位置
+    win.webContents.executeJavaScript(
+      `(()=>{
+        const widgets = document.querySelectorAll('.widget[data-widget]');
+        const rects = [];
+        widgets.forEach(el => {
+          if (el.style.display === 'none') return;
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) rects.push(r.left+','+r.top+','+r.width+','+r.height);
+        });
+        return rects.join(' ');
+      })()`,
+      true
+    ).then(rectsStr => {
+      if (win.isDestroyed()) return;
+      if (!rectsStr) return;
+
+      // 调用 shape-input 设置输入区域
+      const { execFileSync } = require('child_process');
+      const args = [String(hwndNum)];
+      rectsStr.split(' ').forEach(r => { if (r.trim()) args.push(r.trim()); });
+
+      try {
+        // shape-input 位置：开发态在 tools/，打包后在 resources/tools/ 或 /opt/apps/
+        const shapePath = app.isPackaged
+          ? path.join(process.resourcesPath, 'tools', 'shape-input')
+          : path.join(__dirname, '..', '..', 'tools', 'shape-input');
+        execFileSync(shapePath, args, {
+          encoding: 'utf8', timeout: 2000
+        });
+      } catch (e) {
+        // shape-input 可能还没编译/安装，静默失败
+      }
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+/**
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
@@ -171,6 +217,18 @@ function startProtectionTimers() {
             platform.setClickThrough(win, !interactionMode);
           } catch (err) {}
         }
+      }
+    }, 500);
+  }
+
+  // ===== Linux：X11 SHAPE 区域穿透 =====
+  // 每 500ms 收集所有可见 widget 的位置，设置窗口输入区域
+  // 卡片区域接收鼠标，背景区域穿透到桌面
+  if (platform.isLinux) {
+    setInterval(() => {
+      for (const win of windows.values()) {
+        if (!win || win.isDestroyed() || win._userHidden) continue;
+        _updateLinuxShape(win);
       }
     }, 500);
   }
@@ -786,6 +844,83 @@ foreach($line in $lines){
   }
 
   /**
+   * Linux .desktop 文件图标解析
+   * 解析 Icon= 字段，从系统图标主题查找真实图标文件
+   * 支持：图标名（从主题查找）、绝对路径、deepin 图标
+   */
+  function resolveLinuxDesktopIcon(desktopPath) {
+    try {
+      const content = fsDesk.readFileSync(desktopPath, 'utf8');
+      const iconMatch = content.match(/^Icon=(.+)$/m);
+      if (!iconMatch) return '';
+
+      const iconValue = iconMatch[1].trim();
+
+      // 1. 如果是绝对路径，直接读取
+      if (iconValue.startsWith('/')) {
+        if (fsDesk.existsSync(iconValue)) {
+          try {
+            const nativeImage = require('electron').nativeImage;
+            const img = nativeImage.createFromPath(iconValue);
+            if (!img.isEmpty()) return img.toDataURL();
+          } catch (e) {}
+        }
+        return '';
+      }
+
+      // 2. 从图标主题查找（bloom / hicolor / Adwaita）
+      const iconDirs = [
+        '/usr/share/icons/bloom/48', '/usr/share/icons/bloom/32',
+        '/usr/share/icons/bloom-classic/48', '/usr/share/icons/bloom-classic/32',
+        '/usr/share/icons/hicolor/48x48/apps', '/usr/share/icons/hicolor/48x48',
+        '/usr/share/icons/Adwaita/48x48/apps',
+        '/usr/share/pixmaps',
+        '/usr/share/icons/bloom-dark/48', '/usr/share/icons/bloom-dark/32',
+      ];
+      const exts = ['.png', '.svg', '.xpm'];
+      for (const dir of iconDirs) {
+        for (const ext of exts) {
+          const p = pathDesk.join(dir, iconValue + ext);
+          if (fsDesk.existsSync(p)) {
+            try {
+              const nativeImage = require('electron').nativeImage;
+              const img = nativeImage.createFromPath(p);
+              if (!img.isEmpty()) return img.toDataURL();
+            } catch (e) {}
+          }
+        }
+      }
+
+      // 3. deepin 应用图标（/opt/apps/xxx/entries/icons/）
+      // 从 .desktop 文件的 Exec 或 Name 推断
+      const appMatch = content.match(/^Exec=(\S+)/m);
+      if (appMatch) {
+        const appName = pathDesk.basename(appMatch[1]);
+        const deepinIconDirs = [
+          '/usr/share/icons/bloom/apps/48', '/usr/share/icons/bloom/apps/32',
+          '/usr/share/icons/bloom-classic/apps/48',
+        ];
+        for (const dir of deepinIconDirs) {
+          for (const ext of exts) {
+            const p = pathDesk.join(dir, appName + ext);
+            if (fsDesk.existsSync(p)) {
+              try {
+                const nativeImage = require('electron').nativeImage;
+                const img = nativeImage.createFromPath(p);
+                if (!img.isEmpty()) return img.toDataURL();
+              } catch (e) {}
+            }
+          }
+        }
+      }
+
+      return '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /**
    * 扫描桌面，按类型分类
    */
   async function scanDesktop() {
@@ -842,6 +977,10 @@ foreach($line in $lines){
           const img = await app.getFileIcon(it.fullPath, { size: 'normal' });
           if (img && !img.isEmpty()) icon = img.toDataURL();
         } catch (e) {}
+      }
+      // Linux .desktop 文件：解析 Icon 字段，从图标主题查找正确图标
+      if (!icon && platform.isLinux && it.ext === '.desktop') {
+        icon = resolveLinuxDesktopIcon(it.fullPath);
       }
       // 最终 emoji 后备
       if (!icon) icon = emojiMap[it.ext] || '📄';

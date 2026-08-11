@@ -121,10 +121,10 @@ const TarotWidget = {
         return `
           <div class="tarot__three-card">
             <div class="tarot__three-label">${positions[i]}</div>
-            <div class="tarot__card-front ${c.reversed ? 'tarot__reversed' : 'tarot__upright'} tarot__mini-card">
+            <div class="tarot__card-front ${c.reversed ? 'tarot__reversed' : 'tarot__upright'} tarot__three-card-face">
               <div class="tarot__card-emoji ${c.reversed ? 'tarot__card-flipped' : ''}">${card.emoji}</div>
-              <div class="tarot__card-name-small">${card.name}</div>
-              <div class="tarot__card-position-small">${position}</div>
+              <div class="tarot__card-name">${card.name}</div>
+              <div class="tarot__card-position">${position}</div>
             </div>
             <div class="tarot__three-meaning">${meaning}</div>
           </div>
@@ -132,9 +132,9 @@ const TarotWidget = {
       }).join('');
 
       return `
-        <div class="tarot">
+        <div class="tarot tarot--three-mode">
           <div class="tarot__header">
-            <span>🔮 每日塔罗</span>
+            <span>🔮 每日塔罗 · 三牌阵</span>
             <span class="tarot__date">${dateStr}</span>
           </div>
           <div class="tarot__three tarot__three-result">${cardsHtml}</div>

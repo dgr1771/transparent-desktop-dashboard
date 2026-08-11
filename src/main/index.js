@@ -221,17 +221,9 @@ function startProtectionTimers() {
     }, 500);
   }
 
-  // ===== Linux：X11 SHAPE 区域穿透 =====
-  // 每 500ms 收集所有可见 widget 的位置，设置窗口输入区域
-  // 卡片区域接收鼠标，背景区域穿透到桌面
-  if (platform.isLinux) {
-    setInterval(() => {
-      for (const win of windows.values()) {
-        if (!win || win.isDestroyed() || win._userHidden) continue;
-        _updateLinuxShape(win);
-      }
-    }, 500);
-  }
+  // ===== Linux：不使用 SHAPE 穿透（会阻止桌面图标点击）=====
+  // UOS/deepin 上看板设为底层窗口，不穿透，但通过 skipTaskbar + 不置顶
+  // 让其他应用窗口在看板上方，桌面图标通过看板的桌面整理功能访问
 
   // ===== 区域穿透：主进程 cursor 轮询（仅 Windows）=====
   // Linux 不使用穿透（setIgnoreMouseEvents 会导致整窗无法恢复）

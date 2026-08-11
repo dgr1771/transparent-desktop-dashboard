@@ -1192,8 +1192,6 @@ body.interactive .news__item:hover {
 .links__item { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:6px; cursor:pointer; transition:background 0.15s; }
 .links__item:hover { background:rgba(255,255,255,0.06); }
 .links__icon { font-size:16px; width:20px; text-align:center; }
-.links__favicon { width:20px; height:20px; border-radius:4px; flex-shrink:0; object-fit:contain; }
-.links__icon-fallback { font-size:16px; width:20px; text-align:center; }
 .links__name { flex:1; font-size:13px; color:rgba(255,255,255,0.85); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .links__del { font-size:11px; color:rgba(255,255,255,0.2); padding:2px 4px; }
 .links__del:hover { color:#f87171; }

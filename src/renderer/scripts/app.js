@@ -83,59 +83,6 @@
     if (isWidgetVisible('schulte')) SchulteWidget.init();
     if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) DesktopWidget.init();
 
-    // ===== 加载第三方插件（plugins/ 目录）=====
-    // 注入各插件的 <script>/<style>，待其 PluginRegistry.register 完成后统一 initAll
-    initPlugins();
-
-    async function initPlugins() {
-      if (!window.dashboard || !window.dashboard.readPlugins) return;
-      let plugins = [];
-      try { plugins = await window.dashboard.readPlugins(); }
-      catch (e) { console.error('[plugins] 读取失败', e); return; }
-      if (!plugins.length) return;
-
-      // 注入样式 + 脚本
-      for (const p of plugins) {
-        if (p.css) {
-          const style = document.createElement('style');
-          style.dataset.plugin = p.name;
-          style.textContent = p.css;
-          document.head.appendChild(style);
-        }
-        const script = document.createElement('script');
-        script.dataset.plugin = p.name;
-        script.textContent = p.code;
-        document.body.appendChild(script);
-      }
-
-      // 所有插件注册完后，统一初始化（layout 由 auto-layout 后续接管）
-      if (typeof PluginRegistry !== 'undefined' && PluginRegistry.initAll) {
-        try {
-          await PluginRegistry.initAll(plugins.map(p => p.name));
-          // 给新加载的插件一个初始位置（避免堆叠在 0,0）
-          positionPlugins(plugins);
-        } catch (e) { console.error('[plugins] 初始化失败', e); }
-      }
-
-      /** 给插件卡片排个初始位置：右下角纵向堆叠 */
-      function positionPlugins(plugins) {
-        const screenW = window.innerWidth;
-        const screenH = window.innerHeight;
-        let y = 80;
-        plugins.forEach(p => {
-          const el = document.querySelector(`.widget[data-widget="${p.name}"]`);
-          if (!el) return;
-          const w = (p.manifest && p.manifest.defaultSize && p.manifest.defaultSize.w) || 260;
-          const h = (p.manifest && p.manifest.defaultSize && p.manifest.defaultSize.h) || 300;
-          el.style.width = w + 'px';
-          el.style.height = h + 'px';
-          el.style.left = Math.max(20, screenW - w - 30) + 'px';
-          el.style.top = Math.min(y, screenH - h - 30) + 'px';
-          y += h + 16;
-        });
-      }
-    }
-
     // 监听刷新
     if (window.dashboard && window.dashboard.onRefreshAll) {
       window.dashboard.onRefreshAll(() => refreshAllWidgets());

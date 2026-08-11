@@ -154,52 +154,6 @@ function createWindowForDisplay(display) {
 }
 
 /**
- * Linux X11 SHAPE 穿透：收集 widget 位置，设置窗口输入区域
- * 卡片区域接收鼠标，背景区域穿透到桌面图标
- */
-function _updateLinuxShape(win) {
-  try {
-    const hwnd = win.getNativeWindowHandle();
-    const hwndNum = hwnd.readInt32LE(0);
-
-    // 查询渲染进程中所有可见 widget 的位置
-    win.webContents.executeJavaScript(
-      `(()=>{
-        const widgets = document.querySelectorAll('.widget[data-widget]');
-        const rects = [];
-        widgets.forEach(el => {
-          if (el.style.display === 'none') return;
-          const r = el.getBoundingClientRect();
-          if (r.width > 0 && r.height > 0) rects.push(r.left+','+r.top+','+r.width+','+r.height);
-        });
-        return rects.join(' ');
-      })()`,
-      true
-    ).then(rectsStr => {
-      if (win.isDestroyed()) return;
-      if (!rectsStr) return;
-
-      // 调用 shape-input 设置输入区域
-      const { execFileSync } = require('child_process');
-      const args = [String(hwndNum)];
-      rectsStr.split(' ').forEach(r => { if (r.trim()) args.push(r.trim()); });
-
-      try {
-        // shape-input 位置：开发态在 tools/，打包后在 resources/tools/ 或 /opt/apps/
-        const shapePath = app.isPackaged
-          ? path.join(process.resourcesPath, 'tools', 'shape-input')
-          : path.join(__dirname, '..', '..', 'tools', 'shape-input');
-        execFileSync(shapePath, args, {
-          encoding: 'utf8', timeout: 2000
-        });
-      } catch (e) {
-        // shape-input 可能还没编译/安装，静默失败
-      }
-    }).catch(() => {});
-  } catch (e) {}
-}
-
-/**
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
@@ -221,13 +175,10 @@ function startProtectionTimers() {
     }, 500);
   }
 
-  // ===== Linux：不使用 SHAPE 穿透（会阻止桌面图标点击）=====
-  // UOS/deepin 上看板设为底层窗口，不穿透，但通过 skipTaskbar + 不置顶
-  // 让其他应用窗口在看板上方，桌面图标通过看板的桌面整理功能访问
-
-  // ===== 区域穿透：主进程 cursor 轮询（仅 Windows）=====
-  // Linux 不使用穿透（setIgnoreMouseEvents 会导致整窗无法恢复）
-  if (platform.isWin) {  // 仅 Windows 使用穿透轮询
+  // ===== 区域穿透：主进程 cursor 轮询 =====
+  // 优化：executeJavaScript 是昂贵的跨进程 IPC，用状态缓存避免重复调用
+  // 只在鼠标位置实际变化时才执行 executeJavaScript
+  if (platform.isWin || platform.isLinux) {
     let lastCursor = { x: -999, y: -999 };
     setInterval(() => {
       if (interactionMode) return;
@@ -252,12 +203,10 @@ function startProtectionTimers() {
         const localX = Math.round(cursor.x - bounds.x);
         const localY = Math.round(cursor.y - bounds.y);
         win.webContents.executeJavaScript(
-          `(()=>{const el=document.elementFromPoint(${localX},${localY});if(!el)return false;const tag=el.tagName.toLowerCase();if(['input','button','a','select','textarea'].includes(tag))return true;if(el.contentEditable==='true')return true;if(el.classList&&el.classList.contains('no-drag'))return true;if(el.closest&&el.closest('.widget'))return true;return false;})()`,
+          `(()=>{const el=document.elementFromPoint(${localX},${localY});if(!el)return false;const tag=el.tagName.toLowerCase();if(['input','button','a','select','textarea'].includes(tag))return true;if(el.contentEditable==='true')return true;if(el.classList&&el.classList.contains('no-drag'))return true;return false;})()`,
           true
         ).then(onInteractive => {
           if (win.isDestroyed()) return;
-          // 在 widget 上或交互元素上 → 不穿透
-          // 完全空白区域 → 穿透到桌面
           const shouldIgnore = !onInteractive;
           if (win._cursorIgnore !== shouldIgnore) {
             win._cursorIgnore = shouldIgnore;
@@ -677,38 +626,6 @@ function registerIpcHandlers() {
     }
   });
 
-  // ===== 插件加载：扫描 plugins/ 目录，返回每个插件的 manifest + 源码 =====
-  // 渲染进程据此动态注入 <script>/<style>，让 PluginRegistry.register 生效
-  ipcMain.handle('plugins:read', async () => {
-    const fs = require('fs');
-    const pluginsDir = isDev()
-      ? path.join(__dirname, '..', '..', 'plugins')           // 开发：项目根/plugins
-      : path.join(process.resourcesPath, 'plugins');          // 打包：resources/plugins
-    const result = [];
-    let entries = [];
-    try { entries = fs.readdirSync(pluginsDir, { withFileTypes: true }); }
-    catch (e) { return result; }                              // 目录不存在则返回空（非错误）
-
-    for (const ent of entries) {
-      if (!ent.isDirectory()) continue;
-      const dir = path.join(pluginsDir, ent.name);
-      const manifestPath = path.join(dir, 'manifest.json');
-      const entryPath = path.join(dir, 'index.js');
-      const stylePath = path.join(dir, 'style.css');
-      if (!fs.existsSync(manifestPath) || !fs.existsSync(entryPath)) continue;
-      try {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        const code = fs.readFileSync(entryPath, 'utf8');
-        let css = null;
-        try { css = fs.readFileSync(stylePath, 'utf8'); } catch (e) {}
-        result.push({ name: manifest.name || ent.name, manifest, code, css });
-      } catch (e) {
-        console.error(`[plugins] 读取 ${ent.name} 失败:`, e);
-      }
-    }
-    return result;
-  });
-
   /**
    * 获取真实桌面路径（OneDrive 重定向后用注册表读取）
    */
@@ -838,83 +755,6 @@ foreach($line in $lines){
   }
 
   /**
-   * Linux .desktop 文件图标解析
-   * 解析 Icon= 字段，从系统图标主题查找真实图标文件
-   * 支持：图标名（从主题查找）、绝对路径、deepin 图标
-   */
-  function resolveLinuxDesktopIcon(desktopPath) {
-    try {
-      const content = fsDesk.readFileSync(desktopPath, 'utf8');
-      const iconMatch = content.match(/^Icon=(.+)$/m);
-      if (!iconMatch) return '';
-
-      const iconValue = iconMatch[1].trim();
-
-      // 1. 如果是绝对路径，直接读取
-      if (iconValue.startsWith('/')) {
-        if (fsDesk.existsSync(iconValue)) {
-          try {
-            const nativeImage = require('electron').nativeImage;
-            const img = nativeImage.createFromPath(iconValue);
-            if (!img.isEmpty()) return img.toDataURL();
-          } catch (e) {}
-        }
-        return '';
-      }
-
-      // 2. 从图标主题查找（bloom / hicolor / Adwaita）
-      const iconDirs = [
-        '/usr/share/icons/bloom/48', '/usr/share/icons/bloom/32',
-        '/usr/share/icons/bloom-classic/48', '/usr/share/icons/bloom-classic/32',
-        '/usr/share/icons/hicolor/48x48/apps', '/usr/share/icons/hicolor/48x48',
-        '/usr/share/icons/Adwaita/48x48/apps',
-        '/usr/share/pixmaps',
-        '/usr/share/icons/bloom-dark/48', '/usr/share/icons/bloom-dark/32',
-      ];
-      const exts = ['.png', '.svg', '.xpm'];
-      for (const dir of iconDirs) {
-        for (const ext of exts) {
-          const p = pathDesk.join(dir, iconValue + ext);
-          if (fsDesk.existsSync(p)) {
-            try {
-              const nativeImage = require('electron').nativeImage;
-              const img = nativeImage.createFromPath(p);
-              if (!img.isEmpty()) return img.toDataURL();
-            } catch (e) {}
-          }
-        }
-      }
-
-      // 3. deepin 应用图标（/opt/apps/xxx/entries/icons/）
-      // 从 .desktop 文件的 Exec 或 Name 推断
-      const appMatch = content.match(/^Exec=(\S+)/m);
-      if (appMatch) {
-        const appName = pathDesk.basename(appMatch[1]);
-        const deepinIconDirs = [
-          '/usr/share/icons/bloom/apps/48', '/usr/share/icons/bloom/apps/32',
-          '/usr/share/icons/bloom-classic/apps/48',
-        ];
-        for (const dir of deepinIconDirs) {
-          for (const ext of exts) {
-            const p = pathDesk.join(dir, appName + ext);
-            if (fsDesk.existsSync(p)) {
-              try {
-                const nativeImage = require('electron').nativeImage;
-                const img = nativeImage.createFromPath(p);
-                if (!img.isEmpty()) return img.toDataURL();
-              } catch (e) {}
-            }
-          }
-        }
-      }
-
-      return '';
-    } catch (e) {
-      return '';
-    }
-  }
-
-  /**
    * 扫描桌面，按类型分类
    */
   async function scanDesktop() {
@@ -971,10 +811,6 @@ foreach($line in $lines){
           const img = await app.getFileIcon(it.fullPath, { size: 'normal' });
           if (img && !img.isEmpty()) icon = img.toDataURL();
         } catch (e) {}
-      }
-      // Linux .desktop 文件：解析 Icon 字段，从图标主题查找正确图标
-      if (!icon && platform.isLinux && it.ext === '.desktop') {
-        icon = resolveLinuxDesktopIcon(it.fullPath);
       }
       // 最终 emoji 后备
       if (!icon) icon = emojiMap[it.ext] || '📄';

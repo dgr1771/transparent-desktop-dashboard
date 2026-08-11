@@ -81,6 +81,8 @@
     if (isWidgetVisible('pomodoro')) PomodoroWidget.init();
     if (isWidgetVisible('links')) LinksWidget.init();
     if (isWidgetVisible('schulte')) SchulteWidget.init();
+    if (isWidgetVisible('woodfish')) WoodfishWidget.init();
+    if (isWidgetVisible('tarot')) TarotWidget.init();
     if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) DesktopWidget.init();
 
     // 监听刷新

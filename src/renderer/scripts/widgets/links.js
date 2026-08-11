@@ -16,13 +16,16 @@ const LinksWidget = {
 
   _render() {
     const links = Store.get('links') || [];
-    const items = links.map((l, i) => `
-      <a class="links__item no-drag" data-idx="${i}" title="${this._escape(l.url)}">
-        <span class="links__icon">${this._getIcon(l.name, l.url)}</span>
-        <span class="links__name">${this._escape(l.name)}</span>
-        <span class="links__del no-drag" data-del="${i}" title="删除">✕</span>
-      </a>
-    `).join('');
+    const items = links.map((l, i) => {
+      const iconHtml = this._getIconHtml(l.url);
+      return `
+        <a class="links__item no-drag" data-idx="${i}" title="${this._escape(l.url)}">
+          ${iconHtml}
+          <span class="links__name">${this._escape(l.name)}</span>
+          <span class="links__del no-drag" data-del="${i}" title="删除">✕</span>
+        </a>
+      `;
+    }).join('');
 
     const empty = links.length === 0
       ? `<div class="links__empty">添加常用网址，一键直达</div>` : '';
@@ -91,22 +94,20 @@ const LinksWidget = {
     });
   },
 
-  _getIcon(name, url) {
-    // 根据 URL 域名返回常用图标 emoji
-    const u = (url || '').toLowerCase();
-    if (u.includes('github')) return '🐙';
-    if (u.includes('google')) return '🔍';
-    if (u.includes('baidu')) return '🔍';
-    if (u.includes('youtube')) return '📺';
-    if (u.includes('bilibili') || u.includes('b站')) return '🎬';
-    if (u.includes('taobao') || u.includes('jd.com') || u.includes('购物')) return '🛒';
-    if (u.includes('mail') || u.includes('邮箱')) return '📧';
-    if (u.includes('chat') || u.includes('weixin') || u.includes('微信')) return '💬';
-    if (u.includes('doc') || u.includes('docs') || u.includes('文档')) return '📄';
-    if (u.includes('music') || u.includes('音乐')) return '🎵';
-    if (u.includes('map') || u.includes('地图')) return '🗺️';
-    if (u.includes('ai') || u.includes('gpt') || u.includes('chatgpt')) return '🤖';
-    return '🌐';
+  /** 获取网站图标 HTML（favicon）*/
+  _getIconHtml(url) {
+    try {
+      const u = new URL(url);
+      const domain = u.hostname;
+      // 用 Google Favicon API 获取网站真实图标
+      // 如果加载失败，后备用网站自己的 /favicon.ico，再失败用 emoji
+      const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+      return `<img class="links__favicon" src="${faviconUrl}"
+        onerror="this.onerror=null;this.src='${u.origin}/favicon.ico';this.onerror=()=>{this.style.display='none';this.nextElementSibling.style.display='inline'}"
+      ><span class="links__icon-fallback" style="display:none">🌐</span>`;
+    } catch (e) {
+      return '<span class="links__icon">🌐</span>';
+    }
   },
 
   _escape(s) {

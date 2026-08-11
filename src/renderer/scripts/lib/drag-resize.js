@@ -39,21 +39,6 @@ const DragResize = {
       isDragging = true;
       widget.classList.add('dragging');
 
-      // 如果卡片在缩略模式，拖动时自动放大到合适尺寸
-      if (widget._thumbnail) {
-        widget._thumbnail = false;
-        // 测量内容需要的高度
-        const oldW = widget.style.width;
-        widget.style.height = 'auto';
-        const inner = widget.querySelector('.widget__inner');
-        const contentH = inner ? inner.scrollHeight : 200;
-        const expandH = Math.max(120, Math.min(contentH + 4, window.innerHeight - 60));
-        widget.style.height = expandH + 'px';
-        // 宽度也调到合理大小（300px 比缩略宽更易看清内容）
-        const expandW = Math.min(320, window.innerWidth - 40);
-        widget.style.width = expandW + 'px';
-      }
-
       startX = e.clientX;
       startY = e.clientY;
 

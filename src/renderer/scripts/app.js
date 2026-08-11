@@ -276,69 +276,110 @@
    * 智能自动排列：根据屏幕尺寸排布可见卡片
    */
   /**
-   * 缩略排列：所有卡片以紧凑尺寸排列在屏幕上，确保全部可见。
-   * 用户拖动某个卡片时，该卡片自动放大到合适尺寸。
+   * 智能整理：保持卡片的位置和大小不变，
+   * 只做对齐（左右边缘、顶部底部、中心线）和统一间距。
+   * 类似 IDE 的"格式化代码"——不改变结构，只美化排列。
    */
   function autoArrange() {
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
-    const margin = 20;
-    const gap = 12;
+    const GAP = 16;  // 统一间距
 
-    // 收集可见卡片
-    const visibleEls = [];
+    // 收集可见卡片及其位置
+    const cards = [];
     document.querySelectorAll('.widget[data-widget]').forEach(el => {
-      if (el.style.display !== 'none') visibleEls.push(el);
+      if (el.style.display === 'none') return;
+      const left = parseInt(el.style.left) || 0;
+      const top = parseInt(el.style.top) || 0;
+      const w = parseInt(el.style.width) || 280;
+      const h = parseInt(el.style.height) || 200;
+      cards.push({ el, left, top, right: left + w, bottom: top + h, w, h });
     });
-    if (visibleEls.length === 0) return;
+    if (cards.length === 0) return;
 
-    // 根据卡片数量计算列数和每列宽度
-    // 目标：所有卡片在一屏内排完
-    const count = visibleEls.length;
-    let cols;
-    if (count <= 4) cols = count;
-    else if (count <= 6) cols = 3;
-    else if (count <= 9) cols = 4;
-    else cols = 5;
+    // 1. 统一左边距（找最左边的卡片，其他卡片向它对齐）
+    //    只对左侧的卡片（left < 屏幕一半）做左对齐
+    const screenMid = window.innerWidth / 2;
+    const leftCards = cards.filter(c => c.left < screenMid);
+    if (leftCards.length > 1) {
+      const minLeft = Math.min(...leftCards.map(c => c.left));
+      leftCards.forEach(c => {
+        // 按行分组：top 接近的视为同一行
+        const rowCards = leftCards.filter(o => Math.abs(o.top - c.top) < c.h * 0.5);
+        if (c === rowCards[0]) {
+          // 每行最左的卡片对齐
+          const rowMinLeft = Math.min(...rowCards.map(o => o.left));
+          // 微调到统一左边距
+          if (Math.abs(c.left - minLeft) < 100) c.left = minLeft;
+        }
+      });
+    }
 
-    const cardW = Math.floor((screenW - margin * 2 - gap * (cols - 1)) / cols);
-    // 每行高度按屏幕剩余空间均分
-    const rows = Math.ceil(count / cols);
-    const cardH = Math.floor((screenH - margin * 2 - gap * (rows - 1)) / rows);
-    const minH = 80;
-    const finalH = Math.max(minH, cardH);
-
-    // 网格排列
-    visibleEls.forEach((el, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = margin + col * (cardW + gap);
-      const y = margin + row * (finalH + gap);
-
-      el.style.left = x + 'px';
-      el.style.top = y + 'px';
-      el.style.width = cardW + 'px';
-      el.style.height = finalH + 'px';
-      el.style.right = 'auto';
-      el.style.bottom = 'auto';
-
-      // 标记为缩略模式（拖动时会放大）
-      el._thumbnail = true;
+    // 2. 统一顶部对齐（找最顶部卡片，同行卡片向它对齐）
+    cards.forEach(c => {
+      const rowCards = cards.filter(o => Math.abs(o.top - c.top) < Math.min(c.h, o.h) * 0.5);
+      if (rowCards.length > 1) {
+        const minTop = Math.min(...rowCards.map(o => o.top));
+        c.top = minTop;
+      }
     });
 
-    // 保存布局
+    // 3. 统一行间距（同行卡片之间统一 GAP 间距）
+    // 先按 top 分行
+    cards.sort((a, b) => a.top - b.top || a.left - b.left);
+    const rows = [];
+    let currentRow = [cards[0]];
+    for (let i = 1; i < cards.length; i++) {
+      if (Math.abs(cards[i].top - currentRow[0].top) < cards[i].h * 0.5) {
+        currentRow.push(cards[i]);
+      } else {
+        rows.push(currentRow);
+        currentRow = [cards[i]];
+      }
+    }
+    rows.push(currentRow);
+
+    // 4. 行间统一间距
+    let prevRowBottom = null;
+    rows.forEach((row, rowIdx) => {
+      row.sort((a, b) => a.left - b.left);
+
+      if (prevRowBottom !== null) {
+        // 本行 top = 上一行 bottom + GAP
+        const newTop = prevRowBottom + GAP;
+        row.forEach(c => c.top = newTop);
+      }
+
+      // 5. 列间统一间距（同行卡片左到右排列）
+      let prevRight = null;
+      row.forEach(c => {
+        if (prevRight !== null) {
+          // 保持相对间距但统一为 GAP
+          if (Math.abs(c.left - prevRight) < 200) {
+            c.left = prevRight + GAP;
+          }
+        }
+        prevRight = c.left + c.w;
+      });
+
+      prevRowBottom = Math.max(...row.map(c => c.top + c.h));
+    });
+
+    // 6. 应用到 DOM 并保存
     const displayKey = (window.__dashboard && window.__dashboard.displayKey) || 'primary';
     const displayLayout = Store.get('displayLayout') || {};
     if (!displayLayout[displayKey]) displayLayout[displayKey] = {};
-    visibleEls.forEach(el => {
-      const name = el.dataset.widget;
-      displayLayout[displayKey][name] = {
-        left: el.style.left, top: el.style.top,
-        width: el.style.width, height: el.style.height
+
+    cards.forEach(c => {
+      c.el.style.left = c.left + 'px';
+      c.el.style.top = c.top + 'px';
+      // 尺寸不变
+      displayLayout[displayKey][c.el.dataset.widget] = {
+        left: c.left + 'px', top: c.top + 'px',
+        width: c.w + 'px', height: c.h + 'px'
       };
     });
+
     Store.set('displayLayout', displayLayout);
-    console.log('[Dashboard] 缩略排列完成：', count, '个卡片，', cols, '列');
+    console.log('[Dashboard] 智能整理完成：', cards.length, '个卡片');
   }
 
   /** 主题定义表 */

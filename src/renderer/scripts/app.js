@@ -276,27 +276,61 @@
    * 智能自动排列：根据屏幕尺寸排布可见卡片
    */
   /**
-   * 自适应尺寸：保持卡片当前位置不变，只根据内容调整高度
+   * 缩略排列：所有卡片以紧凑尺寸排列在屏幕上，确保全部可见。
+   * 用户拖动某个卡片时，该卡片自动放大到合适尺寸。
    */
   function autoArrange() {
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
+    const margin = 20;
+    const gap = 12;
+
+    // 收集可见卡片
+    const visibleEls = [];
     document.querySelectorAll('.widget[data-widget]').forEach(el => {
-      if (el.style.display === 'none') return;
-      const oldW = el.style.width || '280px';
-      // 临时用 auto 高度测量内容
-      el.style.height = 'auto';
-      el.style.width = oldW;
-      const inner = el.querySelector('.widget__inner');
-      const contentH = inner ? inner.scrollHeight : 200;
-      const newH = Math.max(100, Math.min(contentH + 4, window.innerHeight - 60));
-      el.style.height = newH + 'px';
+      if (el.style.display !== 'none') visibleEls.push(el);
+    });
+    if (visibleEls.length === 0) return;
+
+    // 根据卡片数量计算列数和每列宽度
+    // 目标：所有卡片在一屏内排完
+    const count = visibleEls.length;
+    let cols;
+    if (count <= 4) cols = count;
+    else if (count <= 6) cols = 3;
+    else if (count <= 9) cols = 4;
+    else cols = 5;
+
+    const cardW = Math.floor((screenW - margin * 2 - gap * (cols - 1)) / cols);
+    // 每行高度按屏幕剩余空间均分
+    const rows = Math.ceil(count / cols);
+    const cardH = Math.floor((screenH - margin * 2 - gap * (rows - 1)) / rows);
+    const minH = 80;
+    const finalH = Math.max(minH, cardH);
+
+    // 网格排列
+    visibleEls.forEach((el, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = margin + col * (cardW + gap);
+      const y = margin + row * (finalH + gap);
+
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.style.width = cardW + 'px';
+      el.style.height = finalH + 'px';
+      el.style.right = 'auto';
+      el.style.bottom = 'auto';
+
+      // 标记为缩略模式（拖动时会放大）
+      el._thumbnail = true;
     });
 
-    // 保存调整后的布局（位置+尺寸）
+    // 保存布局
     const displayKey = (window.__dashboard && window.__dashboard.displayKey) || 'primary';
     const displayLayout = Store.get('displayLayout') || {};
     if (!displayLayout[displayKey]) displayLayout[displayKey] = {};
-    document.querySelectorAll('.widget[data-widget]').forEach(el => {
-      if (el.style.display === 'none') return;
+    visibleEls.forEach(el => {
       const name = el.dataset.widget;
       displayLayout[displayKey][name] = {
         left: el.style.left, top: el.style.top,
@@ -304,7 +338,7 @@
       };
     });
     Store.set('displayLayout', displayLayout);
-    console.log('[Dashboard] 已自适应卡片尺寸（位置不变）');
+    console.log('[Dashboard] 缩略排列完成：', count, '个卡片，', cols, '列');
   }
 
   /** 主题定义表 */

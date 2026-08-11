@@ -145,7 +145,7 @@ const WoodfishWidget = {
       const data = noiseBuf.getChannelData(0);
       for (let i = 0; i < data.length; i++) {
         data[i] = (Math.random() * 2 - 1) * Math.exp(-i / 50);
-
+      }
       noise.buffer = noiseBuf;
       const noiseFilter = ctx.createBiquadFilter();
       noiseFilter.type = 'bandpass';

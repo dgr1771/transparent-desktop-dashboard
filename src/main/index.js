@@ -175,10 +175,9 @@ function startProtectionTimers() {
     }, 500);
   }
 
-  // ===== 区域穿透：主进程 cursor 轮询 =====
-  // 优化：executeJavaScript 是昂贵的跨进程 IPC，用状态缓存避免重复调用
-  // 只在鼠标位置实际变化时才执行 executeJavaScript
-  if (platform.isWin || platform.isLinux) {
+  // ===== 区域穿透：主进程 cursor 轮询（仅 Windows）=====
+  // Linux 不使用穿透（setIgnoreMouseEvents 会导致整窗无法恢复）
+  if (platform.isWin) {  // 仅 Windows 使用穿透轮询
     let lastCursor = { x: -999, y: -999 };
     setInterval(() => {
       if (interactionMode) return;
@@ -624,6 +623,38 @@ function registerIpcHandlers() {
     if (typeof filePath === 'string') {
       shell.openPath(filePath);
     }
+  });
+
+  // ===== 插件加载：扫描 plugins/ 目录，返回每个插件的 manifest + 源码 =====
+  // 渲染进程据此动态注入 <script>/<style>，让 PluginRegistry.register 生效
+  ipcMain.handle('plugins:read', async () => {
+    const fs = require('fs');
+    const pluginsDir = isDev()
+      ? path.join(__dirname, '..', '..', 'plugins')           // 开发：项目根/plugins
+      : path.join(process.resourcesPath, 'plugins');          // 打包：resources/plugins
+    const result = [];
+    let entries = [];
+    try { entries = fs.readdirSync(pluginsDir, { withFileTypes: true }); }
+    catch (e) { return result; }                              // 目录不存在则返回空（非错误）
+
+    for (const ent of entries) {
+      if (!ent.isDirectory()) continue;
+      const dir = path.join(pluginsDir, ent.name);
+      const manifestPath = path.join(dir, 'manifest.json');
+      const entryPath = path.join(dir, 'index.js');
+      const stylePath = path.join(dir, 'style.css');
+      if (!fs.existsSync(manifestPath) || !fs.existsSync(entryPath)) continue;
+      try {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        const code = fs.readFileSync(entryPath, 'utf8');
+        let css = null;
+        try { css = fs.readFileSync(stylePath, 'utf8'); } catch (e) {}
+        result.push({ name: manifest.name || ent.name, manifest, code, css });
+      } catch (e) {
+        console.error(`[plugins] 读取 ${ent.name} 失败:`, e);
+      }
+    }
+    return result;
   });
 
   /**

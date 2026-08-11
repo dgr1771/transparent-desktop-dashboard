@@ -1,0 +1,13 @@
+{
+  "name": "daily-tarot",
+  "version": "1.0.0",
+  "author": "隔壁村布布",
+  "displayName": "🔮 每日塔罗",
+  "description": "每日抽一张今日牌，或抽三张牌阵（过去/现在/未来）。78 张大小阿尔卡那，本地牌义库，离线仪式感。",
+  "area": "main",
+  "defaultSize": { "w": 320, "h": 380 },
+  "priority": 3,
+  "permissions": ["storage"],
+  "refreshInterval": 0,
+  "entry": "index.js"
+}

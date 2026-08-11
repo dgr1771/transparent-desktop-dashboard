@@ -56,22 +56,21 @@ module.exports = {
         win.showInactive();
       }
     } else {
-      if (interactive) {
-        win.setAlwaysOnTop(true, 'screen-saver');
-        win.show();
-      } else {
-        win.setAlwaysOnTop(false);
-        win.showInactive();
-      }
+      // Linux：看板始终不穿透（可交互），设为底层（不挡其他窗口）
+      // 这样桌面图标和其他应用在看板上方，看板像壁纸一样在底层
+      win.setAlwaysOnTop(false);
+      win.showInactive();
     }
   },
 
   setClickThrough(win, ignore) {
     if (isLinux) {
-      try { win.setIgnoreMouseEvents(ignore, { forward: true }); } catch (e) {}
+      // Linux 上不使用 setIgnoreMouseEvents（会导致整窗穿透后无法恢复）
+      // 改用窗口层级控制：看板始终在底层，不挡桌面图标
+      // ignore 参数在 Linux 上被忽略
       return;
     }
-    win.setIgnoreMouseEvents(ignore, { forward: true });
+    try { win.setIgnoreMouseEvents(ignore, { forward: true }); } catch (e) {}
   },
 
   isTraySupported() {

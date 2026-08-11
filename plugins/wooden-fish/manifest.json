@@ -1,0 +1,13 @@
+{
+  "name": "wooden-fish",
+  "version": "1.0.0",
+  "author": "隔壁村布布",
+  "displayName": "🪵 电子木鱼",
+  "description": "敲木鱼攒功德，功德+1。今日/累计功德统计，连击加成，深色佛系质感。",
+  "area": "side",
+  "defaultSize": { "w": 260, "h": 320 },
+  "priority": 3,
+  "permissions": ["storage"],
+  "refreshInterval": 0,
+  "entry": "index.js"
+}

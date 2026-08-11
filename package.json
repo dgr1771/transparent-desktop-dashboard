@@ -38,6 +38,11 @@
       "!src/**/*.md"
     ],
     "extraResources": [
+      {
+        "from": "plugins",
+        "to": "plugins",
+        "filter": ["**/*", "!**/node_modules/**"]
+      },
       "tools/attach-desktop.exe"
     ],
     "win": {

@@ -1,9 +1,8 @@
 /* ============================================================
-   每日塔罗牌 - 每日一抽，22张大阿尔卡纳，正逆位解读
+   每日塔罗牌 - 支持单牌和三牌阵模式
    ============================================================ */
 
 const TarotWidget = {
-  // 22 张大阿尔卡纳牌数据
   MAJOR_ARCANA: [
     { num: 0,  name: '愚者', emoji: '🤡', upright: '新的开始、冒险、无限可能', reversed: '鲁莽、冲动、缺乏计划' },
     { num: 1,  name: '魔术师', emoji: '🎩', upright: '创造力、意志力、行动力', reversed: '欺骗、缺乏自信、能力不足' },
@@ -29,6 +28,8 @@ const TarotWidget = {
     { num: 21, name: '世界', emoji: '🌍', upright: '圆满、完成、成就', reversed: '未完成、停滞、差一步' },
   ],
 
+  _mode: 'single',  // 'single' 或 'three'
+
   init() {
     this._render();
   },
@@ -37,56 +38,125 @@ const TarotWidget = {
     const el = document.querySelector('.widget[data-widget="tarot"] .widget__inner');
     if (!el) return;
 
-    // 检查今天是否已抽牌
     const today = new Date().toDateString();
     const lastDraw = Store.get('tarotLastDraw');
-    const lastCard = Store.get('tarotLastCard');
-    const lastReversed = Store.get('tarotLastReversed');
+    const mode = Store.get('tarotMode') || 'single';
 
-    if (lastDraw === today && lastCard != null) {
+    if (lastDraw === today && Store.get('tarotResult')) {
       // 今天已抽牌，显示结果
-      el.innerHTML = this._renderResult(lastCard, lastReversed);
+      const result = Store.get('tarotResult');
+      el.innerHTML = this._renderResult(result);
     } else {
-      // 未抽牌，显示抽牌界面
-      el.innerHTML = this._renderDraw();
+      // 未抽牌
+      el.innerHTML = this._renderDraw(mode);
     }
-
     this._bindEvents();
   },
 
-  _renderDraw() {
+  _renderDraw(mode) {
+    const singleActive = mode !== 'three';
     return `
       <div class="tarot">
         <div class="tarot__header"><span>🔮 每日塔罗</span></div>
-        <div class="tarot__card-area">
-          <div class="tarot__card-back no-drag" id="tarot-draw">
-            <div class="tarot__card-pattern">
-              <div class="tarot__card-star">✦</div>
-              <div class="tarot__card-circle"></div>
-              <div class="tarot__card-inner-star">✧</div>
-            </div>
-            <div class="tarot__card-label">点击抽牌</div>
-          </div>
+        <div class="tarot__mode-switch no-drag">
+          <span class="tarot__mode-btn ${singleActive?'tarot__mode--active':''}" id="tarot-mode-single">单张</span>
+          <span class="tarot__mode-btn ${!singleActive?'tarot__mode--active':''}" id="tarot-mode-three">三牌阵</span>
         </div>
-        <div class="tarot__hint">静心冥想今日问题，然后抽一张牌</div>
+        <div class="tarot__card-area" id="tarot-card-area">
+          ${this._renderCards(mode)}
+        </div>
+        <div class="tarot__hint">${singleActive ? '静心冥想，抽一张牌' : '过去 · 现在 · 未来，抽三张牌'}</div>
       </div>
     `;
   },
 
-  _renderResult(cardIdx, isReversed) {
-    const card = this.MAJOR_ARCANA[cardIdx];
+  _renderCards(mode) {
+    if (mode === 'three') {
+      return `
+        <div class="tarot__three">
+          <div class="tarot__card-slot">
+            <div class="tarot__card-label-small">过去</div>
+            <div class="tarot__card-back no-drag tarot__draw-btn" data-pos="0">
+              <div class="tarot__card-pattern"><div class="tarot__card-star">✦</div></div>
+            </div>
+          </div>
+          <div class="tarot__card-slot">
+            <div class="tarot__card-label-small">现在</div>
+            <div class="tarot__card-back no-drag tarot__draw-btn" data-pos="1">
+              <div class="tarot__card-pattern"><div class="tarot__card-star">✦</div></div>
+            </div>
+          </div>
+          <div class="tarot__card-slot">
+            <div class="tarot__card-label-small">未来</div>
+            <div class="tarot__card-back no-drag tarot__draw-btn" data-pos="2">
+              <div class="tarot__card-pattern"><div class="tarot__card-star">✦</div></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    return `
+      <div class="tarot__card-back no-drag tarot__draw-btn" data-pos="0">
+        <div class="tarot__card-pattern">
+          <div class="tarot__card-star">✦</div>
+          <div class="tarot__card-circle"></div>
+          <div class="tarot__card-inner-star">✧</div>
+        </div>
+        <div class="tarot__card-label">点击抽牌</div>
+      </div>
+    `;
+  },
+
+  _renderResult(result) {
+    const mode = result.mode || 'single';
+    const drawDate = new Date();
+    const dateStr = `${drawDate.getMonth()+1}月${drawDate.getDate()}日`;
+
+    if (mode === 'three') {
+      const positions = ['过去', '现在', '未来'];
+      const cardsHtml = result.cards.map((c, i) => {
+        const card = this.MAJOR_ARCANA[c.idx];
+        const meaning = c.reversed ? card.reversed : card.upright;
+        const position = c.reversed ? '逆位' : '正位';
+        return `
+          <div class="tarot__three-card">
+            <div class="tarot__three-label">${positions[i]}</div>
+            <div class="tarot__card-front ${c.reversed ? 'tarot__reversed' : 'tarot__upright'} tarot__mini-card">
+              <div class="tarot__card-emoji ${c.reversed ? 'tarot__card-flipped' : ''}">${card.emoji}</div>
+              <div class="tarot__card-name-small">${card.name}</div>
+              <div class="tarot__card-position-small">${position}</div>
+            </div>
+            <div class="tarot__three-meaning">${meaning}</div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="tarot">
+          <div class="tarot__header">
+            <span>🔮 每日塔罗</span>
+            <span class="tarot__date">${dateStr}</span>
+          </div>
+          <div class="tarot__three tarot__three-result">${cardsHtml}</div>
+          <div class="tarot__hint">明日再来 ✨</div>
+        </div>
+      `;
+    }
+
+    // 单张结果
+    const card = this.MAJOR_ARCANA[result.cards[0].idx];
+    const isReversed = result.cards[0].reversed;
     const meaning = isReversed ? card.reversed : card.upright;
     const position = isReversed ? '逆位' : '正位';
-    const positionClass = isReversed ? 'tarot__reversed' : 'tarot__upright';
 
     return `
       <div class="tarot">
         <div class="tarot__header">
           <span>🔮 每日塔罗</span>
-          <span class="tarot__date">${new Date().getMonth()+1}月${new Date().getDate()}日</span>
+          <span class="tarot__date">${dateStr}</span>
         </div>
         <div class="tarot__card-area">
-          <div class="tarot__card-front ${positionClass}">
+          <div class="tarot__card-front ${isReversed ? 'tarot__reversed' : 'tarot__upright'}">
             <div class="tarot__card-emoji ${isReversed ? 'tarot__card-flipped' : ''}">${card.emoji}</div>
             <div class="tarot__card-num">${card.num}</div>
             <div class="tarot__card-name">${card.name}</div>
@@ -97,50 +167,109 @@ const TarotWidget = {
           <div class="tarot__meaning-label">${card.name} · ${position}</div>
           <div class="tarot__meaning-text">${meaning}</div>
         </div>
-        <div class="tarot__hint">明日再来抽取新牌 ✨</div>
+        <div class="tarot__hint">明日再来 ✨</div>
       </div>
     `;
   },
 
   _bindEvents() {
-    const drawBtn = document.getElementById('tarot-draw');
-    if (drawBtn) {
-      drawBtn.addEventListener('click', () => this._drawCard());
-    }
+    // 模式切换
+    const singleBtn = document.getElementById('tarot-mode-single');
+    const threeBtn = document.getElementById('tarot-mode-three');
+    if (singleBtn) singleBtn.addEventListener('click', () => { Store.set('tarotMode', 'single'); this._render(); });
+    if (threeBtn) threeBtn.addEventListener('click', () => { Store.set('tarotMode', 'three'); this._render(); });
+
+    // 抽牌
+    document.querySelectorAll('.tarot__draw-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const pos = parseInt(btn.dataset.pos) || 0;
+        this._drawOne(pos, btn);
+      });
+    });
   },
 
-  _drawCard() {
+  _drawOne(pos, btnEl) {
+    const mode = Store.get('tarotMode') || 'single';
     const cardIdx = Math.floor(Math.random() * this.MAJOR_ARCANA.length);
     const isReversed = Math.random() < 0.5;
 
-    // 保存结果（今天有效）
-    const today = new Date().toDateString();
-    Store.set('tarotLastDraw', today);
-    Store.set('tarotLastCard', cardIdx);
-    Store.set('tarotLastReversed', isReversed);
-
-    // 翻牌动画后显示结果
-    const drawEl = document.getElementById('tarot-draw');
-    if (drawEl) {
-      drawEl.style.transition = 'transform 0.6s';
-      drawEl.style.transform = 'rotateY(180deg) scale(0.8)';
-      drawEl.style.opacity = '0';
+    // 翻牌动画
+    if (btnEl) {
+      btnEl.style.transition = 'transform 0.5s, opacity 0.5s';
+      btnEl.style.transform = 'rotateY(180deg) scale(0.7)';
+      btnEl.style.opacity = '0';
     }
 
-    setTimeout(() => {
-      this._render();
-      // 新卡片入场动画
-      const el = document.querySelector('.widget[data-widget="tarot"] .widget__inner');
-      const front = el?.querySelector('.tarot__card-front');
-      if (front) {
-        front.style.transform = 'rotateY(180deg) scale(0.5)';
-        front.style.opacity = '0';
-        setTimeout(() => {
-          front.style.transition = 'transform 0.6s ease-out, opacity 0.4s';
-          front.style.transform = 'rotateY(0deg) scale(1)';
-          front.style.opacity = '1';
-        }, 50);
-      }
-    }, 600);
+    // 读取已有的抽牌结果（三牌阵可能已经抽了一两张）
+    let result = Store.get('tarotDrawProgress') || { mode, cards: [] };
+
+    // 填入对应位置
+    if (!result.cards) result.cards = [];
+    while (result.cards.length <= pos) result.cards.push(null);
+    result.cards[pos] = { idx: cardIdx, reversed: isReversed };
+    Store.set('tarotDrawProgress', result);
+
+    // 检查是否抽完
+    const totalNeeded = mode === 'three' ? 3 : 1;
+    const drawn = result.cards.filter(c => c !== null).length;
+
+    if (drawn >= totalNeeded) {
+      // 全部抽完，保存最终结果
+      setTimeout(() => {
+        const today = new Date().toDateString();
+        Store.set('tarotLastDraw', today);
+        Store.set('tarotResult', result);
+        Store.set('tarotDrawProgress', null);
+        this._render();
+      }, 500);
+    } else {
+      // 还有牌要抽，刷新界面
+      setTimeout(() => {
+        this._renderDrawPartial(result, mode);
+      }, 500);
+    }
+  },
+
+  /** 三牌阵部分抽完时的渲染 */
+  _renderDrawPartial(result, mode) {
+    const positions = ['过去', '现在', '未来'];
+    const html = `
+      <div class="tarot__three">
+        ${positions.map((label, i) => {
+          const c = result.cards[i];
+          if (c) {
+            // 已抽：显示牌面
+            const card = this.MAJOR_ARCANA[c.idx];
+            return `
+              <div class="tarot__card-slot">
+                <div class="tarot__card-label-small">${label}</div>
+                <div class="tarot__card-front ${c.reversed?'tarot__reversed':'tarot__upright'} tarot__mini-card">
+                  <div class="tarot__card-emoji ${c.reversed?'tarot__card-flipped':''}">${card.emoji}</div>
+                  <div class="tarot__card-name-small">${card.name}</div>
+                </div>
+              </div>
+            `;
+          }
+          // 未抽：显示牌背
+          return `
+            <div class="tarot__card-slot">
+              <div class="tarot__card-label-small">${label}</div>
+              <div class="tarot__card-back no-drag tarot__draw-btn" data-pos="${i}">
+                <div class="tarot__card-pattern"><div class="tarot__card-star">✦</div></div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+    const area = document.getElementById('tarot-card-area');
+    if (area) {
+      area.innerHTML = html;
+      document.querySelectorAll('.tarot__draw-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          this._drawOne(parseInt(btn.dataset.pos), btn);
+        });
+      });
+    }
   }
 };

@@ -65,6 +65,8 @@ const WeatherWidget = {
         el.innerHTML = `<div class="widget__error">${this._escape(data.error)}</div>`;
       } else {
         el.innerHTML = this._render(data, cfg);
+        // 天气联动效果
+        if (typeof WeatherFX !== 'undefined') WeatherFX.setWeather(data);
       }
       // 内容渲染后自适应高度
       this._adjustHeight();

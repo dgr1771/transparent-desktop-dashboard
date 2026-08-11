@@ -57,6 +57,7 @@
     ClickThrough.init();
     // 初始化桌面绿植
     if (typeof Plants !== "undefined") Plants.init();
+    if (typeof WeatherFX !== "undefined") WeatherFX.init();
 
     // 自动避让：不再用 MutationObserver 全局监听（太耗 CPU）
     // 改为只在 refreshAllWidgets 后触发一次（数据更新时才检查）

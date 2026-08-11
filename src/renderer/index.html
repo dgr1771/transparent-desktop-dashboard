@@ -8,6 +8,40 @@
   <link rel="stylesheet" href="styles/widgets.css">
 </head>
 <body>
+  <!-- 动态狗尾草（右下角装饰，微风吹拂摇摆效果） -->
+  <div id="grass-deco" style="position:fixed;bottom:0;right:20px;width:80px;height:140px;pointer-events:none;z-index:0;opacity:0.6;">
+    <svg viewBox="0 0 80 140" xmlns="http://www.w3.org/2000/svg" style="transform-origin:40px 140px;animation:grassSway 4s ease-in-out infinite;">
+      <!-- 茎杆 -->
+      <path d="M40 140 Q35 100 38 60 Q40 35 40 20" stroke="#84cc16" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <!-- 狗尾草穗 -->
+      <ellipse cx="40" cy="25" rx="10" ry="20" fill="url(#grassGrad)" stroke="#65a30d" stroke-width="0.8"/>
+      <!-- 绒毛 -->
+      <line x1="30" y1="20" x2="24" y2="14" stroke="#bef264" stroke-width="1" stroke-linecap="round"/>
+      <line x1="50" y1="20" x2="56" y2="14" stroke="#bef264" stroke-width="1" stroke-linecap="round"/>
+      <line x1="30" y1="28" x2="22" y2="24" stroke="#bef264" stroke-width="1" stroke-linecap="round"/>
+      <line x1="50" y1="28" x2="58" y2="24" stroke="#bef264" stroke-width="1" stroke-linecap="round"/>
+      <line x1="30" y1="36" x2="22" y2="34" stroke="#bef264" stroke-width="1" stroke-linecap="round"/>
+      <line x1="50" y1="36" x2="58" y2="34" stroke="#bef264" stroke-width="1" stroke-linecap="round"/>
+      <!-- 渐变定义 -->
+      <defs>
+        <radialGradient id="grassGrad" cx="50%" cy="30%">
+          <stop offset="0%" stop-color="#dcfce7"/>
+          <stop offset="60%" stop-color="#bef264"/>
+          <stop offset="100%" stop-color="#84cc16"/>
+        </radialGradient>
+      </defs>
+      <!-- 叶子 -->
+      <path d="M38 90 Q20 85 15 100 Q25 95 38 95" fill="#65a30d" opacity="0.7"/>
+      <path d="M42 100 Q60 95 65 110 Q55 105 42 105" fill="#65a30d" opacity="0.6"/>
+    </svg>
+  </div>
+  <style>
+    @keyframes grassSway {
+      0%, 100% { transform: rotate(-3deg); }
+      50% { transform: rotate(3deg); }
+    }
+  </style>
+
   <!-- 模式指示器（编辑模式时显示） -->
   <div id="mode-banner" class="mode-banner hidden">
     <span class="mode-banner__dot"></span>

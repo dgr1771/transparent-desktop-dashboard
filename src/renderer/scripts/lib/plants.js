@@ -61,7 +61,7 @@ const Plants = {
       // 容器不存在，创建
       this._container = document.createElement('div');
       this._container.id = 'grass-deco';
-      this._container.style.cssText = 'position:fixed;bottom:0;right:20px;width:80px;height:160px;pointer-events:none;z-index:0;opacity:0.65;';
+      this._container.style.cssText = 'position:fixed;bottom:0;right:20px;width:80px;height:160px;pointer-events:none;z-index:0;opacity:0.88;';
       document.body.appendChild(this._container);
     }
     // 读取配置
@@ -252,13 +252,22 @@ const Plants = {
     const response = document.getElementById('plant-response');
     if (!inner) return;
 
-    // 植物抖动
-    inner.style.transition = 'transform 0.1s';
-    inner.style.transform = 'scale(0.85)';
+    // 植物弹跳回应（更夸张更明显）
+    inner.style.transition = 'transform 0.08s';
+    inner.style.transform = 'scale(1.3) rotate(10deg)';
     setTimeout(() => {
-      inner.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
-      inner.style.transform = 'scale(1)';
-    }, 100);
+      inner.style.transition = 'transform 0.15s';
+      inner.style.transform = 'scale(0.85) rotate(-8deg)';
+    }, 80);
+    setTimeout(() => {
+      inner.style.transition = 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      inner.style.transform = 'scale(1) rotate(0)';
+    }, 230);
+    // 闪光效果
+    this._container.style.filter = 'drop-shadow(0 0 20px rgba(100,255,100,0.8)) drop-shadow(0 0 10px rgba(255,255,255,0.5))';
+    setTimeout(() => {
+      this._container.style.filter = 'drop-shadow(0 0 8px rgba(100,255,100,0.3)) drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+    }, 500);
 
     // 回应粒子效果（根据植物类型不同）
     if (response) {
@@ -280,7 +289,7 @@ const Plants = {
       for (let i = 0; i < effect.count; i++) {
         const span = document.createElement('span');
         span.textContent = effect.char;
-        span.style.cssText = `position:absolute;font-size:14px;left:${30+Math.random()*40}%;top:30%;animation:plantFloat 1.5s ease-out forwards;`;
+        span.style.cssText = `position:absolute;font-size:18px;left:${30+Math.random()*40}%;top:30%;animation:plantFloat 1.5s ease-out forwards;`;
         response.appendChild(span);
         setTimeout(() => span.remove(), 1500);
       }

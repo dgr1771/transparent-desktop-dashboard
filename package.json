@@ -38,7 +38,10 @@
       "!src/**/*.md"
     ],
     "extraResources": [
-      "tools/settool.exe"
+      {
+        "from": "tools/settool.exe",
+        "to": "tools/settool.exe"
+      }
     ],
     "win": {
       "icon": "assets/icons/icon.ico",

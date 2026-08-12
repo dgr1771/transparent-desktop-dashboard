@@ -56,7 +56,10 @@ internal static class DesktopHost
             }
             return true;
         }, IntPtr.Zero);
-        return worker != IntPtr.Zero ? worker : progman;
+        // 不能把看板挂到 Progman 或包含 SHELLDLL_DefView 的 WorkerW：
+        // 那两个窗口承载桌面图标，挂上去会把图标遮住。找不到独立 WorkerW
+        // 时让调用方失败并回退到普通 WS_EX_TOOLWINDOW 方案。
+        return worker;
     }
 
     private static void Attach(IntPtr hwnd)

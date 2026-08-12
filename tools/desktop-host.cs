@@ -6,6 +6,7 @@ internal static class DesktopHost
 {
     private const int GWL_STYLE = -16;
     private const int GWL_EXSTYLE = -20;
+    private const int GWLP_HWNDPARENT = -8;
     private const long WS_CHILD = 0x40000000L;
     private const long WS_POPUP = unchecked((long)0x80000000);
     private const long WS_EX_TOOLWINDOW = 0x00000080L;
@@ -16,6 +17,7 @@ internal static class DesktopHost
     private const uint SMTO_ABORTIFHUNG = 0x0002;
 
     private static readonly IntPtr HWND_TOP = IntPtr.Zero;
+    private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
     private static IntPtr worker;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -111,21 +113,21 @@ internal static class DesktopHost
         }
         RECT oldRect;
         if (!GetWindowRect(hwnd, out oldRect)) throw new Exception("window rect unavailable");
-        RECT parentRect;
-        GetWindowRect(parent, out parentRect);
-
         var style = GetLong(GetWindowLongPtr(hwnd, GWL_STYLE));
         var exStyle = GetLong(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
-        SetWindowLongPtr(hwnd, GWL_STYLE, Ptr((style & ~WS_POPUP) | WS_CHILD));
+        // Electron 透明窗口不能稳定地作为 WS_CHILD 渲染：Chromium 会被
+        // WorkerW 的客户区裁剪，导致所有组件看不见。保留顶层 POPUP，
+        // 仅把 WorkerW 设置为 owner，让它属于桌面宿主但仍按顶层窗口渲染。
+        SetWindowLongPtr(hwnd, GWL_STYLE, Ptr((style & ~WS_CHILD) | WS_POPUP));
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, Ptr(exStyle | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE));
-        SetParent(hwnd, parent);
-        var x = oldRect.Left - parentRect.Left;
-        var y = oldRect.Top - parentRect.Top;
+        SetWindowLongPtr(hwnd, GWLP_HWNDPARENT, parent);
+        var x = oldRect.Left;
+        var y = oldRect.Top;
         var width = oldRect.Right - oldRect.Left;
         var height = oldRect.Bottom - oldRect.Top;
-        SetWindowPos(hwnd, HWND_TOP, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
+        SetWindowPos(hwnd, HWND_BOTTOM, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
         ShowWindow(hwnd, 8); // SW_SHOWNA：显示但不抢焦点
-        SetWindowPos(hwnd, HWND_TOP, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
+        SetWindowPos(hwnd, HWND_BOTTOM, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
         Console.WriteLine("attached parent=" + parent.ToInt64());
     }
 
@@ -134,7 +136,7 @@ internal static class DesktopHost
         RECT oldRect;
         GetWindowRect(hwnd, out oldRect);
         var parent = FindWorker();
-        SetParent(hwnd, IntPtr.Zero);
+        SetWindowLongPtr(hwnd, GWLP_HWNDPARENT, IntPtr.Zero);
         var style = GetLong(GetWindowLongPtr(hwnd, GWL_STYLE));
         SetWindowLongPtr(hwnd, GWL_STYLE, Ptr((style & ~WS_CHILD) | WS_POPUP));
         SetWindowPos(hwnd, HWND_TOP, oldRect.Left, oldRect.Top,

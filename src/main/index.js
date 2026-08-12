@@ -284,30 +284,46 @@ function createWindowForDisplay(display) {
   win.on('restore', () => { diagLog('EVENT restore'); });
   win.on('show', () => { diagLog('EVENT show'); });
   win.on('close', (e) => { diagLog('EVENT close prevented=' + e.defaultPrevented); });
-  win.on('blur', () => { diagLog('EVENT blur'); });
+  win.on('blur', () => {
+    diagLog('EVENT blur');
+    if (win._userHidden) return;
+    // Win+D 不触发 minimize/hide，但触发 blur
+    // blur 后 500ms 检测：如果窗口 visible=true 但不是 focused，
+    // 很可能是 Win+D（ShowDesktop 把窗口在 DWM 层隐藏了）
+    setTimeout(() => {
+      if (win.isDestroyed() || win._userHidden) return;
+      if (win.isVisible() && !win.isFocused()) {
+        // 检查渲染进程是否认为窗口被隐藏
+        win.webContents.executeJavaScript('document.hidden', true).then(hidden => {
+          diagLog('blur检测: document.hidden=' + hidden);
+          if (hidden) {
+            // 渲染进程认为窗口被隐藏 = Win+D 确实隐藏了窗口
+            diagLog('blur → Win+D detected, recovering');
+            try {
+              win.setAlwaysOnTop(true, 'screen-saver');
+              win.show();
+              win.focus();
+              setTimeout(() => {
+                if (win.isDestroyed()) return;
+                win.setAlwaysOnTop(false);
+                platform.setClickThrough(win, !interactionMode);
+                diagLog('blur → recovered');
+              }, 300);
+            } catch (e) { diagLog('blur recover ERROR: ' + e.message); }
+          }
+        }).catch(() => {});
+      }
+    }, 500);
+  });
   win.on('focus', () => { diagLog('EVENT focus'); });
 
-  // Win+D 恢复：检测窗口不可见后置顶恢复
+  // 保留 minimize/hide 事件处理（以防某些场景触发）
   win.on('minimize', () => {
     if (win._userHidden) return;
     try {
       win.setAlwaysOnTop(true, 'screen-saver');
       win.showInactive();
-      diagLog('minimize → setAlwaysOnTop(true) + showInactive');
-      setTimeout(() => {
-        if (win.isDestroyed() || win._userHidden) return;
-        win.setAlwaysOnTop(false);
-        platform.setClickThrough(win, !interactionMode);
-        diagLog('minimize → 500ms后 setAlwaysOnTop(false)');
-      }, 500);
-    } catch (e) { diagLog('minimize ERROR: ' + e.message); }
-  });
-  win.on('hide', () => {
-    if (win._userHidden) return;
-    try {
-      win.setAlwaysOnTop(true, 'screen-saver');
-      win.showInactive();
-      diagLog('hide → setAlwaysOnTop(true) + showInactive');
+      diagLog('minimize → recovered');
       setTimeout(() => {
         if (win.isDestroyed() || win._userHidden) return;
         win.setAlwaysOnTop(false);

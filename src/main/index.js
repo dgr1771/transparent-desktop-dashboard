@@ -129,43 +129,50 @@ function createWindowForDisplay(display) {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
-  // Win+D 防护：拦截 minimize/hide/restore 事件，强制恢复
-  // _userHidden 标志：只有用户主动点"显示/隐藏看板"才设为 true
-  // 其他所有最小化/隐藏都立即恢复
+  // Win+D 防护：同步立即恢复（不用 setImmediate，直接在事件回调里恢复）
+  // Win+D 的 MinimizeAll 是同步操作，必须同步拦截
   win.on('minimize', () => {
     if (win._userHidden) return;
-    setImmediate(() => {
-      if (win.isDestroyed()) return;
-      try {
-        win.setSkipTaskbar(true);
-        win.restore();
-        win.showInactive();
-        platform.setWindowLevel(win, interactionMode);
-        platform.setClickThrough(win, !interactionMode);
-      } catch (e) {}
-    });
+    // 同步恢复——不给 Windows 最小化动画的时间
+    try {
+      win.setSkipTaskbar(true);
+      win.restore();
+      win.showInactive();
+      platform.setWindowLevel(win, interactionMode);
+      platform.setClickThrough(win, !interactionMode);
+    } catch (e) {}
+    // 再延迟恢复一次（防止 Win+D 的 ToggleDesktop 两步操作覆盖）
+    setTimeout(() => {
+      if (win.isDestroyed() || win._userHidden) return;
+      if (win.isMinimized() || !win.isVisible()) {
+        try {
+          win.restore();
+          win.showInactive();
+          platform.setWindowLevel(win, interactionMode);
+          platform.setClickThrough(win, !interactionMode);
+        } catch (e) {}
+      }
+    }, 50);
+    setTimeout(() => {
+      if (win.isDestroyed() || win._userHidden) return;
+      if (win.isMinimized() || !win.isVisible()) {
+        try { win.restore(); win.showInactive(); } catch (e) {}
+      }
+    }, 200);
   });
   win.on('hide', () => {
     if (win._userHidden) return;
-    setImmediate(() => {
-      if (win.isDestroyed()) return;
-      try {
-        win.showInactive();
-        platform.setWindowLevel(win, interactionMode);
-        platform.setClickThrough(win, !interactionMode);
-      } catch (e) {}
-    });
-  });
-  // 最小化后恢复时也要重新设置穿透
-  win.on('restore', () => {
-    if (win._userHidden) return;
-    setImmediate(() => {
-      if (win.isDestroyed()) return;
-      try {
-        platform.setWindowLevel(win, interactionMode);
-        platform.setClickThrough(win, !interactionMode);
-      } catch (e) {}
-    });
+    try {
+      win.showInactive();
+      platform.setWindowLevel(win, interactionMode);
+      platform.setClickThrough(win, !interactionMode);
+    } catch (e) {}
+    setTimeout(() => {
+      if (win.isDestroyed() || win._userHidden) return;
+      if (!win.isVisible()) {
+        try { win.showInactive(); } catch (e) {}
+      }
+    }, 50);
   });
 
   // 开发模式：只给主屏窗口开 DevTools

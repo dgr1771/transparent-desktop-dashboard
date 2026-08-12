@@ -98,8 +98,13 @@ function setWindowsDesktopHost(win, attach, reason = 'unknown') {
     const hwnd = nativeHandle.length >= 4 ? nativeHandle.readUInt32LE(0) : 0;
     if (!hwnd) throw new Error('native window handle is empty');
     execFile(exePath, [String(hwnd), attach ? 'attach' : 'detach'], { timeout: 3000, windowsHide: true }, (error, stdout, stderr) => {
-      if (error) console.error(`[desktop-host] ${attach ? 'attach' : 'detach'} failed (${reason})`, error.message, stderr || '');
-      else console.info(`[desktop-host] ${attach ? 'attached' : 'detached'} (${reason})`, stdout.trim());
+      if (error) {
+        console.error(`[desktop-host] ${attach ? 'attach' : 'detach'} failed (${reason})`, error.message, stderr || '');
+        // SSH/服务会话没有 Progman/WorkerW 时，保留旧的工具窗口方案作为安全回退。
+        if (attach) applyWindowsToolWindow(win, `desktop-host-fallback:${reason}`);
+      } else {
+        console.info(`[desktop-host] ${attach ? 'attached' : 'detached'} (${reason})`, stdout.trim());
+      }
     });
   } catch (error) {
     console.error(`[desktop-host] unable to change host (${reason})`, error);

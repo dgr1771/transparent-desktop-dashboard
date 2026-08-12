@@ -129,15 +129,43 @@ function createWindowForDisplay(display) {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
-  // Windows：Win+D 防护——minimize 事件同步立即恢复
-  // 不用 WorkerW/ToolWindow（副作用太大），用事件级拦截 + 高频兜底
+  // Win+D 防护：拦截 minimize/hide/restore 事件，强制恢复
+  // _userHidden 标志：只有用户主动点"显示/隐藏看板"才设为 true
+  // 其他所有最小化/隐藏都立即恢复
   win.on('minimize', () => {
     if (win._userHidden) return;
-    try { win.restore(); win.showInactive(); } catch (e) {}
+    setImmediate(() => {
+      if (win.isDestroyed()) return;
+      try {
+        win.setSkipTaskbar(true);
+        win.restore();
+        win.showInactive();
+        platform.setWindowLevel(win, interactionMode);
+        platform.setClickThrough(win, !interactionMode);
+      } catch (e) {}
+    });
   });
   win.on('hide', () => {
     if (win._userHidden) return;
-    try { win.showInactive(); } catch (e) {}
+    setImmediate(() => {
+      if (win.isDestroyed()) return;
+      try {
+        win.showInactive();
+        platform.setWindowLevel(win, interactionMode);
+        platform.setClickThrough(win, !interactionMode);
+      } catch (e) {}
+    });
+  });
+  // 最小化后恢复时也要重新设置穿透
+  win.on('restore', () => {
+    if (win._userHidden) return;
+    setImmediate(() => {
+      if (win.isDestroyed()) return;
+      try {
+        platform.setWindowLevel(win, interactionMode);
+        platform.setClickThrough(win, !interactionMode);
+      } catch (e) {}
+    });
   });
 
   // 开发模式：只给主屏窗口开 DevTools
@@ -156,7 +184,7 @@ function createWindowForDisplay(display) {
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
-  // Win+D 兜底：500ms 检测（事件级防护已处理绝大多数情况，这里只兜底）
+  // Win+D 兜底：100ms 极高频检测（确保任何最小化/隐藏都立即恢复）
   if (platform.isWin) {
     setInterval(() => {
       for (const win of windows.values()) {
@@ -171,7 +199,7 @@ function startProtectionTimers() {
           } catch (err) {}
         }
       }
-    }, 500);
+    }, 100);
   }
 
   // ===== 区域穿透：主进程 cursor 轮询 =====

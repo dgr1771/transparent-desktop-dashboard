@@ -270,44 +270,33 @@ function createWindowForDisplay(display) {
     });
   }
 
-  // 拦截窗口关闭（Alt+Space → 关闭）：阻止意外关闭
-  // Win+D 的 MinimizeAll 是同步操作，必须同步拦截
+  // Win+D 恢复：窗口没被最小化（API显示visible），但 DWM 把它放到了桌面图标层后面
+  // 需要强制提到前面：先置顶再取消置顶，让 DWM 重新合成到正确层级
   win.on('minimize', () => {
     if (win._userHidden) return;
+    // 不调 restore/showInactive（会导致渲染问题），直接强制 z-order
     try {
-      win.setSkipTaskbar(true);
-      win.restore();
+      win.setAlwaysOnTop(true, 'screen-saver');
       win.showInactive();
-      platform.setWindowLevel(win, interactionMode);
-      platform.setClickThrough(win, !interactionMode);
+      // 500ms 后取消置顶（回到正常层级，不挡其他窗口）
+      setTimeout(() => {
+        if (win.isDestroyed() || win._userHidden) return;
+        win.setAlwaysOnTop(false);
+        platform.setClickThrough(win, !interactionMode);
+      }, 500);
     } catch (e) {}
-    // 延迟重新附加 WorkerW（恢复后需要重新挂到桌面层）
-    win._desktopHosted = false;
-    setTimeout(() => {
-      if (win.isDestroyed() || win._userHidden) return;
-      setWindowsDesktopHost(win, true, 'minimize-recovery');
-    }, 100);
-    setTimeout(() => {
-      if (win.isDestroyed() || win._userHidden) return;
-      if (win.isMinimized() || !win.isVisible()) {
-        try { win.restore(); win.showInactive(); } catch (e) {}
-      }
-      setWindowsDesktopHost(win, true, 'delayed-recovery');
-    }, 300);
   });
   win.on('hide', () => {
     if (win._userHidden) return;
     try {
+      win.setAlwaysOnTop(true, 'screen-saver');
       win.showInactive();
-      platform.setWindowLevel(win, interactionMode);
-      platform.setClickThrough(win, !interactionMode);
+      setTimeout(() => {
+        if (win.isDestroyed() || win._userHidden) return;
+        win.setAlwaysOnTop(false);
+        platform.setClickThrough(win, !interactionMode);
+      }, 500);
     } catch (e) {}
-    setTimeout(() => {
-      if (win.isDestroyed() || win._userHidden) return;
-      if (!win.isVisible()) {
-        try { win.showInactive(); } catch (e) {}
-      }
-    }, 50);
   });
 
   // 开发模式：只给主屏窗口开 DevTools
@@ -342,18 +331,16 @@ function startProtectionTimers() {
       for (const win of windows.values()) {
         if (!win || win.isDestroyed() || win._userHidden) continue;
         if (win.isMinimized() || !win.isVisible()) {
+          // Win+D 后窗口被隐藏——用置顶恢复（DWM 层级问题）
           try {
-            win.setSkipTaskbar(true);
-            win.restore();
+            win.setAlwaysOnTop(true, 'screen-saver');
             win.showInactive();
-            platform.setWindowLevel(win, interactionMode);
+            win.setAlwaysOnTop(false);
             platform.setClickThrough(win, !interactionMode);
           } catch (err) {}
         }
-        // 持续重新应用 WS_EX_TOOLWINDOW（防止 Electron 覆盖）
-        applyWindowsToolWindow(win, 'periodic-reapply');
       }
-    }, 30);
+    }, 200);
   }
 
   // ===== 区域穿透：主进程 cursor 轮询 =====

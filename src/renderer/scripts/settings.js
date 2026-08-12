@@ -71,6 +71,10 @@
     { key: 'fern',     name: '波士顿蕨', emoji: '🌱', desc: '轻盈、舒展有生气' },
     { key: 'lavender', name: '薰衣草', emoji: '💜', desc: '安静、柔和治愈' },
     { key: 'pothos',   name: '绿萝', emoji: '🍃', desc: '明亮、耐看常青' },
+    { key: 'rose',     name: '粉色玫瑰', emoji: '🌹', desc: '浪漫、热烈而温柔' },
+    { key: 'hydrangea', name: '蓝白绣球', emoji: '💠', desc: '清爽、丰盛有层次' },
+    { key: 'orchid',   name: '蝴蝶兰', emoji: '🪻', desc: '优雅、安静高级' },
+    { key: 'sunflower', name: '向日葵', emoji: '🌻', desc: '明亮、积极有能量' },
   ];
 
   function initPlantPicker() {
@@ -103,7 +107,7 @@
 
   function selectPlantInPicker(plantKey) {
     _selectedPlant = plantKey || 'fern';
-    const legacyMap = { grass: 'fern', clover: 'pothos', cherry: 'lavender', sunflower: 'monstera', bamboo: 'monstera', cactus: 'monstera', lotus: 'lavender', sapling: 'pothos', maple: 'monstera', rose: 'lavender' };
+    const legacyMap = { grass: 'fern', clover: 'pothos', cherry: 'lavender', bamboo: 'monstera', cactus: 'monstera', lotus: 'lavender', sapling: 'pothos', maple: 'monstera' };
     _selectedPlant = legacyMap[_selectedPlant] || _selectedPlant;
     const container = document.getElementById('plant-picker');
     if (!container) return;

@@ -300,16 +300,12 @@ function createWindowForDisplay(display) {
             // 渲染进程认为窗口被隐藏 = Win+D 确实隐藏了窗口
             diagLog('blur → Win+D detected, recovering');
             try {
-              // 用 showInactive 恢复（不抢焦点，不遮挡其他窗口）
+              // 瞬间置顶+取消：触发 DWM 重新合成，但不停留（不遮挡其他窗口）
+              win.setAlwaysOnTop(true);
               win.showInactive();
-              // 短暂置顶让 DWM 重新合成窗口到可见层
-              win.setAlwaysOnTop(true, 'normal');
-              setTimeout(() => {
-                if (win.isDestroyed()) return;
-                win.setAlwaysOnTop(false);
-                platform.setClickThrough(win, !interactionMode);
-                diagLog('blur → recovered');
-              }, 100);
+              win.setAlwaysOnTop(false);
+              platform.setClickThrough(win, !interactionMode);
+              diagLog('blur → recovered');
             } catch (e) { diagLog('blur recover ERROR: ' + e.message); }
           }
         }).catch(() => {});

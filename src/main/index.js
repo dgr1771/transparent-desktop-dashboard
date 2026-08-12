@@ -481,11 +481,6 @@ function updateTrayMenu() {
  * 注册全局快捷键
  */
 function registerShortcuts() {
-  // 拦截 Win+D（显示桌面）——注册后 Win+D 被看板吞掉，不传递给系统
-  globalShortcut.register('Super+D', () => {
-    // 什么都不做——吞掉 Win+D，防止看板被最小化
-  });
-
   // Ctrl+Shift+D 切换编辑模式
   globalShortcut.register('CommandOrControl+Shift+D', () => {
     toggleInteractionMode();

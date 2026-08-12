@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 
 internal static class DesktopHost
 {
@@ -24,6 +25,7 @@ internal static class DesktopHost
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindow(string cls, string title);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr childAfter, string cls, string title);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
     [DllImport("user32.dll")] private static extern uint SendMessageTimeout(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
     [DllImport("user32.dll")] private static extern IntPtr SetParent(IntPtr child, IntPtr parent);
@@ -35,6 +37,11 @@ internal static class DesktopHost
 
     private static long GetLong(IntPtr value) { return IntPtr.Size == 8 ? value.ToInt64() : value.ToInt32(); }
     private static IntPtr Ptr(long value) { return IntPtr.Size == 8 ? new IntPtr(value) : new IntPtr((int)value); }
+    private static bool IsClass(IntPtr hwnd, string expected)
+    {
+        var name = new StringBuilder(64);
+        return hwnd != IntPtr.Zero && GetClassName(hwnd, name, name.Capacity) > 0 && name.ToString() == expected;
+    }
 
     private static void ApplyToolStyle(IntPtr hwnd)
     {
@@ -50,23 +57,44 @@ internal static class DesktopHost
         if (progman != IntPtr.Zero)
         {
             IntPtr ignored;
+            // 不同 Windows 版本对 Progman 的桌面宿主创建消息参数不同，
+            // 两种形式都发送，确保独立 WorkerW 被创建出来。
+            SendMessageTimeout(progman, 0x052C, new IntPtr(0xD), new IntPtr(0xD), SMTO_ABORTIFHUNG, 1000, out ignored);
             SendMessageTimeout(progman, 0x052C, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, 1000, out ignored);
         }
 
-        worker = IntPtr.Zero;
+        IntPtr iconHost = IntPtr.Zero;
         EnumWindows((top, unused) =>
         {
             var shellView = FindWindowEx(top, IntPtr.Zero, "SHELLDLL_DefView", null);
             if (shellView != IntPtr.Zero)
             {
-                worker = FindWindowEx(IntPtr.Zero, top, "WorkerW", null);
+                // 这是承载桌面图标的宿主，不能把看板挂到它上面。
+                iconHost = top;
                 return false;
             }
             return true;
         }, IntPtr.Zero);
-        // 不能把看板挂到 Progman 或包含 SHELLDLL_DefView 的 WorkerW：
-        // 那两个窗口承载桌面图标，挂上去会把图标遮住。找不到独立 WorkerW
-        // 时让调用方失败并回退到普通 WS_EX_TOOLWINDOW 方案。
+
+        if (iconHost != IntPtr.Zero)
+        {
+            // 标准桌面层：取图标宿主之后的独立 WorkerW。
+            worker = FindWindowEx(IntPtr.Zero, iconHost, "WorkerW", null);
+            if (worker != IntPtr.Zero) return worker;
+        }
+
+        // 某些 Windows 版本会创建多个 WorkerW，但枚举顺序不同；
+        // 选择不包含 SHELLDLL_DefView 的 WorkerW，绝不使用 Progman。
+        worker = IntPtr.Zero;
+        EnumWindows((top, unused) =>
+        {
+            if (FindWindowEx(top, IntPtr.Zero, "SHELLDLL_DefView", null) == IntPtr.Zero && IsClass(top, "WorkerW"))
+            {
+                worker = top;
+                return false;
+            }
+            return true;
+        }, IntPtr.Zero);
         return worker;
     }
 

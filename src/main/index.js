@@ -318,7 +318,7 @@ function startProtectionTimers() {
           } catch (err) {}
         }
       }
-    }, 100);
+    }, 30);
   }
 
   // ===== 区域穿透：主进程 cursor 轮询 =====

@@ -157,6 +157,36 @@ body.interactive .widget__resize {
   color: rgba(255, 255, 255, 0.35);
 }
 
+/* 木鱼 */
+.mokugyo { height:100%; display:flex; flex-direction:column; align-items:center; color:#fef3c7; position:relative; }
+.mokugyo__title,.tarot__title { font-size:14px; font-weight:600; color:#fde68a; }
+.mokugyo__stage { position:relative; border:0; background:transparent; cursor:pointer; padding:0; width:150px; height:160px; }
+.mokugyo__stage img { width:150px; height:150px; object-fit:contain; transition:transform .12s; }
+.mokugyo__stage:hover img { filter:drop-shadow(0 0 12px rgba(251,191,36,.65)); }
+.mokugyo--hit img { animation:mokugyoHit .32s ease-out; }
+.mokugyo__sparkle { position:absolute; right:5px; top:20px; color:#fde68a; opacity:0; }
+.mokugyo--hit .mokugyo__sparkle { animation:mokugyoSparkle .7s ease-out; }
+.mokugyo__merit { font-size:16px; color:#fef3c7; }
+.mokugyo__merit b { color:#fbbf24; font-size:24px; margin-left:5px; }
+.mokugyo__hint { color:rgba(254,243,199,.55); font-size:11px; }
+.mokugyo__plus { position:absolute; top:85px; color:#fbbf24; font-weight:700; animation:mokugyoPlus .9s ease-out forwards; pointer-events:none; }
+@keyframes mokugyoHit { 0%,100%{transform:rotate(0) scale(1)} 35%{transform:rotate(-8deg) scale(.92)} 70%{transform:rotate(5deg) scale(1.04)} }
+@keyframes mokugyoSparkle { 0%{opacity:0;transform:scale(.4)} 30%{opacity:1;transform:scale(1.4)} 100%{opacity:0;transform:translate(15px,-22px) scale(.7)} }
+@keyframes mokugyoPlus { 0%{opacity:0;transform:translateY(10px)} 20%{opacity:1} 100%{opacity:0;transform:translateY(-32px)} }
+
+/* 每日塔罗 */
+.tarot { height:100%; display:flex; flex-direction:column; align-items:center; gap:8px; color:#f5f3ff; }
+.tarot__card { width:150px; height:190px; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:14px; text-align:center; background:linear-gradient(145deg,#312e81,#7c3aed); border:1px solid rgba(196,181,253,.6); box-shadow:0 8px 22px rgba(76,29,149,.35); }
+.tarot__back { font-size:48px; color:#fef3c7; text-shadow:0 0 16px #fbbf24; }
+.tarot__back small { display:block; font-size:12px; margin-top:10px; color:#ddd6fe; }
+.tarot__emoji { font-size:34px; margin-bottom:8px; }
+.tarot__card b { color:#fde68a; font-size:16px; }
+.tarot__card p { color:#ede9fe; font-size:11px; line-height:1.5; margin-top:8px; }
+.tarot__card--flip { animation:tarotFlip .52s ease-in-out; }
+.tarot__btn { border:1px solid rgba(196,181,253,.5); background:rgba(124,58,237,.4); color:#f5f3ff; border-radius:999px; padding:6px 12px; font-size:11px; cursor:pointer; }
+.tarot__btn:disabled { opacity:.65; cursor:default; }
+@keyframes tarotFlip { 50%{transform:rotateY(90deg) scale(.94);opacity:.5} }
+
 /* ============================================================
    时钟卡片
    ============================================================ */

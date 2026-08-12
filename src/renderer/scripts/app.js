@@ -84,6 +84,8 @@
     if (isWidgetVisible('pomodoro')) PomodoroWidget.init();
     if (isWidgetVisible('links')) LinksWidget.init();
     if (isWidgetVisible('schulte')) SchulteWidget.init();
+    if (isWidgetVisible('mokugyo')) MokugyoWidget.init();
+    if (isWidgetVisible('tarot')) TarotWidget.init();
     if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) DesktopWidget.init();
 
     // 监听刷新
@@ -422,6 +424,8 @@
       pomodoro: () => PomodoroWidget.init(),
       links: () => LinksWidget.init(),
       schulte: () => SchulteWidget.init(),
+      mokugyo: () => MokugyoWidget.init(),
+      tarot: () => TarotWidget.init(),
     };
     // desktop 特殊处理
     if (name === 'apps' || name === 'deskfolders' || name === 'deskfiles') {

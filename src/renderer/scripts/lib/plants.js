@@ -13,6 +13,7 @@ const Plants = {
     hydrangea: { name: '蓝白绣球', emoji: '💠', desc: '清爽、丰盛有层次', swaySpeed: '7.5s' },
     orchid: { name: '蝴蝶兰', emoji: '🪻', desc: '优雅、安静高级', swaySpeed: '8.5s' },
     sunflower: { name: '向日葵', emoji: '🌻', desc: '明亮、积极有能量', swaySpeed: '6.5s' },
+    custom: { name: '我的图片', emoji: '🖼️', desc: '自定义上传的植物或花朵', swaySpeed: '7s' },
   },
 
   LEGACY_MAP: { grass: 'fern', clover: 'pothos', cherry: 'lavender', bamboo: 'monstera', cactus: 'monstera', lotus: 'lavender', sapling: 'pothos', maple: 'monstera' },
@@ -59,7 +60,7 @@ const Plants = {
         }
       </style>
       <div id="plant-sway" style="height:100%;display:flex;align-items:flex-end;justify-content:center;transform-origin:50% 100%;animation:${animName} ${duration} ease-in-out infinite;">
-        <img id="plant-img" src="assets/plants-v2/${this._current}.png"
+        <img id="plant-img" src="${this._current === 'custom' ? (Store.get('customPlantImage') || 'assets/plants-v2/fern.png') : `assets/plants-v2/${this._current}.png`}"
              style="width:120px;height:auto;user-select:none;-webkit-user-drag:none;display:block;"
              draggable="false">
       </div>
@@ -114,6 +115,7 @@ const Plants = {
         hydrangea: { char: '💠', count: 3, color: '#93c5fd' },
         orchid: { char: '🪻', count: 3, color: '#c084fc' },
         sunflower: { char: '🌻', count: 2, color: '#facc15' },
+        custom: { char: '✨', count: 2, color: '#fbbf24' },
         grass: { char: '🍃', count: 2, color: '#84cc16' },
         maple: { char: '🍁', count: 2, color: '#dc2626' },
         bamboo: { char: '🎋', count: 2, color: '#65a30d' },

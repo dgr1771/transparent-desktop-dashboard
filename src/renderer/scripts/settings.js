@@ -66,6 +66,7 @@
 
   // ===== 绿植选择器 =====
   let _selectedPlant = 'fern';
+  let _customPlantImage = '';
   const PLANT_LIST = [
     { key: 'monstera', name: '龟背竹', emoji: '🌿', desc: '热带、清新自然' },
     { key: 'fern',     name: '波士顿蕨', emoji: '🌱', desc: '轻盈、舒展有生气' },
@@ -75,6 +76,7 @@
     { key: 'hydrangea', name: '蓝白绣球', emoji: '💠', desc: '清爽、丰盛有层次' },
     { key: 'orchid',   name: '蝴蝶兰', emoji: '🪻', desc: '优雅、安静高级' },
     { key: 'sunflower', name: '向日葵', emoji: '🌻', desc: '明亮、积极有能量' },
+    { key: 'custom',   name: '我的图片', emoji: '🖼️', desc: '上传自己的植物或花朵' },
   ];
 
   function initPlantPicker() {
@@ -87,7 +89,8 @@
         background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.1);
         display:flex;align-items:center;justify-content:center;overflow:hidden;
         transition:border-color 0.15s,transform 0.1s;`;
-      btn.innerHTML = `<img src="assets/plants-v2/${p.key}.png" alt="${p.name}" style="width:58px;height:68px;object-fit:contain;pointer-events:none;">`;
+      const src = p.key === 'custom' ? 'assets/plants-v2/fern.png' : `assets/plants-v2/${p.key}.png`;
+      btn.innerHTML = `<img src="${src}" alt="${p.name}" style="width:58px;height:68px;object-fit:contain;pointer-events:none;">`;
       btn.title = p.name;
       btn.dataset.plantKey = p.key;
       btn.addEventListener('click', () => {
@@ -141,7 +144,9 @@
     { key: 'deskfolders',name: '📂 桌面文件夹', desc: '目录' },
     { key: 'deskfiles',  name: '📄 桌面文件', desc: '文档等' },
     { key: 'news',       name: '📰 新闻',    desc: 'AI 资讯' },
-    { key: 'hotsearch',  name: '🔥 热搜',    desc: '头条热榜' }
+    { key: 'hotsearch',  name: '🔥 热搜',    desc: '头条热榜' },
+    { key: 'mokugyo',    name: '🪵 敲木鱼', desc: '点击积累功德' },
+    { key: 'tarot',      name: '🔮 每日塔罗', desc: '每日运势小游戏' }
   ];
 
   document.addEventListener('DOMContentLoaded', async () => {
@@ -164,6 +169,15 @@
     document.getElementById('btn-add-source').addEventListener('click', addSourceRow);
     document.getElementById('btn-save').addEventListener('click', save);
     document.getElementById('btn-cancel').addEventListener('click', () => window.close());
+
+    document.getElementById('plant-upload').addEventListener('change', handlePlantUpload);
+    document.getElementById('btn-clear-custom-plant').addEventListener('click', () => {
+      _customPlantImage = '';
+      if (_selectedPlant === 'custom') _selectedPlant = 'fern';
+      document.getElementById('plant-upload').value = '';
+      renderCustomPlantUpload();
+      selectPlantInPicker(_selectedPlant);
+    });
 
     document.getElementById('global-opacity').addEventListener('input', (e) => {
       document.getElementById('opacity-value').textContent = e.target.value + '%';
@@ -307,6 +321,8 @@
     // 主题
     selectThemeInPicker(cfg.settings?.theme);
     selectPlantInPicker(cfg.plant || 'grass');
+    _customPlantImage = cfg.customPlantImage || '';
+    renderCustomPlantUpload();
 
     // 关于：版本号
     const versionEl = document.getElementById('about-version');
@@ -318,6 +334,44 @@
 
     // 模块显隐
     renderWidgetsChecklist(cfg.settings?.visibleWidgets || {});
+  }
+
+  function renderCustomPlantUpload() {
+    const preview = document.getElementById('custom-plant-preview');
+    const hint = document.getElementById('custom-plant-hint');
+    const pickerImage = document.querySelector('[data-plant-key="custom"] img');
+    if (_customPlantImage) {
+      if (preview) { preview.src = _customPlantImage; preview.style.display = 'block'; }
+      if (pickerImage) pickerImage.src = _customPlantImage;
+      if (hint) hint.textContent = '已上传自定义图片，保存后会显示在桌面右下角';
+    } else {
+      if (preview) { preview.removeAttribute('src'); preview.style.display = 'none'; }
+      if (hint) hint.textContent = '支持 JPG、PNG、WEBP，图片会自动缩放并保存在本机';
+    }
+  }
+
+  function handlePlantUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { showToast('请选择图片文件'); return; }
+    if (file.size > 8 * 1024 * 1024) { showToast('图片不能超过 8MB'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const scale = Math.min(1, 640 / Math.max(image.width, image.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        _customPlantImage = canvas.toDataURL('image/png');
+        _selectedPlant = 'custom';
+        renderCustomPlantUpload();
+        selectPlantInPicker('custom');
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   }
 
   function renderWidgetsChecklist(visible) {
@@ -397,6 +451,7 @@
       stock: { codes },
       news: { sources },
       plant: _selectedPlant,
+      customPlantImage: _customPlantImage,
       displayWidgets,
       settings: {
         globalOpacity: parseInt(document.getElementById('global-opacity').value, 10) / 100,

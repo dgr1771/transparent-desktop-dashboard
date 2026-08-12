@@ -28,7 +28,9 @@ const Store = {
           schulte: true,
           apps: true,
           deskfolders: true,
-          deskfiles: true
+          deskfiles: true,
+          mokugyo: false,
+          tarot: false
         }
       },
       weather: { city: '北京', apiKey: '' },

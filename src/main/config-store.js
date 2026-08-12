@@ -80,7 +80,9 @@ class ConfigStore {
           schulte: true,
           apps: true,
           deskfolders: true,
-          deskfiles: true
+          deskfiles: true,
+          mokugyo: false,
+          tarot: false
         }
       },
       weather: {

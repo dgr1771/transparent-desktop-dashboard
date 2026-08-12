@@ -36,6 +36,14 @@ internal static class DesktopHost
     private static long GetLong(IntPtr value) { return IntPtr.Size == 8 ? value.ToInt64() : value.ToInt32(); }
     private static IntPtr Ptr(long value) { return IntPtr.Size == 8 ? new IntPtr(value) : new IntPtr((int)value); }
 
+    private static void ApplyToolStyle(IntPtr hwnd)
+    {
+        var exStyle = GetLong(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE, Ptr(exStyle | WS_EX_TOOLWINDOW));
+        SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        ShowWindow(hwnd, 8);
+    }
+
     private static IntPtr FindWorker()
     {
         var progman = FindWindow("Progman", null);
@@ -65,7 +73,14 @@ internal static class DesktopHost
     private static void Attach(IntPtr hwnd)
     {
         var parent = FindWorker();
-        if (parent == IntPtr.Zero) throw new Exception("desktop host not found");
+        if (parent == IntPtr.Zero)
+        {
+            // 某些 Windows 桌面/远程桌面环境没有独立 WorkerW，
+            // 仍然强化工具窗口样式，避免回到普通应用窗口参与 Win+D。
+            ApplyToolStyle(hwnd);
+            Console.WriteLine("tool-style fallback (desktop host unavailable)");
+            return;
+        }
         RECT oldRect;
         if (!GetWindowRect(hwnd, out oldRect)) throw new Exception("window rect unavailable");
         RECT parentRect;

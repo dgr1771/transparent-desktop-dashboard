@@ -266,6 +266,14 @@
       <label style="margin-bottom:8px;display:block">🌱 桌面绿植</label>
       <div id="plant-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
       <div class="hint" id="plant-desc" style="font-size:11px;color:#6b7280"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">
+        <img id="custom-plant-preview" alt="自定义植物预览" style="display:none;width:52px;height:58px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,0.05)">
+        <div style="flex:1">
+          <input id="plant-upload" type="file" accept="image/png,image/jpeg,image/webp" style="width:100%;font-size:11px;color:#9ca3af">
+          <div class="hint" id="custom-plant-hint">支持 JPG、PNG、WEBP，图片会自动缩放并保存在本机</div>
+        </div>
+        <button id="btn-clear-custom-plant" class="btn-remove" type="button" style="background:#4b5563">清除</button>
+      </div>
     </div>
     <div class="field">
       <label>卡片透明度：<span id="opacity-value">100%</span></label>

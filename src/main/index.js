@@ -3,7 +3,7 @@
 const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, screen, nativeImage, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const ConfigStore = require('./config-store');
 const { registerDataHandlers } = require('./data');
 const platform = require('./platform');
@@ -30,10 +30,37 @@ app.isQuiting = false;  // 标记是否用户主动退出（防止 Alt+Space 关
 
 // 交互模式：false=鼠标穿透（透明壁纸），true=编辑模式（可交互）
 let interactionMode = false;
+let keyBlockerProcess = null;
 
 // 是否开发模式（带 --dev 参数启动）
 function isDev() {
   return process.argv.includes('--dev') || !app.isPackaged;
+}
+
+function setWindowsDShortcutBlocked(blocked) {
+  if (!platform.isWin) return;
+  if (blocked && keyBlockerProcess && !keyBlockerProcess.killed) return;
+  if (!blocked && keyBlockerProcess) {
+    try { keyBlockerProcess.kill(); } catch (e) {}
+    keyBlockerProcess = null;
+    return;
+  }
+  if (!blocked) return;
+  const candidates = [
+    path.join(process.resourcesPath || '', 'tools', 'keyblocker.exe'),
+    path.join(app.getAppPath(), 'tools', 'keyblocker.exe'),
+    path.join(__dirname, '..', '..', 'tools', 'keyblocker.exe'),
+    path.join(process.resourcesPath || '', '..', 'tools', 'keyblocker.exe'),
+    path.join(process.resourcesPath || '', '..', '..', 'tools', 'keyblocker.exe'),
+  ];
+  const exePath = candidates.find(candidate => fs.existsSync(candidate));
+  if (!exePath) {
+    console.error('[keyblocker] helper not found', candidates);
+    return;
+  }
+  keyBlockerProcess = spawn(exePath, [], { windowsHide: true, detached: false, stdio: 'ignore' });
+  keyBlockerProcess.on('exit', () => { keyBlockerProcess = null; });
+  console.info('[keyblocker] Win+D blocked during interaction mode');
 }
 
 /**
@@ -433,6 +460,7 @@ function createSettingsWindow() {
  */
 function setInteractionMode(interactive) {
   interactionMode = interactive;
+  setWindowsDShortcutBlocked(interactive);
   if (windows.size === 0) return;
 
   // 对所有窗口应用模式
@@ -654,6 +682,7 @@ app.whenReady().then(() => {
 // 退出时清理（不再操作桌面图标——从不修改，无需恢复）
 app.on('will-quit', () => {
   app.isQuiting = true;
+  setWindowsDShortcutBlocked(false);
   globalShortcut.unregisterAll();
 });
 

@@ -45,6 +45,10 @@
       {
         "from": "tools/desktop-host.exe",
         "to": "tools/desktop-host.exe"
+      },
+      {
+        "from": "tools/keyblocker.exe",
+        "to": "tools/keyblocker.exe"
       }
     ],
     "win": {

@@ -108,15 +108,16 @@ function createWindowForDisplay(display) {
     fullscreenable: false,
     resizable: false,
     movable: false,
-    minimizable: true,
+    minimizable: false,
     maximizable: false,
     alwaysOnTop: false,
+    skipTaskbar: true,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      additionalArguments: [`--display-id=${displayId}`]  // 传 displayId 给渲染进程
+      additionalArguments: [`--display-id=${displayId}`]
     }
   });
 
@@ -480,6 +481,11 @@ function updateTrayMenu() {
  * 注册全局快捷键
  */
 function registerShortcuts() {
+  // 拦截 Win+D（显示桌面）——注册后 Win+D 被看板吞掉，不传递给系统
+  globalShortcut.register('Super+D', () => {
+    // 什么都不做——吞掉 Win+D，防止看板被最小化
+  });
+
   // Ctrl+Shift+D 切换编辑模式
   globalShortcut.register('CommandOrControl+Shift+D', () => {
     toggleInteractionMode();

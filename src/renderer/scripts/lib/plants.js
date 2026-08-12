@@ -81,7 +81,6 @@ const Plants = {
   render() {
     if (!this._container) return;
     const def = this.DEFS[this._current] || this.DEFS.grass;
-    const svg = this._getSVG(this._current);
     const animName = `plantSway_${this._current}`;
     const duration = def.swaySpeed || '4s';
 
@@ -92,9 +91,9 @@ const Plants = {
           50% { transform: rotate(3deg); }
         }
       </style>
-      <div id="plant-inner" style="transform-origin:50% 100%;${def.sway ? `animation:${animName} ${duration} ease-in-out infinite;` : ''}">
-        ${svg}
-      </div>
+      <img id="plant-img" src="assets/plants/${this._current}.png"
+           style="width:90px;height:auto;user-select:none;-webkit-user-drag:none;display:block;margin:0 auto;${def.sway ? `transform-origin:50% 100%;animation:${animName} ${duration} ease-in-out infinite;` : ''}"
+           draggable="false">
       <div id="plant-response" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></div>
     `;
   },

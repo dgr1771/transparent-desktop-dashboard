@@ -1,6 +1,6 @@
 {
   "name": "transparent-desktop-dashboard",
-  "version": "0.8.81",
+  "version": "0.8.82",
   "description": "透明桌面信息看板 - 鼠标穿透的桌面常驻信息展示（天气/A股/新闻/待办/时钟/倒数日/热搜）",
   "main": "src/main/index.js",
   "scripts": {
@@ -41,6 +41,10 @@
       {
         "from": "tools/settool.exe",
         "to": "tools/settool.exe"
+      },
+      {
+        "from": "tools/desktop-host.exe",
+        "to": "tools/desktop-host.exe"
       },
       {
         "from": "tools/desktop-host.exe",

@@ -270,27 +270,44 @@ function createWindowForDisplay(display) {
     });
   }
 
-  // Win+D 恢复：窗口没被最小化（API显示visible），但 DWM 把它放到了桌面图标层后面
-  // 需要强制提到前面：先置顶再取消置顶，让 DWM 重新合成到正确层级
+  // Win+D 诊断：记录所有窗口事件到日志文件
+  const os = require('os');
+  const diagLog = (msg) => {
+    try { require('fs').appendFileSync(require('path').join(os.tmpdir(), 'dashboard-wind.log'),
+      `${new Date().toISOString()} ${msg}\n`); } catch(e){}
+  };
+  // 清空旧日志
+  try { require('fs').writeFileSync(require('path').join(os.tmpdir(), 'dashboard-wind.log'), ''); } catch(e){}
+
+  win.on('minimize', () => { diagLog('EVENT minimize userHidden=' + !!win._userHidden); });
+  win.on('hide', () => { diagLog('EVENT hide userHidden=' + !!win._userHidden); });
+  win.on('restore', () => { diagLog('EVENT restore'); });
+  win.on('show', () => { diagLog('EVENT show'); });
+  win.on('close', (e) => { diagLog('EVENT close prevented=' + e.defaultPrevented); });
+  win.on('blur', () => { diagLog('EVENT blur'); });
+  win.on('focus', () => { diagLog('EVENT focus'); });
+
+  // Win+D 恢复：检测窗口不可见后置顶恢复
   win.on('minimize', () => {
     if (win._userHidden) return;
-    // 不调 restore/showInactive（会导致渲染问题），直接强制 z-order
     try {
       win.setAlwaysOnTop(true, 'screen-saver');
       win.showInactive();
-      // 500ms 后取消置顶（回到正常层级，不挡其他窗口）
+      diagLog('minimize → setAlwaysOnTop(true) + showInactive');
       setTimeout(() => {
         if (win.isDestroyed() || win._userHidden) return;
         win.setAlwaysOnTop(false);
         platform.setClickThrough(win, !interactionMode);
+        diagLog('minimize → 500ms后 setAlwaysOnTop(false)');
       }, 500);
-    } catch (e) {}
+    } catch (e) { diagLog('minimize ERROR: ' + e.message); }
   });
   win.on('hide', () => {
     if (win._userHidden) return;
     try {
       win.setAlwaysOnTop(true, 'screen-saver');
       win.showInactive();
+      diagLog('hide → setAlwaysOnTop(true) + showInactive');
       setTimeout(() => {
         if (win.isDestroyed() || win._userHidden) return;
         win.setAlwaysOnTop(false);
@@ -324,20 +341,30 @@ function createWindowForDisplay(display) {
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
-  // Win+D 兜底：30ms 极高频检测（确保任何最小化/隐藏都立即恢复）
-  // 同时持续重新应用 WS_EX_TOOLWINDOW（Electron 每次 show/restore 后会重置窗口样式）
   if (platform.isWin) {
+    // Win+D 兜底：200ms 检测 + 诊断
+    const os = require('os');
+    const diagLog = (msg) => {
+      try { require('fs').appendFileSync(require('path').join(os.tmpdir(), 'dashboard-wind.log'),
+        `${new Date().toISOString()} ${msg}\n`); } catch(e){}
+    };
     setInterval(() => {
       for (const win of windows.values()) {
         if (!win || win.isDestroyed() || win._userHidden) continue;
-        if (win.isMinimized() || !win.isVisible()) {
-          // Win+D 后窗口被隐藏——用置顶恢复（DWM 层级问题）
+        const min = win.isMinimized();
+        const vis = win.isVisible();
+        if (min || !vis) {
+          diagLog('TIMER: isMinimized=' + min + ' isVisible=' + vis + ' → recovering');
           try {
             win.setAlwaysOnTop(true, 'screen-saver');
             win.showInactive();
-            win.setAlwaysOnTop(false);
-            platform.setClickThrough(win, !interactionMode);
-          } catch (err) {}
+            setTimeout(() => {
+              if (!win.isDestroyed()) {
+                win.setAlwaysOnTop(false);
+                platform.setClickThrough(win, !interactionMode);
+              }
+            }, 500);
+          } catch (err) { diagLog('TIMER ERROR: ' + err.message); }
         }
       }
     }, 200);

@@ -52,6 +52,9 @@ function applyWindowsToolWindow(win, reason = 'unknown') {
     : [
         path.join(__dirname, '..', '..', 'tools', 'settool.exe'),
         path.join(app.getAppPath(), 'tools', 'settool.exe'),
+        // 手工目录版启动时，Electron 的 resourcesPath 可能指向 resources/app。
+        path.join(process.resourcesPath, '..', 'tools', 'settool.exe'),
+        path.join(process.resourcesPath, '..', '..', 'tools', 'settool.exe'),
       ];
   const exePath = candidates.find(candidate => fs.existsSync(candidate));
   if (!exePath) {

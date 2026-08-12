@@ -138,7 +138,7 @@ function createWindowForDisplay(display) {
       try {
         const hwnd = win.getNativeWindowHandle().readInt32LE(0);
         const exePath = app.isPackaged
-          ? path.join(process.resourcesPath, 'settool.exe')
+          ? path.join(process.resourcesPath, 'tools', 'settool.exe')
           : path.join(__dirname, '..', '..', 'tools', 'settool.exe');
         const { execFile } = require('child_process');
         execFile(exePath, [String(hwnd)], { timeout: 3000, windowsHide: true });

@@ -11,9 +11,10 @@ internal static class DesktopHost
     private const long WS_EX_NOACTIVATE = 0x08000000L;
     private const uint SWP_NOACTIVATE = 0x0010;
     private const uint SWP_SHOWWINDOW = 0x0040;
+    private const uint SWP_FRAMECHANGED = 0x0020;
     private const uint SMTO_ABORTIFHUNG = 0x0002;
 
-    private static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
+    private static readonly IntPtr HWND_TOP = IntPtr.Zero;
     private static IntPtr worker;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -30,6 +31,7 @@ internal static class DesktopHost
     [DllImport("user32.dll")] private static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hwnd, int command);
 
     private static long GetLong(IntPtr value) { return IntPtr.Size == 8 ? value.ToInt64() : value.ToInt32(); }
     private static IntPtr Ptr(long value) { return IntPtr.Size == 8 ? new IntPtr(value) : new IntPtr((int)value); }
@@ -71,8 +73,13 @@ internal static class DesktopHost
         SetWindowLongPtr(hwnd, GWL_STYLE, Ptr((style & ~WS_POPUP) | WS_CHILD));
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, Ptr(exStyle | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE));
         SetParent(hwnd, parent);
-        SetWindowPos(hwnd, HWND_BOTTOM, oldRect.Left - parentRect.Left, oldRect.Top - parentRect.Top,
-            oldRect.Right - oldRect.Left, oldRect.Bottom - oldRect.Top, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        var x = oldRect.Left - parentRect.Left;
+        var y = oldRect.Top - parentRect.Top;
+        var width = oldRect.Right - oldRect.Left;
+        var height = oldRect.Bottom - oldRect.Top;
+        SetWindowPos(hwnd, HWND_TOP, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
+        ShowWindow(hwnd, 8); // SW_SHOWNA：显示但不抢焦点
+        SetWindowPos(hwnd, HWND_TOP, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED);
         Console.WriteLine("attached parent=" + parent.ToInt64());
     }
 
@@ -84,7 +91,7 @@ internal static class DesktopHost
         SetParent(hwnd, IntPtr.Zero);
         var style = GetLong(GetWindowLongPtr(hwnd, GWL_STYLE));
         SetWindowLongPtr(hwnd, GWL_STYLE, Ptr((style & ~WS_CHILD) | WS_POPUP));
-        SetWindowPos(hwnd, HWND_BOTTOM, oldRect.Left, oldRect.Top,
+        SetWindowPos(hwnd, HWND_TOP, oldRect.Left, oldRect.Top,
             oldRect.Right - oldRect.Left, oldRect.Bottom - oldRect.Top, SWP_NOACTIVATE | SWP_SHOWWINDOW);
         Console.WriteLine("detached");
     }

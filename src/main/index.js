@@ -437,7 +437,8 @@ function setInteractionMode(interactive) {
     platform.setClickThrough(win, !interactive);
     // 窗口层级
     platform.setWindowLevel(win, interactive);
-    if (platform.isWin) setWindowsDesktopHost(win, !interactive, interactive ? 'enter-edit-mode' : 'enter-desktop-mode');
+    // 编辑模式也保持在桌面宿主层，避免切回普通窗口后再次响应 Win+D。
+    if (platform.isWin) setWindowsDesktopHost(win, true, interactive ? 'enter-edit-mode' : 'enter-desktop-mode');
     // 通知渲染进程更新 UI（边框高亮等）
     win.webContents.send('interaction-mode-changed', interactive);
   }

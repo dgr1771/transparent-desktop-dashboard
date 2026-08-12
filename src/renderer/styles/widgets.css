@@ -163,8 +163,8 @@ body.interactive .widget__resize {
 .mokugyo__stage { position:relative; border:0; background:transparent; cursor:pointer; padding:0; width:150px; height:160px; }
 .mokugyo__stage img { width:150px; height:150px; object-fit:contain; transition:transform .12s; }
 .mokugyo__stage:hover img { filter:drop-shadow(0 0 12px rgba(251,191,36,.65)); }
-.mokugyo__hammer { position:absolute; right:4px; top:20px; width:44px; height:10px; border-radius:8px; background:linear-gradient(90deg,#7c2d12,#f59e0b); transform:rotate(-48deg); transform-origin:38px 5px; box-shadow:0 2px 4px rgba(0,0,0,.3); z-index:2; }
-.mokugyo__hammer::after { content:''; position:absolute; right:-7px; top:-7px; width:22px; height:24px; border-radius:50%; background:#fbbf24; box-shadow:inset -3px -3px 4px rgba(120,53,15,.25); }
+.mokugyo__hammer { position:absolute; right:2px; top:18px; width:48px; height:10px; border-radius:8px; background:linear-gradient(90deg,#7c2d12,#f59e0b); transform:rotate(-48deg); transform-origin:6px 5px; box-shadow:0 2px 4px rgba(0,0,0,.3); z-index:2; }
+.mokugyo__hammer::after { content:''; position:absolute; left:-8px; top:-7px; width:22px; height:24px; border-radius:50%; background:#fbbf24; box-shadow:inset -3px -3px 4px rgba(120,53,15,.25); }
 .mokugyo--hit img { animation:mokugyoBodyHit .32s ease-out; }
 .mokugyo--hit .mokugyo__hammer { animation:mokugyoHammerHit .38s cubic-bezier(.2,.8,.3,1); }
 .mokugyo__impact { position:absolute; left:64px; top:94px; color:#fde68a; font-size:20px; opacity:0; z-index:3; }
@@ -183,13 +183,13 @@ body.interactive .widget__resize {
 
 /* 每日塔罗 */
 .tarot { height:100%; display:flex; flex-direction:column; align-items:center; gap:8px; color:#f5f3ff; }
-.tarot__simple-card { width:150px; height:190px; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:14px; text-align:center; background:linear-gradient(145deg,#312e81,#7c3aed); border:1px solid rgba(196,181,253,.6); box-shadow:0 8px 22px rgba(76,29,149,.35); }
-.tarot__simple-card.is-open { background:linear-gradient(145deg,#4c1d95,#be185d); }
-.tarot__simple-back { font-size:48px; color:#fef3c7; text-shadow:0 0 16px #fbbf24; }
+.tarot__simple-card { width:124px; height:178px; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px; text-align:center; background:rgba(24,16,38,.22); border:1px solid rgba(253,230,138,.78); box-shadow:0 6px 18px rgba(0,0,0,.22),inset 0 0 0 3px rgba(253,230,138,.12); }
+.tarot__simple-card.is-open { background:rgba(84,38,91,.24); }
+.tarot__simple-back { font-size:40px; color:#fef3c7; text-shadow:0 0 16px #fbbf24; }
 .tarot__simple-back small { display:block; font-size:12px; margin-top:10px; color:#ddd6fe; }
-.tarot__simple-emoji { font-size:36px; margin-bottom:8px; }
+.tarot__simple-emoji { font-size:30px; margin-bottom:6px; }
 .tarot__simple-card b { color:#fde68a; font-size:16px; }
-.tarot__simple-card p { color:#ede9fe; font-size:11px; line-height:1.5; margin-top:8px; }
+.tarot__simple-card p { color:#ede9fe; font-size:10px; line-height:1.45; margin-top:6px; }
 .tarot__simple-flip { animation:tarotFlip .56s ease-in-out; }
 .tarot__simple-btn { border:1px solid rgba(196,181,253,.5); background:rgba(124,58,237,.4); color:#f5f3ff; border-radius:999px; padding:6px 12px; font-size:11px; cursor:pointer; }
 .tarot__simple-btn:disabled { opacity:.65; cursor:default; }

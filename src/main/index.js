@@ -330,7 +330,8 @@ function createWindowForDisplay(display) {
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
-  // Win+D 兜底：100ms 极高频检测（确保任何最小化/隐藏都立即恢复）
+  // Win+D 兜底：30ms 极高频检测（确保任何最小化/隐藏都立即恢复）
+  // 同时持续重新应用 WS_EX_TOOLWINDOW（Electron 每次 show/restore 后会重置窗口样式）
   if (platform.isWin) {
     setInterval(() => {
       for (const win of windows.values()) {
@@ -344,6 +345,8 @@ function startProtectionTimers() {
             platform.setClickThrough(win, !interactionMode);
           } catch (err) {}
         }
+        // 持续重新应用 WS_EX_TOOLWINDOW（防止 Electron 覆盖）
+        applyWindowsToolWindow(win, 'periodic-reapply');
       }
     }, 30);
   }

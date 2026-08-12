@@ -131,7 +131,22 @@ function createWindowForDisplay(display) {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
-  // Win+D 防护：同步立即恢复（不用 setImmediate，直接在事件回调里恢复）
+  // Windows：设置 WS_EX_TOOLWINDOW（工具窗口）
+  // ShowDesktop（Win+D）会跳过工具窗口，不会隐藏/最小化它
+  if (platform.isWin) {
+    win.webContents.once('did-finish-load', () => {
+      try {
+        const hwnd = win.getNativeWindowHandle().readInt32LE(0);
+        const exePath = app.isPackaged
+          ? path.join(process.resourcesPath, 'tools', 'settool.exe')
+          : path.join(__dirname, '..', '..', 'tools', 'settool.exe');
+        const { execFile } = require('child_process');
+        execFile(exePath, [String(hwnd)], { timeout: 3000, windowsHide: true });
+      } catch (e) {}
+    });
+  }
+
+  // 拦截窗口关闭（Alt+Space → 关闭）：阻止意外关闭
   // Win+D 的 MinimizeAll 是同步操作，必须同步拦截
   win.on('minimize', () => {
     if (win._userHidden) return;

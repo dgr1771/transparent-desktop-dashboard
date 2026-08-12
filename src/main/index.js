@@ -81,6 +81,8 @@ function applyWindowsToolWindow(win, reason = 'unknown') {
 
 function setWindowsDesktopHost(win, attach, reason = 'unknown') {
   if (!platform.isWin || !win || win.isDestroyed()) return;
+  if (attach && (win._desktopHosted || win._desktopHostPending)) return;
+  if (!attach && (!win._desktopHosted || win._desktopHostPending)) return;
   const candidates = [
     path.join(process.resourcesPath || '', 'tools', 'desktop-host.exe'),
     path.join(app.getAppPath(), 'tools', 'desktop-host.exe'),
@@ -97,12 +99,15 @@ function setWindowsDesktopHost(win, attach, reason = 'unknown') {
     const nativeHandle = win.getNativeWindowHandle();
     const hwnd = nativeHandle.length >= 4 ? nativeHandle.readUInt32LE(0) : 0;
     if (!hwnd) throw new Error('native window handle is empty');
+    win._desktopHostPending = attach;
     execFile(exePath, [String(hwnd), attach ? 'attach' : 'detach'], { timeout: 3000, windowsHide: true }, (error, stdout, stderr) => {
+      win._desktopHostPending = false;
       if (error) {
         console.error(`[desktop-host] ${attach ? 'attach' : 'detach'} failed (${reason})`, error.message, stderr || '');
         // SSH/服务会话没有 Progman/WorkerW 时，保留旧的工具窗口方案作为安全回退。
         if (attach) applyWindowsToolWindow(win, `desktop-host-fallback:${reason}`);
       } else {
+        win._desktopHosted = attach;
         console.info(`[desktop-host] ${attach ? 'attached' : 'detached'} (${reason})`, stdout.trim());
       }
     });
@@ -435,10 +440,10 @@ function setInteractionMode(interactive) {
     if (!win || win.isDestroyed()) continue;
     // 鼠标穿透
     platform.setClickThrough(win, !interactive);
-    // 窗口层级
-    platform.setWindowLevel(win, interactive);
-    // 编辑模式也保持在桌面宿主层，避免切回普通窗口后再次响应 Win+D。
-    if (platform.isWin) setWindowsDesktopHost(win, true, interactive ? 'enter-edit-mode' : 'enter-desktop-mode');
+    // Windows 桌面宿主窗口不能在编辑切换时反复调用 alwaysOnTop，
+    // 否则 Windows 会重新排序子窗口并导致看板短暂消失。只切换穿透状态，
+    // 始终保持同一个 WorkerW 父窗口。
+    if (!platform.isWin) platform.setWindowLevel(win, interactive);
     // 通知渲染进程更新 UI（边框高亮等）
     win.webContents.send('interaction-mode-changed', interactive);
   }

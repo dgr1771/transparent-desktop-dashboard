@@ -65,19 +65,12 @@
   }
 
   // ===== 绿植选择器 =====
-  let _selectedPlant = 'grass';
+  let _selectedPlant = 'fern';
   const PLANT_LIST = [
-    { key: 'grass',     name: '狗尾草',   emoji: '🌿', desc: '顽强、随遇而安' },
-    { key: 'clover',    name: '四叶草',   emoji: '🍀', desc: '幸运、好运' },
-    { key: 'cherry',    name: '樱花',     emoji: '🌸', desc: '短暂美好、珍惜当下' },
-    { key: 'sunflower', name: '向日葵',   emoji: '🌻', desc: '阳光、积极向上' },
-    { key: 'bamboo',    name: '竹子',     emoji: '🎋', desc: '节节高升、坚韧' },
-    { key: 'cactus',    name: '仙人掌',   emoji: '🌵', desc: '坚强、坚韧不拔' },
-    { key: 'lotus',     name: '荷花',     emoji: '🪷', desc: '纯洁、出淤泥不染' },
-    { key: 'sapling',   name: '发财树苗', emoji: '🌱', desc: '财运、招财' },
-    { key: 'maple',     name: '枫叶',     emoji: '🍁', desc: '收获、沉淀' },
-    { key: 'lavender',  name: '薰衣草',   emoji: '💐', desc: '宁静、安眠' },
-    { key: 'rose',      name: '玫瑰',     emoji: '🌹', desc: '浪漫、热爱' },
+    { key: 'monstera', name: '龟背竹', emoji: '🌿', desc: '热带、清新自然' },
+    { key: 'fern',     name: '波士顿蕨', emoji: '🌱', desc: '轻盈、舒展有生气' },
+    { key: 'lavender', name: '薰衣草', emoji: '💜', desc: '安静、柔和治愈' },
+    { key: 'pothos',   name: '绿萝', emoji: '🍃', desc: '明亮、耐看常青' },
   ];
 
   function initPlantPicker() {
@@ -86,11 +79,11 @@
     container.innerHTML = '';
     PLANT_LIST.forEach(p => {
       const btn = document.createElement('div');
-      btn.style.cssText = `width:42px;height:42px;border-radius:8px;cursor:pointer;
+      btn.style.cssText = `width:62px;height:72px;border-radius:10px;cursor:pointer;
         background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.1);
-        display:flex;align-items:center;justify-content:center;font-size:20px;
+        display:flex;align-items:center;justify-content:center;overflow:hidden;
         transition:border-color 0.15s,transform 0.1s;`;
-      btn.textContent = p.emoji;
+      btn.innerHTML = `<img src="assets/plants-v2/${p.key}.png" alt="${p.name}" style="width:58px;height:68px;object-fit:contain;pointer-events:none;">`;
       btn.title = p.name;
       btn.dataset.plantKey = p.key;
       btn.addEventListener('click', () => {
@@ -109,7 +102,9 @@
   }
 
   function selectPlantInPicker(plantKey) {
-    _selectedPlant = plantKey || 'grass';
+    _selectedPlant = plantKey || 'fern';
+    const legacyMap = { grass: 'fern', clover: 'pothos', cherry: 'lavender', sunflower: 'monstera', bamboo: 'monstera', cactus: 'monstera', lotus: 'lavender', sapling: 'pothos', maple: 'monstera', rose: 'lavender' };
+    _selectedPlant = legacyMap[_selectedPlant] || _selectedPlant;
     const container = document.getElementById('plant-picker');
     if (!container) return;
     const plant = PLANT_LIST.find(p => p.key === _selectedPlant);

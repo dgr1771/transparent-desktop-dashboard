@@ -2,6 +2,8 @@
 
 const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, screen, nativeImage, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const { execFile } = require('child_process');
 const ConfigStore = require('./config-store');
 const { registerDataHandlers } = require('./data');
 const platform = require('./platform');
@@ -32,6 +34,46 @@ let interactionMode = false;
 // 是否开发模式（带 --dev 参数启动）
 function isDev() {
   return process.argv.includes('--dev') || !app.isPackaged;
+}
+
+/**
+ * Windows 的 Win+D 会隐藏普通顶层窗口。将窗口标记为 WS_EX_TOOLWINDOW 后，
+ * Windows 的“显示桌面”会把它当作桌面工具跳过。这里单独封装并记录失败原因，
+ * 避免打包后 helper 路径错误却被静默吞掉，导致问题看起来像 Electron 自己失效。
+ */
+function applyWindowsToolWindow(win, reason = 'unknown') {
+  if (!platform.isWin || !win || win.isDestroyed()) return;
+
+  const candidates = app.isPackaged
+    ? [
+        path.join(process.resourcesPath, 'tools', 'settool.exe'),
+        path.join(app.getAppPath(), 'tools', 'settool.exe'),
+      ]
+    : [
+        path.join(__dirname, '..', '..', 'tools', 'settool.exe'),
+        path.join(app.getAppPath(), 'tools', 'settool.exe'),
+      ];
+  const exePath = candidates.find(candidate => fs.existsSync(candidate));
+  if (!exePath) {
+    console.error(`[window-style] settool.exe not found (${reason})`, candidates);
+    return;
+  }
+
+  try {
+    const nativeHandle = win.getNativeWindowHandle();
+    const hwnd = nativeHandle.length >= 4 ? nativeHandle.readUInt32LE(0) : 0;
+    if (!hwnd) throw new Error('native window handle is empty');
+
+    execFile(exePath, [String(hwnd)], { timeout: 3000, windowsHide: true }, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`[window-style] failed to apply WS_EX_TOOLWINDOW (${reason})`, error.message, stderr || '');
+        return;
+      }
+      console.info(`[window-style] WS_EX_TOOLWINDOW applied (${reason})`, stdout.trim());
+    });
+  } catch (error) {
+    console.error(`[window-style] unable to apply WS_EX_TOOLWINDOW (${reason})`, error);
+  }
 }
 
 /**
@@ -132,18 +174,14 @@ function createWindowForDisplay(display) {
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   // Windows：设置 WS_EX_TOOLWINDOW（工具窗口）
-  // ShowDesktop（Win+D）会跳过工具窗口，不会隐藏/最小化它
+  // ShowDesktop（Win+D）会跳过工具窗口，不会隐藏/最小化它。
+  // 需要在窗口原生句柄已经创建后执行，并在渲染完成后再补一次。
   if (platform.isWin) {
     win.webContents.once('did-finish-load', () => {
-      try {
-        const hwnd = win.getNativeWindowHandle().readInt32LE(0);
-        const exePath = app.isPackaged
-          ? path.join(process.resourcesPath, 'tools', 'settool.exe')
-          : path.join(__dirname, '..', '..', 'tools', 'settool.exe');
-        const { execFile } = require('child_process');
-        execFile(exePath, [String(hwnd)], { timeout: 3000, windowsHide: true });
-      } catch (e) {}
+      applyWindowsToolWindow(win, 'did-finish-load');
+      setTimeout(() => applyWindowsToolWindow(win, 'post-load'), 500);
     });
+    win.on('show', () => applyWindowsToolWindow(win, 'show'));
   }
 
   // 拦截窗口关闭（Alt+Space → 关闭）：阻止意外关闭

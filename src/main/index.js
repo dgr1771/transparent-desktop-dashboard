@@ -24,6 +24,7 @@ let configStore = null;
 const windows = new Map();
 let tray = null;
 let settingsWindow = null;
+app.isQuiting = false;  // 标记是否用户主动退出（防止 Alt+Space 关闭）
 
 // 交互模式：false=鼠标穿透（透明壁纸），true=编辑模式（可交互）
 let interactionMode = false;
@@ -180,6 +181,15 @@ function createWindowForDisplay(display) {
   if (process.argv.includes('--dev') && win._isPrimary) {
     win.webContents.openDevTools({ mode: 'detach' });
   }
+
+  // 拦截窗口关闭（Alt+Space → 关闭）：阻止意外关闭
+  win.on('close', (e) => {
+    if (win._userHidden) return;
+    // 阻止关闭，除非是 app.quit() 主动触发
+    if (!app.isQuiting) {
+      e.preventDefault();
+    }
+  });
 
   win.on('closed', () => {
     windows.delete(displayId);
@@ -470,6 +480,7 @@ function updateTrayMenu() {
     {
       label: '退出',
       click: () => {
+        app.isQuiting = true;
         app.quit();
       }
     }
@@ -539,11 +550,9 @@ app.whenReady().then(() => {
 
 // 退出时清理（不再操作桌面图标——从不修改，无需恢复）
 app.on('will-quit', () => {
+  app.isQuiting = true;
   globalShortcut.unregisterAll();
 });
-
-// 额外保险：窗口关闭时也恢复（比 will-quit 更早执行）
-app.on('browser-window-blur', () => {});  // 占位，实际在 tray 退出菜单处理
 
 // ========== IPC 处理 ==========
 

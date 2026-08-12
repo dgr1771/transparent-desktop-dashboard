@@ -245,15 +245,28 @@ function createWindowForDisplay(display) {
   // 需要在窗口原生句柄已经创建后执行，并在渲染完成后再补一次。
   if (platform.isWin) {
     win.webContents.once('did-finish-load', () => {
-      applyWindowsToolWindow(win, 'did-finish-load');
+      // WorkerW 附加（Win+D 防护的核心方案）
+      // 必须在页面加载完成后执行（窗口句柄已稳定）
+      setWindowsDesktopHost(win, true, 'did-finish-load');
+      // 1 秒后再附加一次（防止第一次 WorkerW 还没创建）
       setTimeout(() => {
-        applyWindowsToolWindow(win, 'post-load');
-        if (!interactionMode) setWindowsDesktopHost(win, true, 'post-load');
-      }, 500);
+        if (!win.isDestroyed() && !win._desktopHosted) {
+          setWindowsDesktopHost(win, true, 'retry-1s');
+        }
+      }, 1000);
+      // 3 秒后再试
+      setTimeout(() => {
+        if (!win.isDestroyed() && !win._desktopHosted) {
+          setWindowsDesktopHost(win, true, 'retry-3s');
+        }
+      }, 3000);
     });
+    // 每次窗口显示后重新附加（Win+D 恢复后 WorkerW 可能断开）
     win.on('show', () => {
-      applyWindowsToolWindow(win, 'show');
-      if (!interactionMode) setWindowsDesktopHost(win, true, 'show');
+      win._desktopHosted = false;  // 重置标记，允许重新附加
+      setTimeout(() => {
+        if (!win.isDestroyed()) setWindowsDesktopHost(win, true, 'show-event');
+      }, 200);
     });
   }
 
@@ -261,34 +274,26 @@ function createWindowForDisplay(display) {
   // Win+D 的 MinimizeAll 是同步操作，必须同步拦截
   win.on('minimize', () => {
     if (win._userHidden) return;
-    // 同步恢复——不给 Windows 最小化动画的时间
     try {
       win.setSkipTaskbar(true);
       win.restore();
       win.showInactive();
       platform.setWindowLevel(win, interactionMode);
       platform.setClickThrough(win, !interactionMode);
-      if (!interactionMode) setWindowsDesktopHost(win, true, 'minimize-recovery');
     } catch (e) {}
-    // 再延迟恢复一次（防止 Win+D 的 ToggleDesktop 两步操作覆盖）
+    // 延迟重新附加 WorkerW（恢复后需要重新挂到桌面层）
+    win._desktopHosted = false;
     setTimeout(() => {
       if (win.isDestroyed() || win._userHidden) return;
-      if (win.isMinimized() || !win.isVisible()) {
-        try {
-          win.restore();
-          win.showInactive();
-          platform.setWindowLevel(win, interactionMode);
-          platform.setClickThrough(win, !interactionMode);
-          if (!interactionMode) setWindowsDesktopHost(win, true, 'delayed-recovery');
-        } catch (e) {}
-      }
-    }, 50);
+      setWindowsDesktopHost(win, true, 'minimize-recovery');
+    }, 100);
     setTimeout(() => {
       if (win.isDestroyed() || win._userHidden) return;
       if (win.isMinimized() || !win.isVisible()) {
         try { win.restore(); win.showInactive(); } catch (e) {}
       }
-    }, 200);
+      setWindowsDesktopHost(win, true, 'delayed-recovery');
+    }, 300);
   });
   win.on('hide', () => {
     if (win._userHidden) return;

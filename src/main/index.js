@@ -79,6 +79,33 @@ function applyWindowsToolWindow(win, reason = 'unknown') {
   }
 }
 
+function setWindowsDesktopHost(win, attach, reason = 'unknown') {
+  if (!platform.isWin || !win || win.isDestroyed()) return;
+  const candidates = [
+    path.join(process.resourcesPath || '', 'tools', 'desktop-host.exe'),
+    path.join(app.getAppPath(), 'tools', 'desktop-host.exe'),
+    path.join(__dirname, '..', '..', 'tools', 'desktop-host.exe'),
+    path.join(process.resourcesPath || '', '..', 'tools', 'desktop-host.exe'),
+    path.join(process.resourcesPath || '', '..', '..', 'tools', 'desktop-host.exe'),
+  ];
+  const exePath = candidates.find(candidate => fs.existsSync(candidate));
+  if (!exePath) {
+    console.error(`[desktop-host] helper not found (${reason})`, candidates);
+    return;
+  }
+  try {
+    const nativeHandle = win.getNativeWindowHandle();
+    const hwnd = nativeHandle.length >= 4 ? nativeHandle.readUInt32LE(0) : 0;
+    if (!hwnd) throw new Error('native window handle is empty');
+    execFile(exePath, [String(hwnd), attach ? 'attach' : 'detach'], { timeout: 3000, windowsHide: true }, (error, stdout, stderr) => {
+      if (error) console.error(`[desktop-host] ${attach ? 'attach' : 'detach'} failed (${reason})`, error.message, stderr || '');
+      else console.info(`[desktop-host] ${attach ? 'attached' : 'detached'} (${reason})`, stdout.trim());
+    });
+  } catch (error) {
+    console.error(`[desktop-host] unable to change host (${reason})`, error);
+  }
+}
+
 /**
  * 为所有显示器创建透明窗口（多屏支持）
  * 每个显示器一个窗口，共享同一份配置和数据。
@@ -182,9 +209,15 @@ function createWindowForDisplay(display) {
   if (platform.isWin) {
     win.webContents.once('did-finish-load', () => {
       applyWindowsToolWindow(win, 'did-finish-load');
-      setTimeout(() => applyWindowsToolWindow(win, 'post-load'), 500);
+      setTimeout(() => {
+        applyWindowsToolWindow(win, 'post-load');
+        if (!interactionMode) setWindowsDesktopHost(win, true, 'post-load');
+      }, 500);
     });
-    win.on('show', () => applyWindowsToolWindow(win, 'show'));
+    win.on('show', () => {
+      applyWindowsToolWindow(win, 'show');
+      if (!interactionMode) setWindowsDesktopHost(win, true, 'show');
+    });
   }
 
   // 拦截窗口关闭（Alt+Space → 关闭）：阻止意外关闭
@@ -198,6 +231,7 @@ function createWindowForDisplay(display) {
       win.showInactive();
       platform.setWindowLevel(win, interactionMode);
       platform.setClickThrough(win, !interactionMode);
+      if (!interactionMode) setWindowsDesktopHost(win, true, 'minimize-recovery');
     } catch (e) {}
     // 再延迟恢复一次（防止 Win+D 的 ToggleDesktop 两步操作覆盖）
     setTimeout(() => {
@@ -208,6 +242,7 @@ function createWindowForDisplay(display) {
           win.showInactive();
           platform.setWindowLevel(win, interactionMode);
           platform.setClickThrough(win, !interactionMode);
+          if (!interactionMode) setWindowsDesktopHost(win, true, 'delayed-recovery');
         } catch (e) {}
       }
     }, 50);
@@ -397,6 +432,7 @@ function setInteractionMode(interactive) {
     platform.setClickThrough(win, !interactive);
     // 窗口层级
     platform.setWindowLevel(win, interactive);
+    if (platform.isWin) setWindowsDesktopHost(win, !interactive, interactive ? 'enter-edit-mode' : 'enter-desktop-mode');
     // 通知渲染进程更新 UI（边框高亮等）
     win.webContents.send('interaction-mode-changed', interactive);
   }

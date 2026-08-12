@@ -65,7 +65,6 @@ function createAllWindows() {
     }
   }
   if (uniqueDisplays.length < allDisplays.length) {
-    console.log(`[Display] 检测到复制/镜像模式（${allDisplays.length}个显示器，${uniqueDisplays.length}个唯一），只创建${uniqueDisplays.length}个窗口`);
   }
 
   for (const display of uniqueDisplays) {
@@ -227,12 +226,10 @@ function startProtectionTimers() {
  */
 function registerDisplayEvents() {
   screen.on('display-added', (_e, display) => {
-    console.log('[Display] 显示器接入:', display.id);
     createWindowForDisplay(display);
   });
 
   screen.on('display-removed', (_e, display) => {
-    console.log('[Display] 显示器移除:', display.id);
     const win = windows.get(display.id);
     if (win && !win.isDestroyed()) {
       win.destroy();
@@ -241,7 +238,6 @@ function registerDisplayEvents() {
   });
 
   screen.on('display-metrics-changed', (_e, display, _changedMetrics) => {
-    console.log('[Display] 显示器尺寸变化:', display.id);
     const win = windows.get(display.id);
     if (win && !win.isDestroyed()) {
       const wa = display.workArea;

@@ -391,6 +391,13 @@
     document.documentElement.style.setProperty('--card-alpha', alpha);
   }
 
+  // 透明度实时预览：设置滑块拖动时即时更新卡片透明度（不持久化，保存时才写）
+  if (window.dashboard && window.dashboard.onPreviewOpacity) {
+    window.dashboard.onPreviewOpacity((val) => {
+      document.documentElement.style.setProperty('--card-alpha', 0.3 + val * 0.6);
+    });
+  }
+
   // ============================================================
   // 刷新所有 widget
   // ============================================================

@@ -35,6 +35,12 @@ contextBridge.exposeInMainWorld('dashboard', {
     ipcRenderer.on('config-updated', handler);
     return () => ipcRenderer.removeListener('config-updated', handler);
   },
+  // 透明度实时预览（设置滑块拖动时触发，不持久化）
+  onPreviewOpacity: (callback) => {
+    const handler = (_e, val) => callback(val);
+    ipcRenderer.on('preview-opacity', handler);
+    return () => ipcRenderer.removeListener('preview-opacity', handler);
+  },
 
   // ===== 系统 =====
   getScreenSize: () => ipcRenderer.invoke('get-screen-size'),
@@ -50,6 +56,7 @@ contextBridge.exposeInMainWorld('dashboard', {
   // ===== 配置持久化（主进程文件） =====
   getConfig: () => ipcRenderer.invoke('config:get'),
   setConfig: (data) => ipcRenderer.invoke('config:set', data),
+  previewOpacity: (val) => ipcRenderer.send('preview-opacity', val),
 
   // ===== 数据获取 =====
   fetchWeather: () => ipcRenderer.invoke('data:weather'),

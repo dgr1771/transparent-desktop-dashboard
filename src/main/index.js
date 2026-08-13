@@ -661,6 +661,13 @@ function registerIpcHandlers() {
     }
   });
 
+  // 透明度实时预览：设置滑块拖动时转发到看板窗口（不持久化，保存时才写）
+  ipcMain.on('preview-opacity', (_event, val) => {
+    for (const win of windows.values()) {
+      if (win && !win.isDestroyed()) win.webContents.send('preview-opacity', val);
+    }
+  });
+
   // ===== 桌面整理：扫描桌面文件 =====
   const fsDesk = require('fs');
   const pathDesk = require('path');

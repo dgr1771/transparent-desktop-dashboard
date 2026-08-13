@@ -181,6 +181,10 @@
 
     document.getElementById('global-opacity').addEventListener('input', (e) => {
       document.getElementById('opacity-value').textContent = e.target.value + '%';
+      // 实时预览透明度到主看板（拖动时即时看到卡片变化，不持久化）
+      if (window.dashboard && window.dashboard.previewOpacity) {
+        window.dashboard.previewOpacity(parseInt(e.target.value, 10) / 100);
+      }
     });
 
     // 自动定位按钮

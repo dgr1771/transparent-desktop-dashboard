@@ -11,8 +11,12 @@ const MokugyoWidget = {
   update() {
     const img = document.querySelector('.widget[data-widget="mokugyo"] .mokugyo__stage img');
     const src = Store.get('customMokugyoImage') || 'assets/interactive/mokugyo.png';
-    console.info('[mokugyo] update 被调用, src=', src.startsWith('data:') ? '自定义图' : src, ' imgFound=', !!img);
-    if (img) img.src = src;
+    if (img) {
+      img.src = src;
+      img.onload = () => console.info('[mokugyo] img加载成功 naturalWidth=', img.naturalWidth);
+      img.onerror = () => console.info('[mokugyo] img加载失败! src=', String(img.src).slice(0, 80));
+      setTimeout(() => console.info('[mokugyo] 500ms后 naturalWidth=', img.naturalWidth, 'complete=', img.complete), 500);
+    }
   },
 
   _render() {

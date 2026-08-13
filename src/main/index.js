@@ -346,7 +346,7 @@ function startProtectionTimers() {
         const localX = Math.round(cursor.x - bounds.x);
         const localY = Math.round(cursor.y - bounds.y);
         win.webContents.executeJavaScript(
-          `(()=>{const el=document.elementFromPoint(${localX},${localY});if(!el)return false;const tag=el.tagName.toLowerCase();if(['input','button','a','select','textarea'].includes(tag))return true;if(el.contentEditable==='true')return true;if(el.classList&&el.classList.contains('no-drag'))return true;if(el.closest&&el.closest('.widget'))return true;if(el.closest&&el.closest('#grass-deco'))return true;return false;})()`,
+          `(()=>{const el=document.elementFromPoint(${localX},${localY});if(!el)return false;const tag=el.tagName.toLowerCase();if(['input','button','a','select','textarea'].includes(tag))return true;if(el.contentEditable==='true')return true;if(el.classList&&el.classList.contains('no-drag'))return true;if(el.closest&&el.closest('#grass-deco'))return true;return false;})()`,
           true
         ).then(onInteractive => {
           if (win.isDestroyed()) return;

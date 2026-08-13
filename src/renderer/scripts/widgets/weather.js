@@ -22,6 +22,7 @@ const WeatherWidget = {
     // 首次启动自动定位（如果没有经纬度，说明还没定位过）
     this._autoLocate().then(() => this.update());
     // 每 30 分钟更新一次
+    if (window.__dashboard.timers.weather) clearInterval(window.__dashboard.timers.weather);
     window.__dashboard.timers.weather = setInterval(() => this.update(), 30 * 60 * 1000);
   },
 

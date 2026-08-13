@@ -5,6 +5,7 @@
 const CalendarWidget = {
   init() {
     this.update();
+    if (window.__dashboard.timers.calendar) clearInterval(window.__dashboard.timers.calendar);
     window.__dashboard.timers.calendar = setInterval(() => this.update(), 10 * 60 * 1000);
   },
 

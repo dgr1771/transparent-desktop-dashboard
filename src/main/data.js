@@ -15,7 +15,25 @@ const platform = require('./platform');
 // 通用 HTTP 请求（支持 gzip/deflate 解压）
 // ============================================================
 
+/**
+ * 通用 HTTP 请求（带超时 + 指数退避重试 + 重定向 socket 修复 + gzip/deflate/br 解压）
+ * 可重试错误：超时 / 网络错误 / 5xx。4xx 不重试（客户端错误，重试无用）。
+ * @param {string} url
+ * @param {object} options - { headers, encoding, timeout, retries }
+ */
 function fetch(url, options = {}) {
+  const retries = options.retries != null ? options.retries : 2;
+  return _fetchOnce(url, options).catch((err) => {
+    if (err.retryable && retries > 0) {
+      const delay = 500 * Math.pow(2, 2 - retries); // 指数退避：500ms → 1000ms
+      return new Promise((r) => setTimeout(r, delay))
+        .then(() => fetch(url, { ...options, retries: retries - 1 }));
+    }
+    throw err;
+  });
+}
+
+function _fetchOnce(url, options = {}) {
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https') ? https : http;
     const req = lib.get(url, {
@@ -24,14 +42,19 @@ function fetch(url, options = {}) {
         'Accept-Encoding': 'gzip, deflate',
         ...(options.headers || {})
       },
-      timeout: 10000
+      timeout: options.timeout || 10000
     }, (res) => {
-      // 处理重定向
+      // 重定向：先 resume 消费 body 释放 socket（修 socket 泄漏），再跟随（支持相对路径）
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return resolve(fetch(res.headers.location, options));
+        res.resume();
+        const next = new URL(res.headers.location, url).toString();
+        return resolve(fetch(next, options));
       }
       if (res.statusCode !== 200) {
-        return reject(new Error(`HTTP ${res.statusCode}`));
+        res.resume(); // 非 200 也消费 body，避免 socket 滞留
+        const err = new Error(`HTTP ${res.statusCode}`);
+        err.retryable = res.statusCode >= 500; // 仅 5xx 可重试
+        return reject(err);
       }
       // 以 Buffer 收集
       const chunks = [];
@@ -55,8 +78,13 @@ function fetch(url, options = {}) {
         }
       });
     });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('请求超时')); });
+    req.on('error', (err) => { err.retryable = true; reject(err); }); // 网络错误可重试
+    req.on('timeout', () => {
+      req.destroy();
+      const err = new Error('请求超时');
+      err.retryable = true;
+      reject(err);
+    });
   });
 }
 

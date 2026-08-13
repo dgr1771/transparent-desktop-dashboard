@@ -6,6 +6,7 @@ const CountdownWidget = {
   init() {
     this._refresh();
     // 每分钟刷新（更新倒计时数字）
+    if (window.__dashboard.timers.countdown) clearInterval(window.__dashboard.timers.countdown);
     window.__dashboard.timers.countdown = setInterval(() => this._refresh(), 60 * 1000);
   },
 

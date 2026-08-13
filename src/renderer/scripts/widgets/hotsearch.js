@@ -6,6 +6,7 @@ const HotSearchWidget = {
   init() {
     this.update();
     // 每 10 分钟刷新
+    if (window.__dashboard.timers.hotsearch) clearInterval(window.__dashboard.timers.hotsearch);
     window.__dashboard.timers.hotsearch = setInterval(() => this.update(), 10 * 60 * 1000);
   },
 

@@ -7,6 +7,9 @@
 const ClickThrough = {
   _supported: true,
   _currentIgnore: true,
+  _pending: false,
+  _lastX: 0,
+  _lastY: 0,
 
   async init() {
     if (window.dashboard && window.dashboard.getPlatformInfo) {
@@ -26,26 +29,20 @@ const ClickThrough = {
     // 默认穿透
     this._setIgnore(true);
 
-    // 事件委托：监听整个 document 的 mouseover/mouseout
-    // 判断鼠标下是否是交互元素（input/button/a/.no-drag/#grass-deco）
-    document.addEventListener('mouseover', (e) => {
-      if (document.body.classList.contains('interactive')) return;
-      const onInteractive = this._isInteractive(e.target);
-      this._setIgnore(!onInteractive);
-    });
-
-    document.addEventListener('mouseout', (e) => {
-      if (document.body.classList.contains('interactive')) return;
-      // 检查鼠标移到了哪里（relatedTarget）
-      const related = e.relatedTarget;
-      if (!related || related === document.documentElement || related === document.body) {
-        // 移出了窗口或到了 body → 穿透
-        this._setIgnore(true);
-      } else {
-        // 还在窗口内，检查新位置是否是交互元素
-        const onInteractive = this._isInteractive(related);
-        this._setIgnore(!onInteractive);
-      }
+    // mousemove + requestAnimationFrame 节流：
+    // 比 mouseover/mouseout 更平滑（每帧最多检查一次），避免在密集交互区
+    // （如 links 列表）事件频繁触发导致 setIgnoreMouseEvents 震荡卡顿。
+    document.addEventListener('mousemove', (e) => {
+      this._lastX = e.clientX;
+      this._lastY = e.clientY;
+      if (this._pending) return;
+      this._pending = true;
+      requestAnimationFrame(() => {
+        this._pending = false;
+        if (document.body.classList.contains('interactive')) return;
+        const el = document.elementFromPoint(this._lastX, this._lastY);
+        this._setIgnore(!this._isInteractive(el));
+      });
     });
   },
 

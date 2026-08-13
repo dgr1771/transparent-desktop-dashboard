@@ -92,7 +92,21 @@ const LinksWidget = {
   },
 
   _getIcon(name, url) {
-    // 根据 URL 域名返回常用图标 emoji
+    const domain = this._getDomain(url);
+    if (domain) {
+      const emoji = this._emojiFor(name, url);
+      // 网站真实 favicon（直接请求目标站点，无第三方依赖），失败回退 emoji
+      return `<img class="links__icon-img" src="https://${domain}/favicon.ico" alt="${emoji}" onerror="this.outerHTML=this.alt">`;
+    }
+    return this._emojiFor(name, url);
+  },
+
+  _getDomain(url) {
+    try { return new URL(url || '').hostname; } catch (e) { return ''; }
+  },
+
+  _emojiFor(name, url) {
+    // 根据 URL 域名返回常用图标 emoji（favicon 加载失败时的回退）
     const u = (url || '').toLowerCase();
     if (u.includes('github')) return '🐙';
     if (u.includes('google')) return '🔍';

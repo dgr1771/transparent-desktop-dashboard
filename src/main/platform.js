@@ -26,13 +26,13 @@ function getUser32() {
   });
   _user32 = {
     FindWindowA: u.func('void *FindWindowA(const char *cls, const char *win)'),
-    FindWindowExA: u.func('void *FindWindowExA(void *parent, void *childAfter, const char *cls, const char *win)'),
     SetParent: u.func('void *SetParent(void *child, void *parent)'),
     SendMessageTimeoutA: u.func('intptr_t SendMessageTimeoutA(void *h, uint msg, uintptr_t w, uintptr_t l, uint flags, uint timeout, void *result)'),
     SetWindowPos: u.func('bool SetWindowPos(void *h, void *after, int x, int y, int cx, int cy, uint flags)'),
     GetWindowLongPtrA: u.func('intptr_t GetWindowLongPtrA(void *h, int idx)'),
     SetWindowLongPtrA: u.func('intptr_t SetWindowLongPtrA(void *h, int idx, intptr_t val)'),
     GetForegroundWindow: u.func('void *GetForegroundWindow()'),
+    keybd_event: u.func('void keybd_event(uint8 bVk, uint8 bScan, uint32 dwFlags, uintptr_t dwExtraInfo)'),
     GetIconInfo: u.func('bool GetIconInfo(void *hicon, _Out_ ICONINFO *piconinfo)'),
     DestroyIcon: u.func('bool DestroyIcon(void *hicon)'),
     ICONINFO,
@@ -48,35 +48,13 @@ function getHwnd(win) {
   return hwnd;
 }
 
-/**
- * 嵌入 WorkerW 壁纸层（桌面图标下方），彻底免疫 Show Desktop / Win+D
- * 原理（Rainmeter 同款）：发 0x052C 给 Progman 让它创建 WorkerW，再 SetParent 到 WorkerW。
- * 窗口进入壁纸层后，"显示桌面"只隐藏普通应用窗口，壁纸层窗口和桌面一起保留。
- * 注意：区别于 SetParent 到 Progman（会和桌面图标同级触发 GDI 裁切），WorkerW 在图标下方。
- */
-function embedToDesktopLayer(hwnd) {
-  try {
-    const u = getUser32();
-    const progman = u.FindWindowA('Progman', null);
-    if (!progman) return false;
-    // 1. 触发 Progman 创建 WorkerW
-    const res = Buffer.alloc(8);
-    u.SendMessageTimeoutA(progman, 0x052C, 0, 0, 0x0002 /*SMTO_NORMAL*/, 1000, res);
-    // 2. 找 SHELLDLL_DefView（Progman 的子窗口 = 桌面图标层）
-    const defView = u.FindWindowExA(progman, null, 'SHELLDLL_DefView', null);
-    if (!defView) { console.info('[platform] 未找到 SHELLDLL_DefView'); return false; }
-    // 3. 找 defView 之后的 WorkerW（壁纸层）
-    const workerW = u.FindWindowExA(null, defView, 'WorkerW', null);
-    if (!workerW) { console.info('[platform] 未找到 WorkerW'); return false; }
-    // 4. 嵌入 WorkerW
-    const r = u.SetParent(hwnd, workerW);
-    console.info('[platform] 嵌入 WorkerW 壁纸层 ' + (r ? '成功' : 'SetParent 返回空'));
-    return !!r;
-  } catch (e) {
-    console.error('[platform] embedToDesktopLayer failed:', e.message);
-    return false;
-  }
+/** 窗口销毁时清理 HWND 缓存（避免热插拔显示器累积陈旧条目） */
+function untrackHwnd(win) {
+  if (win && win.id != null) _winHwnds.delete(win.id);
 }
+
+// 注：WorkerW 壁纸嵌入已移除——Win11 25H2 RaisedDesktop 模型下 0x052C 不创建新 WorkerW，
+// 标准技巧失效（实测 0x052C 前后 WorkerW 列表无变化）。当前用 Owner=Progman + 模拟 Win+D。
 
 /* ============================================================
    桌面图标提取：koffi SHGetFileInfo + GetDIBits + GDI+
@@ -172,7 +150,7 @@ function ensureGdiplus() {
  */
 function extractIconViaKoffi(filePath) {
   if (!isWin) return null;
-  let hdc = null, hbmColor = null, hbmMask = null, hIcon = null, bitmap = null;
+  let hdc = null, hbmColor = null, hbmMask = null, hIcon = null, bitmap = null, tmpFile = null;
   try {
     if (!ensureGdiplus()) return null;
     const koffi = require('koffi');
@@ -212,9 +190,12 @@ function extractIconViaKoffi(filePath) {
       biYPelsPerMeter: 0, biClrUsed: 0, biClrImportant: 0,
     };
 
-    // 5. 读颜色位图（bottom-up BGRA）
+    // 5. 读颜色位图（bottom-up BGRA）。GetDIBits 返回扫描行数，0=失败
     const colorBuf = Buffer.alloc(stride * h);
-    gd.GetDIBits(hdc, hbmColor, 0, h, colorBuf, bi, 0);
+    if (gd.GetDIBits(hdc, hbmColor, 0, h, colorBuf, bi, 0) === 0) {
+      console.error('[icon] GetDIBits(hbmColor) 失败，跳过该图标');
+      return null;
+    }
     // 读掩码（bottom-up，用于补 alpha）
     const maskBuf = hbmMask ? Buffer.alloc(stride * h) : null;
     if (maskBuf) gd.GetDIBits(hdc, hbmMask, 0, h, maskBuf, bi, 0);
@@ -239,6 +220,9 @@ function extractIconViaKoffi(filePath) {
           topDown[dstRow + x * 4 + 3] = maskBuf[srcRow + x * 4] > 128 ? 0 : 255;
         }
       }
+    } else if (!hasAlpha) {
+      // alpha 全 0 且无掩码（异常图标）：当作不透明，避免图标完全透明消失
+      for (let i = 3; i < stride * h; i += 4) topDown[i] = 255;
     }
 
     // 8. GdipCreateBitmapFromScan0（top-down BGRA = PixelFormat32bppARGB）
@@ -249,7 +233,7 @@ function extractIconViaKoffi(filePath) {
     bitmap = bmpOut[0];
 
     // 9. 保存 PNG → base64
-    const tmpFile = path.join(os.tmpdir(), 'deskicon-' + process.pid + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.png');
+    tmpFile = path.join(os.tmpdir(), 'deskicon-' + process.pid + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.png');
     const st2 = g.GdipSaveImageToFile(bitmap, tmpFile, _pngClsid, null);
     if (st2 !== 0) { console.error('[icon] GdipSaveImageToFile failed:', st2); return null; }
     const data = fs.readFileSync(tmpFile);
@@ -265,12 +249,14 @@ function extractIconViaKoffi(filePath) {
     try { if (hbmColor) getGdi32().DeleteObject(hbmColor); } catch (e) {}
     try { if (hbmMask) getGdi32().DeleteObject(hbmMask); } catch (e) {}
     try { if (hIcon) getUser32().DestroyIcon(hIcon); } catch (e) {}
+    try { if (tmpFile) fs.unlinkSync(tmpFile); } catch (e) {}  // 确保临时 PNG 清理（readFileSync 异常时）
   }
 }
 
 module.exports = {
   isMac, isWin, isLinux,
   extractIconViaKoffi,
+  untrackHwnd,
 
   shouldDisableHardwareAcceleration() { return isMac; },
 
@@ -299,9 +285,12 @@ module.exports = {
           let ex = Number(u.GetWindowLongPtrA(hwnd, GWL_EXSTYLE));
           ex = (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
           u.SetWindowLongPtrA(hwnd, GWL_EXSTYLE, ex);
-          win.hookWindowMessage(0x0112, (wParam) => {
-            if ((wParam.readUInt32LE(0) & 0xFFF0) === 0xF020) return true;
-          });
+          if (!win._sysCmdHooked) {  // hookWindowMessage 只注册一次（避免重复进出编辑模式累积回调）
+            win.hookWindowMessage(0x0112, (wParam) => {
+              if ((wParam.readUInt32LE(0) & 0xFFF0) === 0xF020) return true;
+            });
+            win._sysCmdHooked = true;
+          }
           console.info('[platform] Owner=Progman + WS_EX_TOOLWINDOW');
         }
       } catch (e) { console.error('[platform] init failed:', e.message); }
@@ -332,14 +321,12 @@ module.exports = {
   simulateWinD() {
     if (!isWin) return;
     try {
-      const koffi = require('koffi');
-      const uu = koffi.load('user32.dll');
-      const keybd_event = uu.func('void keybd_event(uint8 bVk, uint8 bScan, uint32 dwFlags, uintptr_t dwExtraInfo)');
+      const u = getUser32();
       const VK_LWIN = 0x5B, VK_D = 0x44, KEYEVENTF_KEYUP = 0x0002;
-      keybd_event(VK_LWIN, 0, 0, 0);
-      keybd_event(VK_D, 0, 0, 0);
-      keybd_event(VK_D, 0, KEYEVENTF_KEYUP, 0);
-      keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0);
+      u.keybd_event(VK_LWIN, 0, 0, 0);
+      u.keybd_event(VK_D, 0, 0, 0);
+      u.keybd_event(VK_D, 0, KEYEVENTF_KEYUP, 0);
+      u.keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0);
       console.info('[platform] 模拟 Win+D（恢复显示桌面状态）');
     } catch (e) { console.error('[platform] simulateWinD failed:', e.message); }
   },

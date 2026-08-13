@@ -30,6 +30,9 @@ app.isQuiting = false;  // 标记是否用户主动退出（防止 Alt+Space 关
 
 // 交互模式：false=鼠标穿透（透明壁纸），true=编辑模式（可交互）
 let interactionMode = false;
+let _protectionStarted = false;        // startProtectionTimers 防重入（避免 createAllWindows 重复调用叠加定时器）
+let _displayEventsRegistered = false;  // registerDisplayEvents 防重入
+let _lastWinDRecover = 0;              // 上次模拟 Win+D 恢复的时间戳（冷却防 toggle 震荡）
 let keyBlockerProcess = null;
 
 // 是否开发模式（带 --dev 参数启动）
@@ -177,25 +180,22 @@ function createWindowForDisplay(display) {
       if (win.isVisible() && !win.isFocused()) {
         win.webContents.executeJavaScript('document.hidden', true).then(hidden => {
           if (hidden && platform.isShowDesktop()) {
-            // 真正的 Show Desktop（前台窗口是桌面 Progman）→ 模拟 Win+D 恢复。
-            // document.hidden=true 也可能是被浏览器遮挡，但那时前台是浏览器，不 toggle。
-            console.info('[win-d] Show Desktop（前台=桌面）→ 模拟 Win+D');
-            platform.simulateWinD();
+            // 真正的 Show Desktop（前台窗口是桌面 Progman + 看板页面隐藏）。
+            // simulateWinD 是 toggle，误判会主动最小化所有窗口——加 3 秒冷却防震荡/误触。
+            const now = Date.now();
+            if (now - _lastWinDRecover > 3000) {
+              _lastWinDRecover = now;
+              console.info('[win-d] Show Desktop（前台=桌面）→ 模拟 Win+D 恢复');
+              platform.simulateWinD();
+            }
           }
         }).catch(() => {});
       }
     }, 600);
   });
-  // 3. 兜底定时器
-  if (platform.isWin) {
-    setInterval(() => {
-      if (win.isDestroyed() || win._userHidden) return;
-      if (win.isMinimized() || !win.isVisible()) {
-        console.info('[win-d] 兜底恢复: isMinimized=' + win.isMinimized() + ' isVisible=' + win.isVisible());
-        try { win.restore(); win.showInactive(); } catch (err) {}
-      }
-    }, 1000);
-  }
+  // 注：窗口级兜底定时器已移除——与全局 startProtectionTimers 重叠（都检查
+  // isMinimized/!isVisible 并 restore），且不保存 id 会在窗口销毁后泄漏。
+  // 统一由 startProtectionTimers 兜底（全局遍历 + 重设穿透）。
 
   // 开发模式：只给主屏窗口开 DevTools
   if (process.argv.includes('--dev') && win._isPrimary) {
@@ -211,6 +211,7 @@ function createWindowForDisplay(display) {
   });
 
   win.on('closed', () => {
+    platform.untrackHwnd(win);
     windows.delete(displayId);
   });
 
@@ -221,6 +222,8 @@ function createWindowForDisplay(display) {
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
+  if (_protectionStarted) return;  // 防重入：全局定时器只启动一次
+  _protectionStarted = true;
   // Win+D 兜底：type:'desktop' + hookWindowMessage 已在窗口层处理
   // 这里只保留简单的窗口恢复（防止意外最小化）
   if (platform.isWin) {
@@ -260,6 +263,8 @@ function startProtectionTimers() {
  * 监听显示器热插拔事件
  */
 function registerDisplayEvents() {
+  if (_displayEventsRegistered) return;  // 防重入：screen 监听只注册一次
+  _displayEventsRegistered = true;
   screen.on('display-added', (_e, display) => {
     createWindowForDisplay(display);
   });
@@ -739,7 +744,7 @@ function registerIpcHandlers() {
     // 从注册表读取真实桌面路径（解决 OneDrive 重定向）
     const userDesk = getRealDesktopPath();
     const publicDesk = platform.isWin
-      ? pathDesk.join('C:', 'Users', 'Public', 'Desktop')
+      ? pathDesk.join(process.env.SystemDrive || 'C:', 'Users', 'Public', 'Desktop')
       : null;
 
     const desks = [userDesk];

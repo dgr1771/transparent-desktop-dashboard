@@ -176,10 +176,10 @@ function createWindowForDisplay(display) {
       if (win.isDestroyed() || win._userHidden) return;
       if (win.isVisible() && !win.isFocused()) {
         win.webContents.executeJavaScript('document.hidden', true).then(hidden => {
-          if (hidden) {
-            // Show Desktop 检测到（DWM 层隐藏：isVisible 仍 true 但实际不可见）。
-            // 25H2 上 show/restore 对 DWM 隐藏无效，模拟 Win+D toggle 退出该状态恢复看板。
-            console.info('[win-d] Show Desktop 检测到 → 模拟 Win+D 恢复');
+          if (hidden && platform.isShowDesktop()) {
+            // 真正的 Show Desktop（前台窗口是桌面 Progman）→ 模拟 Win+D 恢复。
+            // document.hidden=true 也可能是被浏览器遮挡，但那时前台是浏览器，不 toggle。
+            console.info('[win-d] Show Desktop（前台=桌面）→ 模拟 Win+D');
             platform.simulateWinD();
           }
         }).catch(() => {});

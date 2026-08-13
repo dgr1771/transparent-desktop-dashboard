@@ -32,6 +32,7 @@ function getUser32() {
     SetWindowPos: u.func('bool SetWindowPos(void *h, void *after, int x, int y, int cx, int cy, uint flags)'),
     GetWindowLongPtrA: u.func('intptr_t GetWindowLongPtrA(void *h, int idx)'),
     SetWindowLongPtrA: u.func('intptr_t SetWindowLongPtrA(void *h, int idx, intptr_t val)'),
+    GetForegroundWindow: u.func('void *GetForegroundWindow()'),
     GetIconInfo: u.func('bool GetIconInfo(void *hicon, _Out_ ICONINFO *piconinfo)'),
     DestroyIcon: u.func('bool DestroyIcon(void *hicon)'),
     ICONINFO,
@@ -341,6 +342,18 @@ module.exports = {
       keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0);
       console.info('[platform] 模拟 Win+D（恢复显示桌面状态）');
     } catch (e) { console.error('[platform] simulateWinD failed:', e.message); }
+  },
+
+  /** 判断是否处于"显示桌面"状态（前台窗口=桌面 Progman）。
+   *  用于区分 Show Desktop（应 simulateWinD 恢复）vs 被浏览器等窗口遮挡（不应 toggle）。 */
+  isShowDesktop() {
+    if (!isWin) return false;
+    try {
+      const u = getUser32();
+      const fg = u.GetForegroundWindow();
+      const progman = u.FindWindowA('Progman', null);
+      return !!fg && !!progman && Number(fg) === Number(progman);
+    } catch (e) { return false; }
   },
 
   isTraySupported() { return !isLinux || process.env.XDG_CURRENT_DESKTOP !== undefined; },

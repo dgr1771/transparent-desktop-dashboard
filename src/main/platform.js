@@ -46,48 +46,42 @@ module.exports = {
       win.setVisibleOnAllWorkspaces(true, { transformProcessType: false });
       win.setAlwaysOnTop(true, 'floating');
     } else if (isWin) {
+      // 设置 WS_EX_TOOLWINDOW（工具窗口）
+      // 不挂载 Progman（会导致 Z 轴冲突和图标消失）
+      // 用 WS_EX_TOOLWINDOW + minimize preventDefault + blur 检测来防 Win+D
       try {
         const u = getUser32();
         const hwnd = getHwnd(win);
-        const progman = u.FindWindowA('Progman', null);
-        if (progman) {
-          u.SendMessageTimeoutA(progman, 0x052C, 0, 0, 0, 1000, null);
-          u.SetParent(hwnd, progman);
-          u.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0043);
-          // 默认开启 WS_EX_TRANSPARENT（系统级穿透，让桌面图标正常显示和交互）
-          const GWL_EXSTYLE = -20;
-          const WS_EX_TRANSPARENT = 0x00000020;
-          let ex = Number(u.GetWindowLongPtrA(hwnd, GWL_EXSTYLE));
-          u.SetWindowLongPtrA(hwnd, GWL_EXSTYLE, ex | WS_EX_TRANSPARENT);
-          console.info('[platform] Attached to Progman + WS_EX_TRANSPARENT');
-        }
-      } catch (e) { console.error('[platform] attach failed:', e.message); }
+        const GWL_EXSTYLE = -20;
+        const WS_EX_TOOLWINDOW = 0x00000080;
+        const WS_EX_APPWINDOW = 0x00040000;
+        let ex = Number(u.GetWindowLongPtrA(hwnd, GWL_EXSTYLE));
+        ex = (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
+        u.SetWindowLongPtrA(hwnd, GWL_EXSTYLE, ex);
+        // 刷新窗口框架
+        u.SetWindowPos(hwnd, null, 0, 0, 0, 0, 0x0037);
+        console.info('[platform] WS_EX_TOOLWINDOW applied');
+      } catch (e) { console.error('[platform] style failed:', e.message); }
     }
   },
 
   setWindowLevel(win, interactive) {
     if (isMac) { win.setAlwaysOnTop(true, 'floating'); }
-    else { win.showInactive(); }
+    else if (isWin) {
+      // 普通窗口：交互时置顶，非交互时不置顶
+      if (interactive) { win.setAlwaysOnTop(true, 'screen-saver'); win.show(); }
+      else { win.setAlwaysOnTop(false); win.showInactive(); }
+    } else {
+      win.setAlwaysOnTop(false); win.showInactive();
+    }
   },
 
   setClickThrough(win, ignore) {
-    if (isWin) {
-      try {
-        const u = getUser32();
-        const hwnd = getHwnd(win);
-        const GWL_EXSTYLE = -20;
-        const WS_EX_TRANSPARENT = 0x00000020;
-        let ex = Number(u.GetWindowLongPtrA(hwnd, GWL_EXSTYLE));
-        if (ignore) ex = ex | WS_EX_TRANSPARENT;
-        else ex = ex & ~WS_EX_TRANSPARENT;
-        u.SetWindowLongPtrA(hwnd, GWL_EXSTYLE, ex);
-        // 关键：修改样式后必须调 SetWindowPos + SWP_FRAMECHANGED
-        // 否则 Windows 不会立即应用新的 WS_EX_TRANSPARENT 状态
-        // SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED|SWP_NOACTIVATE = 0x0037
-        u.SetWindowPos(hwnd, null, 0, 0, 0, 0, 0x0037);
-      } catch (e) {}
-    } else if (isLinux) {
+    // 使用 Electron 原生 setIgnoreMouseEvents（已验证可靠，不干扰桌面图标）
+    if (isLinux) {
       try { win.setIgnoreMouseEvents(ignore); } catch (e) {}
+    } else {
+      try { win.setIgnoreMouseEvents(ignore, { forward: true }); } catch (e) {}
     }
   },
 

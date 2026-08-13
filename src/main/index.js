@@ -240,13 +240,44 @@ function createWindowForDisplay(display) {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
-  // Win+D 防护：platform.js 的 koffi SetParent 已将窗口挂到 WorkerW 桌面层
-  // 双保险：即使系统强行最小化，也在 WorkerW 层级内原地恢复（不跑到其他窗口上面）
+  // Win+D 防护（三层）
+  // 1. minimize preventDefault（拦截 WM_SYSCOMMAND 路径）
   win.on('minimize', (e) => {
     if (win._userHidden) return;
     e.preventDefault();
     try { win.restore(); } catch (err) {}
   });
+  // 2. blur + document.hidden 检测（拦截 ShowDesktop/DWM 隐藏路径）
+  win.on('blur', () => {
+    if (win._userHidden) return;
+    setTimeout(() => {
+      if (win.isDestroyed() || win._userHidden) return;
+      if (win.isVisible() && !win.isFocused()) {
+        win.webContents.executeJavaScript('document.hidden', true).then(hidden => {
+          if (hidden) {
+            // Win+D 检测到——hide + showInactive 恢复（不遮挡其他窗口）
+            win._recovering = true;
+            win.hide();
+            setTimeout(() => {
+              if (win.isDestroyed()) return;
+              win.showInactive();
+              win._recovering = false;
+              platform.setClickThrough(win, !interactionMode);
+            }, 50);
+          }
+        }).catch(() => {});
+      }
+    }, 500);
+  });
+  // 3. 兜底定时器
+  if (platform.isWin) {
+    setInterval(() => {
+      if (win.isDestroyed() || win._userHidden) return;
+      if (win.isMinimized() || !win.isVisible()) {
+        try { win.restore(); win.showInactive(); } catch (err) {}
+      }
+    }, 1000);
+  }
 
   // 开发模式：只给主屏窗口开 DevTools
   if (process.argv.includes('--dev') && win._isPrimary) {

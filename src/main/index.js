@@ -432,16 +432,17 @@ function setInteractionMode(interactive) {
   setWindowsDShortcutBlocked(interactive);
   if (windows.size === 0) return;
 
-  // 对所有窗口应用模式
   for (const win of windows.values()) {
     if (!win || win.isDestroyed()) continue;
-    // 鼠标穿透
+    // 切换穿透
     platform.setClickThrough(win, !interactive);
-    // Windows 桌面宿主窗口不能在编辑切换时反复调用 alwaysOnTop，
-    // 否则 Windows 会重新排序子窗口并导致看板短暂消失。只切换穿透状态，
-    // 始终保持同一个 WorkerW 父窗口。
+    // 退出编辑模式时重新应用 GWLP_HWNDPARENT（Electron 内部操作可能重置了它）
+    if (!interactive && platform.isWin) {
+      try {
+        platform.initWindowForPlatform(win);
+      } catch (e) {}
+    }
     if (!platform.isWin) platform.setWindowLevel(win, interactive);
-    // 通知渲染进程更新 UI（边框高亮等）
     win.webContents.send('interaction-mode-changed', interactive);
   }
 

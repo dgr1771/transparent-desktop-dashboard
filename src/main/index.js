@@ -695,6 +695,7 @@ function registerIpcHandlers() {
   async function extractIcons(items) {
     const iconMap = {};
     const batchSize = 6;
+    let koffiOk = 0, fallbackOk = 0;
     for (let i = 0; i < items.length; i += batchSize) {
       const batch = items.slice(i, i + batchSize);
       await Promise.all(batch.map(async (it) => {
@@ -703,16 +704,17 @@ function registerIpcHandlers() {
           // IconLocation）、UWP 应用等，比 Electron getFileIcon 全面可靠。
           if (platform.isWin && platform.extractIconViaKoffi) {
             const dataUrl = platform.extractIconViaKoffi(it.fullPath);
-            if (dataUrl) { iconMap[it.fullPath] = dataUrl; return; }
+            if (dataUrl) { iconMap[it.fullPath] = dataUrl; koffiOk++; return; }
           }
           // 兜底（Linux/Mac 或 koffi 失败）：Electron getFileIcon
           const img = await app.getFileIcon(it.fullPath, { size: 'normal' });
-          if (img && !img.isEmpty()) iconMap[it.fullPath] = img.toDataURL();
+          if (img && !img.isEmpty()) { iconMap[it.fullPath] = img.toDataURL(); fallbackOk++; }
         } catch (e) {}
       }));
       // 让出主进程，避免同步 koffi 调用连续阻塞过久
       await new Promise(r => setImmediate(r));
     }
+    console.info(`[icon] 提取完成: koffi成功=${koffiOk} 兜底=${fallbackOk} 共${items.length}项`);
     return iconMap;
   }
 

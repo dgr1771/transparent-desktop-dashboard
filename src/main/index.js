@@ -354,6 +354,46 @@ function toggleInteractionMode() {
 /**
  * 系统托盘
  */
+/** 显示所有看板窗口（强制恢复，托盘左键/菜单/Ctrl+Shift+H 共用） */
+function showAllWindows() {
+  for (const win of windows.values()) {
+    if (!win || win.isDestroyed()) continue;
+    win._userHidden = false;
+    try {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      platform.setClickThrough(win, !interactionMode);
+    } catch (e) { console.error('[window] show failed:', e.message); }
+  }
+  updateTrayTooltip(true);
+  console.info('[window] showAllWindows 完成');
+}
+
+/** 隐藏所有看板窗口 */
+function hideAllWindows() {
+  for (const win of windows.values()) {
+    if (!win || win.isDestroyed()) continue;
+    win._userHidden = true;
+    try { win.hide(); } catch (e) {}
+  }
+  updateTrayTooltip(false);
+  console.info('[window] hideAllWindows 完成');
+}
+
+/** 切换所有窗口显示/隐藏（托盘左键/右键菜单/Ctrl+Shift+H 共用） */
+function toggleAllWindows() {
+  if (windows.size === 0) { createAllWindows(); setInteractionMode(interactionMode); return; }
+  const anyShown = [...windows.values()].some(w => w && !w.isDestroyed() && w.isVisible());
+  console.info('[window] toggleAllWindows anyShown=' + anyShown + ' size=' + windows.size);
+  if (anyShown) hideAllWindows(); else showAllWindows();
+}
+
+/** 更新托盘 tooltip（隐藏时提示恢复方式） */
+function updateTrayTooltip(visible) {
+  if (!tray) return;
+  tray.setToolTip(visible ? '透明桌面看板（左键单击 隐藏/显示）' : '看板已隐藏 — 左键单击托盘恢复');
+}
+
 function createTray() {
   // 系统托盘图标
   // 图标路径解析：开发态用源码路径，打包态用 resourcesPath
@@ -392,8 +432,9 @@ function createTray() {
   try {
     tray = new Tray(icon);
     updateTrayMenu();
-    tray.setToolTip('透明桌面看板');
-    console.log('[Tray] 托盘创建成功');
+    updateTrayTooltip(true);
+    tray.on('click', () => toggleAllWindows());
+    console.log('[Tray] 托盘创建成功（左键单击切换显示）');
   } catch (e) {
     console.error('[Tray] 托盘创建失败（可能缺少 libappindicator）:', e.message);
     tray = null;
@@ -426,26 +467,8 @@ function updateTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: '显示/隐藏看板 (Ctrl+Shift+H)',
-      click: () => {
-        if (windows.size === 0) {
-          createAllWindows();
-          setInteractionMode(interactionMode);
-          return;
-        }
-        const anyVisible = [...windows.values()].some(w => w && !w.isDestroyed() && w.isVisible());
-        for (const win of windows.values()) {
-          if (!win || win.isDestroyed()) continue;
-          if (anyVisible) {
-            win._userHidden = true;
-            win.hide();
-          } else {
-            win._userHidden = false;
-            win.show();
-            platform.setClickThrough(win, !interactionMode);
-          }
-        }
-      }
+      label: '显示/隐藏看板（左键单击 或 Ctrl+Shift+H）',
+      click: () => toggleAllWindows()
     },
     {
       label: '刷新数据',
@@ -491,25 +514,12 @@ function updateTrayMenu() {
  */
 function registerShortcuts() {
   // Ctrl+Shift+D 切换编辑模式
-  globalShortcut.register('CommandOrControl+Shift+D', () => {
-    toggleInteractionMode();
-  });
+  const dOk = globalShortcut.register('CommandOrControl+Shift+D', () => toggleInteractionMode());
+  console.info('[shortcut] Ctrl+Shift+D ' + (dOk ? '注册成功' : '注册失败'));
 
-  // Ctrl+Shift+H 隐藏/显示所有窗口
-  globalShortcut.register('CommandOrControl+Shift+H', () => {
-    const anyVisible = [...windows.values()].some(w => w && !w.isDestroyed() && w.isVisible());
-    for (const win of windows.values()) {
-      if (!win || win.isDestroyed()) continue;
-      if (anyVisible) {
-        win._userHidden = true;
-        win.hide();
-      } else {
-        win._userHidden = false;
-        win.show();
-        platform.setClickThrough(win, !interactionMode);
-      }
-    }
-  });
+  // Ctrl+Shift+H 隐藏/显示所有窗口（检查注册是否成功——失败时可用托盘左键恢复）
+  const hOk = globalShortcut.register('CommandOrControl+Shift+H', () => toggleAllWindows());
+  console.info('[shortcut] Ctrl+Shift+H ' + (hOk ? '注册成功' : '注册失败（可能被其他程序占用，请用托盘左键单击恢复）'));
 }
 
 // ========== App 生命周期 ==========

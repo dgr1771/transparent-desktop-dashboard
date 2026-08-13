@@ -321,54 +321,21 @@ function startProtectionTimers() {
     }, 1000);
   }
 
-  // ===== 区域穿透：主进程 cursor 轮询 =====
-  // 优化：executeJavaScript 是昂贵的跨进程 IPC，用状态缓存避免重复调用
-  // 只在鼠标位置实际变化时才执行 executeJavaScript
+  // ===== 区域穿透：renderer 事件驱动 + 低频兜底 =====
+  // 渲染进程通过 mouseover/mouseout 检测鼠标进出交互元素，发 IPC 给主进程切换穿透
+  // 零 IPC 开销（不用 executeJavaScript），零延迟，不闪烁不卡顿
   if (platform.isWin || platform.isLinux) {
-    let lastCursor = { x: -999, y: -999 };
+    // 低频兜底：每 2 秒检查一次窗口状态（防止 renderer 事件丢失）
     setInterval(() => {
       if (interactionMode) return;
-      const cursor = screen.getCursorScreenPoint();
-
       for (const win of windows.values()) {
         if (!win || win.isDestroyed() || win._userHidden) continue;
-        const bounds = win.getBounds();
-        const inWindow = cursor.x >= bounds.x && cursor.x < bounds.x + bounds.width &&
-                         cursor.y >= bounds.y && cursor.y < bounds.y + bounds.height;
-        if (!inWindow) {
-          // 鼠标不在窗口内：确保穿透（带缓存，避免反复设置导致闪烁）
-          if (win._cursorIgnore !== true) {
-            win._cursorIgnore = true;
-            try {
-              if (platform.isWin) win.setIgnoreMouseEvents(true, { forward: true });
-              else win.setIgnoreMouseEvents(true);
-            } catch (e) {}
-          }
-          continue;
+        // 只在窗口被最小化/隐藏时恢复（正常情况下不干预）
+        if (win.isMinimized() || !win.isVisible()) {
+          try { win.restore(); win.showInactive(); } catch (e) {}
         }
-        if (cursor.x === lastCursor.x && cursor.y === lastCursor.y) continue;
-
-        const localX = Math.round(cursor.x - bounds.x);
-        const localY = Math.round(cursor.y - bounds.y);
-        win.webContents.executeJavaScript(
-          `(()=>{const el=document.elementFromPoint(${localX},${localY});if(!el)return false;const tag=el.tagName.toLowerCase();if(['input','button','a','select','textarea'].includes(tag))return true;if(el.contentEditable==='true')return true;if(el.classList&&el.classList.contains('no-drag'))return true;if(el.closest&&el.closest('#grass-deco'))return true;return false;})()`,
-          true
-        ).then(onInteractive => {
-          if (win.isDestroyed()) return;
-          const shouldIgnore = !onInteractive;
-          // 恢复缓存：只在状态变化时才调 setIgnoreMouseEvents
-          // 避免鼠标静止时反复刷新窗口样式导致闪烁
-          if (win._cursorIgnore !== shouldIgnore) {
-            win._cursorIgnore = shouldIgnore;
-            try {
-              if (platform.isWin) win.setIgnoreMouseEvents(shouldIgnore, { forward: true });
-              else win.setIgnoreMouseEvents(shouldIgnore);
-            } catch (e) {}
-          }
-        }).catch(() => {});
       }
-      lastCursor = { x: cursor.x, y: cursor.y };
-    }, 200);
+    }, 2000);
   }
 }
 

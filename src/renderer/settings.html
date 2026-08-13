@@ -7,8 +7,9 @@
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
     body {
       font-family: -apple-system, 'SF Pro Display', 'Segoe UI', 'Microsoft YaHei', sans-serif;
-      background: #1c1c1e;
-      color: #f5f5f7;
+      background: linear-gradient(160deg, #0ABAB5 0%, #8FE0DB 45%, #FFC4D6 100%);
+      background-attachment: fixed;
+      color: #1f4e4a;
       padding: 0;
       line-height: 1.5;
       overflow-y: auto;
@@ -17,10 +18,10 @@
     /* 顶部导航栏（macOS 风格） */
     .titlebar {
       position: sticky; top: 0; z-index: 100;
-      background: rgba(44,44,46,0.8);
+      background: rgba(255,255,255,0.25);
       backdrop-filter: saturate(180%) blur(20px);
       -webkit-backdrop-filter: saturate(180%) blur(20px);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 1px solid rgba(10,171,181,0.15);
       padding: 14px 24px;
       display: flex; align-items: center; justify-content: space-between;
     }
@@ -34,11 +35,11 @@
       transition: all 0.15s;
     }
     .titlebar-btn.primary {
-      background: #0a84ff; color: #fff;
+      background: #0ABAB5; color: #fff;
     }
-    .titlebar-btn.primary:hover { background: #0071e3; }
+    .titlebar-btn.primary:hover { background: #089691; }
     .titlebar-btn.secondary {
-      background: rgba(255,255,255,0.1); color: #f5f5f7;
+      background: rgba(10,171,181,0.18); color: #1f4e4a;
     }
     .titlebar-btn.secondary:hover { background: rgba(255,255,255,0.15); }
 
@@ -48,14 +49,14 @@
     /* 分组标题（macOS Settings 风格） */
     .group-label {
       font-size: 13px; font-weight: 600;
-      color: #8e8e93; text-transform: uppercase;
+      color: #5a8a85; text-transform: uppercase;
       letter-spacing: 0.5px; margin: 24px 0 8px 16px;
     }
     .group-label:first-child { margin-top: 8px; }
 
     /* 圆角分组容器（macOS inset grouped 风格） */
     .group {
-      background: rgba(58,58,60,0.65);
+      background: rgba(255,255,255,0.72);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       border-radius: 12px;
@@ -64,35 +65,35 @@
     }
     .group-item {
       padding: 14px 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(10,171,181,0.1);
       display: flex; align-items: center; justify-content: space-between;
       gap: 12px;
     }
     .group-item:last-child { border-bottom: none; }
-    .group-item:hover { background: rgba(255,255,255,0.03); }
+    .group-item:hover { background: rgba(255,107,138,0.08); }
 
     /* 左侧标签 + 右侧控件 */
-    .item-label { font-size: 14px; color: #f5f5f7; flex-shrink: 0; }
-    .item-desc { font-size: 12px; color: #8e8e93; margin-top: 2px; }
+    .item-label { font-size: 14px; color: #1f4e4a; flex-shrink: 0; }
+    .item-desc { font-size: 12px; color: #5a8a85; margin-top: 2px; }
     .item-control { flex: 1; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 
     /* 输入框（macOS 风格） */
     input[type="text"], input[type="number"], select {
-      background: rgba(99,99,102,0.36);
-      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(10,171,181,0.15);
       border-radius: 8px;
       padding: 7px 12px;
-      color: #f5f5f7;
+      color: #1f4e4a;
       font-size: 14px;
       outline: none;
       width: 100%;
       transition: border-color 0.15s, background 0.15s;
     }
     input[type="text"]:focus, select:focus {
-      border-color: #0a84ff;
-      background: rgba(99,99,102,0.5);
+      border-color: #0ABAB5;
+      background: rgba(255,255,255,0.7);
     }
-    input::placeholder { color: #636366; }
+    input::placeholder { color: #7aa8a5; }
 
     /* 滑块 */
     input[type="range"] {
@@ -108,11 +109,11 @@
     /* 开关 (macOS Toggle) */
     .toggle {
       position: relative; width: 44px; height: 26px;
-      background: rgba(120,120,128,0.32); border-radius: 13px;
+      background: rgba(255,255,255,0.45); border-radius: 13px;
       cursor: pointer; transition: background 0.2s;
       flex-shrink: 0;
     }
-    .toggle.on { background: #30d158; }
+    .toggle.on { background: #FF6B8A; }
     .toggle::after {
       content: ''; position: absolute; top: 2px; left: 2px;
       width: 22px; height: 22px; background: #fff; border-radius: 50%;
@@ -126,32 +127,32 @@
       cursor: pointer; font-size: 13px; font-weight: 500;
       transition: all 0.15s;
     }
-    .btn-blue { background: #0a84ff; color: #fff; }
-    .btn-blue:hover { background: #0071e3; }
-    .btn-gray { background: rgba(99,99,102,0.36); color: #f5f5f7; }
-    .btn-gray:hover { background: rgba(99,99,102,0.5); }
+    .btn-blue { background: #0ABAB5; color: #fff; }
+    .btn-blue:hover { background: #089691; }
+    .btn-gray { background: rgba(255,255,255,0.5); color: #1f4e4a; }
+    .btn-gray:hover { background: rgba(255,255,255,0.7); }
     .btn-red { background: #ff453a; color: #fff; font-size: 12px; padding: 4px 10px; }
 
     /* 超链接 */
-    .link { color: #0a84ff; text-decoration: none; }
+    .link { color: #0ABAB5; text-decoration: none; }
     .link:hover { text-decoration: underline; }
 
     /* 提示文字 */
-    .hint { font-size: 12px; color: #8e8e93; margin-top: 4px; line-height: 1.4; }
+    .hint { font-size: 12px; color: #5a8a85; margin-top: 4px; line-height: 1.4; }
     .hint-success { color: #30d158; }
     .hint-error { color: #ff453a; }
 
     /* 新闻源列表 */
     .source-row {
       display: flex; gap: 6px; align-items: center;
-      padding: 8px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 8px 16px; border-bottom: 1px solid rgba(10,171,181,0.1);
     }
     .source-row input { flex: 1; }
     .source-row .name { max-width: 100px; }
     .btn-add-source {
       width: 100%; padding: 10px; background: none; border: none;
-      color: #0a84ff; font-size: 14px; cursor: pointer;
-      border-top: 1px solid rgba(255,255,255,0.06);
+      color: #0ABAB5; font-size: 14px; cursor: pointer;
+      border-top: 1px solid rgba(10,171,181,0.1);
     }
     .btn-add-source:hover { background: rgba(10,132,255,0.08); }
 
@@ -159,27 +160,27 @@
     .picker { display: flex; flex-wrap: wrap; gap: 8px; }
     .picker-item {
       width: 44px; height: 44px; border-radius: 10px; cursor: pointer;
-      border: 2px solid rgba(255,255,255,0.1);
+      border: 2px solid rgba(10,171,181,0.18);
       display: flex; align-items: center; justify-content: center;
       font-size: 22px; transition: all 0.15s;
     }
     .picker-item:hover { transform: scale(1.05); border-color: rgba(255,255,255,0.3); }
     .picker-item.selected {
-      border-color: #0a84ff; transform: scale(1.08);
+      border-color: #0ABAB5; transform: scale(1.08);
       box-shadow: 0 0 0 3px rgba(10,132,255,0.2);
     }
 
     /* 模块列表 */
-    .module-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; }
+    .module-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: rgba(10,171,181,0.1); border-radius: 12px; overflow: hidden; }
     .module-item {
-      background: rgba(58,58,60,0.65); padding: 12px 16px;
+      background: rgba(255,255,255,0.72); padding: 12px 16px;
       display: flex; align-items: center; gap: 10px; cursor: pointer;
       transition: background 0.15s;
     }
     .module-item:hover { background: rgba(72,72,74,0.8); }
     .module-icon { font-size: 20px; flex-shrink: 0; }
-    .module-name { font-size: 14px; color: #f5f5f7; }
-    .module-desc { font-size: 11px; color: #8e8e93; }
+    .module-name { font-size: 14px; color: #1f4e4a; }
+    .module-desc { font-size: 11px; color: #5a8a85; }
     .module-text { flex: 1; }
     .module-toggle { transform: scale(0.85); }
 
@@ -193,15 +194,15 @@
       display: flex; align-items: center; justify-content: center; font-size: 32px;
     }
     .about-name { font-size: 18px; font-weight: 600; }
-    .about-tagline { font-size: 13px; color: #8e8e93; margin-top: 2px; }
+    .about-tagline { font-size: 13px; color: #5a8a85; margin-top: 2px; }
     .about-row {
-      padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 10px 16px; border-bottom: 1px solid rgba(10,171,181,0.1);
       display: flex; justify-content: space-between;
       font-size: 14px;
     }
     .about-row:last-child { border-bottom: none; }
-    .about-row .key { color: #8e8e93; }
-    .about-row .val { color: #f5f5f7; }
+    .about-row .key { color: #5a8a85; }
+    .about-row .val { color: #1f4e4a; }
 
     /* Toast */
     .toast {
@@ -209,7 +210,7 @@
       transform: translateX(-50%) translateY(20px);
       background: rgba(30,30,30,0.95);
       backdrop-filter: blur(20px);
-      color: #f5f5f7; padding: 12px 24px;
+      color: #1f4e4a; padding: 12px 24px;
       border-radius: 20px; font-size: 14px; font-weight: 500;
       opacity: 0; transition: all 0.3s;
       pointer-events: none; z-index: 9999;
@@ -220,7 +221,7 @@
     /* 隐藏滚动条但保留功能 */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: rgba(10,171,181,0.18); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
   </style>
 </head>
@@ -332,7 +333,7 @@
       <div class="group-item">
         <span class="item-label">卡片透明度</span>
         <div class="item-control">
-          <span id="opacity-value" style="font-size:14px;color:#f5f5f7;min-width:40px;text-align:right">100%</span>
+          <span id="opacity-value" style="font-size:14px;color:#1f4e4a;min-width:40px;text-align:right">100%</span>
           <input type="range" id="global-opacity" min="20" max="100" value="100">
         </div>
       </div>
@@ -352,7 +353,7 @@
       </div>
       <div class="about-row">
         <span class="key">版本</span>
-        <span class="val" id="about-version" style="color:#0a84ff">—</span>
+        <span class="val" id="about-version" style="color:#0ABAB5">—</span>
       </div>
       <div class="about-row">
         <span class="key">作者</span>

@@ -1,6 +1,6 @@
 {
   "name": "transparent-desktop-dashboard",
-  "version": "0.8.90",
+  "version": "0.8.91",
   "description": "透明桌面信息看板 - 鼠标穿透的桌面常驻信息展示（天气/A股/新闻/待办/时钟/倒数日/热搜）",
   "main": "src/main/index.js",
   "scripts": {
@@ -60,7 +60,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "${productName}-Setup-${version}.${ext}"
@@ -76,7 +78,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "category": "public.app-category.utilities",
@@ -91,16 +96,26 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "deb",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "category": "Utility",
       "maintainer": "dashboard",
       "artifactName": "${productName}-${version}.${ext}"
     }
+  },
+  "dependencies": {
+    "koffi": "^3.1.4"
+  },
+  "allowScripts": {
+    "koffi@3.1.4": true
   }
 }

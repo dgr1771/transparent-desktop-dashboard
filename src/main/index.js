@@ -240,9 +240,13 @@ function createWindowForDisplay(display) {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
-  // Win+D 防护：type:'desktop' + hookWindowMessage 已在 platform.js 中处理
-  // 不需要 WorkerW 附加、不需要 blur 检测、不需要事件恢复
-  // type:'desktop' 让 Windows 直接把窗口视为桌面层组件
+  // Win+D 防护：platform.js 的 koffi SetParent 已将窗口挂到 WorkerW 桌面层
+  // 双保险：即使系统强行最小化，也在 WorkerW 层级内原地恢复（不跑到其他窗口上面）
+  win.on('minimize', (e) => {
+    if (win._userHidden) return;
+    e.preventDefault();
+    try { win.restore(); } catch (err) {}
+  });
 
   // 开发模式：只给主屏窗口开 DevTools
   if (process.argv.includes('--dev') && win._isPrimary) {
@@ -252,7 +256,6 @@ function createWindowForDisplay(display) {
   // 拦截窗口关闭（Alt+Space → 关闭）：阻止意外关闭
   win.on('close', (e) => {
     if (win._userHidden) return;
-    // 阻止关闭，除非是 app.quit() 主动触发
     if (!app.isQuiting) {
       e.preventDefault();
     }

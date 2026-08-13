@@ -72,8 +72,6 @@ module.exports = {
 
   setClickThrough(win, ignore) {
     if (isWin) {
-      // Win32 系统级穿透：WS_EX_TRANSPARENT
-      // 比 Electron setIgnoreMouseEvents 更彻底——不干扰桌面图标的显示和交互
       try {
         const u = getUser32();
         const hwnd = getHwnd(win);
@@ -83,6 +81,10 @@ module.exports = {
         if (ignore) ex = ex | WS_EX_TRANSPARENT;
         else ex = ex & ~WS_EX_TRANSPARENT;
         u.SetWindowLongPtrA(hwnd, GWL_EXSTYLE, ex);
+        // 关键：修改样式后必须调 SetWindowPos + SWP_FRAMECHANGED
+        // 否则 Windows 不会立即应用新的 WS_EX_TRANSPARENT 状态
+        // SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED|SWP_NOACTIVATE = 0x0037
+        u.SetWindowPos(hwnd, null, 0, 0, 0, 0, 0x0037);
       } catch (e) {}
     } else if (isLinux) {
       try { win.setIgnoreMouseEvents(ignore); } catch (e) {}

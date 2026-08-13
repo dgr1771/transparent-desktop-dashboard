@@ -335,14 +335,12 @@ function startProtectionTimers() {
         const inWindow = cursor.x >= bounds.x && cursor.x < bounds.x + bounds.width &&
                          cursor.y >= bounds.y && cursor.y < bounds.y + bounds.height;
         if (!inWindow) {
-          // 鼠标不在窗口内：确保穿透
           try {
             if (platform.isWin) win.setIgnoreMouseEvents(true, { forward: true });
             else win.setIgnoreMouseEvents(true);
           } catch (e) {}
           continue;
         }
-        // 鼠标位置没变（静止不动）：跳过 executeJavaScript，保持上次状态
         if (cursor.x === lastCursor.x && cursor.y === lastCursor.y) continue;
 
         const localX = Math.round(cursor.x - bounds.x);
@@ -353,13 +351,12 @@ function startProtectionTimers() {
         ).then(onInteractive => {
           if (win.isDestroyed()) return;
           const shouldIgnore = !onInteractive;
-          if (win._cursorIgnore !== shouldIgnore) {
-            win._cursorIgnore = shouldIgnore;
-            try {
-              if (platform.isWin) win.setIgnoreMouseEvents(shouldIgnore, { forward: true });
-              else win.setIgnoreMouseEvents(shouldIgnore);
-            } catch (e) {}
-          }
+          // 去掉缓存：GWLP_HWNDPARENT 后 setIgnoreMouseEvents 状态可能被系统重置
+          // 每次都强制设置，确保状态正确（200ms 频率 CPU 开销可忽略）
+          try {
+            if (platform.isWin) win.setIgnoreMouseEvents(shouldIgnore, { forward: true });
+            else win.setIgnoreMouseEvents(shouldIgnore);
+          } catch (e) {}
         }).catch(() => {});
       }
       lastCursor = { x: cursor.x, y: cursor.y };

@@ -60,12 +60,19 @@ const Plants = {
         }
       </style>
       <div id="plant-sway" style="height:100%;display:flex;align-items:flex-end;justify-content:center;transform-origin:50% 100%;animation:${animName} ${duration} ease-in-out infinite;">
-        <img id="plant-img" src="${this._current === 'custom' ? (Store.get('customPlantImage') || 'assets/plants-v2/fern.png') : `assets/plants-v2/${this._current}.png`}"
+        <img id="plant-img" src="${this._current === 'custom' ? 'assets/plants-v2/fern.png' : `assets/plants-v2/${this._current}.png`}"
              style="width:120px;height:auto;user-select:none;-webkit-user-drag:none;display:block;"
              draggable="false">
       </div>
       <div id="plant-response" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></div>
     `;
+    // custom 模式：异步从独立文件加载图片（数据不塞 config，避免配置膨胀）
+    if (this._current === 'custom' && Store.get('customPlantImage') && window.dashboard && window.dashboard.customImageLoad) {
+      window.dashboard.customImageLoad('plant').then(dataUrl => {
+        const img = document.getElementById('plant-img');
+        if (img && dataUrl) img.src = dataUrl;
+      });
+    }
   },
 
   setPlant(key) {

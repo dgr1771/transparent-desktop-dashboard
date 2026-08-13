@@ -5,12 +5,25 @@ const MokugyoWidget = {
     const inner = document.querySelector('.widget[data-widget="mokugyo"] .widget__inner');
     if (!inner) return;
     inner.querySelector('#mokugyo-hit').addEventListener('click', () => this._hit(inner));
+    this._applyCustomImage();
   },
 
-  /** 更新木鱼图（保存自定义图后调用，不重建 DOM 避免丢失事件绑定） */
-  update() {
+  /** 从独立文件加载自定义木鱼图（数据不塞 config，避免配置膨胀） */
+  async _applyCustomImage() {
+    if (!Store.get('customMokugyoImage') || !window.dashboard || !window.dashboard.customImageLoad) return;
+    const dataUrl = await window.dashboard.customImageLoad('mokugyo');
     const img = document.querySelector('.widget[data-widget="mokugyo"] .mokugyo__stage img');
-    if (img) img.src = Store.get('customMokugyoImage') || 'assets/interactive/mokugyo.png';
+    if (img && dataUrl) img.src = dataUrl;
+  },
+
+  /** 保存后刷新木鱼图（不重建 DOM，避免丢失事件绑定） */
+  update() {
+    if (Store.get('customMokugyoImage')) {
+      this._applyCustomImage();
+    } else {
+      const img = document.querySelector('.widget[data-widget="mokugyo"] .mokugyo__stage img');
+      if (img) img.src = 'assets/interactive/mokugyo.png';
+    }
   },
 
   _render() {
@@ -21,7 +34,7 @@ const MokugyoWidget = {
       <div class="mokugyo no-drag">
         <div class="mokugyo__title">🪵 今日敲木鱼</div>
         <button id="mokugyo-hit" class="mokugyo__stage" aria-label="敲一下木鱼">
-          <img src="${Store.get('customMokugyoImage') || 'assets/interactive/mokugyo.png'}" alt="可爱的木鱼">
+          <img src="assets/interactive/mokugyo.png" alt="可爱的木鱼">
           <span class="mokugyo__hammer" aria-hidden="true"></span>
           <span class="mokugyo__impact" aria-hidden="true">✦</span>
           <span class="mokugyo__sparkle">✦</span>

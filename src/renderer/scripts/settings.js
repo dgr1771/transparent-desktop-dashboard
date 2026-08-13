@@ -66,8 +66,8 @@
 
   // ===== 绿植选择器 =====
   let _selectedPlant = 'fern';
-  let _customPlantImage = '';
-  let _customMokugyoImage = '';
+  let _customPlantImage = false;   // 是否有自定义植物图（图片数据单独存文件，不塞 config）
+  let _customMokugyoImage = false;
   const PLANT_LIST = [
     { key: 'monstera', name: '龟背竹', emoji: '🌿', desc: '热带、清新自然' },
     { key: 'fern',     name: '波士顿蕨', emoji: '🌱', desc: '轻盈、舒展有生气' },
@@ -173,7 +173,8 @@
 
     document.getElementById('plant-upload').addEventListener('change', handlePlantUpload);
     document.getElementById('btn-clear-custom-plant').addEventListener('click', () => {
-      _customPlantImage = '';
+      if (window.dashboard && window.dashboard.customImageClear) window.dashboard.customImageClear('plant');
+      _customPlantImage = false;
       if (_selectedPlant === 'custom') _selectedPlant = 'fern';
       document.getElementById('plant-upload').value = '';
       renderCustomPlantUpload();
@@ -182,7 +183,8 @@
 
     document.getElementById('mokugyo-upload').addEventListener('change', handleMokugyoUpload);
     document.getElementById('btn-clear-custom-mokugyo').addEventListener('click', () => {
-      _customMokugyoImage = '';
+      if (window.dashboard && window.dashboard.customImageClear) window.dashboard.customImageClear('mokugyo');
+      _customMokugyoImage = false;
       document.getElementById('mokugyo-upload').value = '';
       renderCustomMokugyoUpload();
     });
@@ -338,9 +340,9 @@
       wfxToggle.classList.toggle('on', cfg.settings?.weatherFx !== false);
       wfxToggle.onclick = () => wfxToggle.classList.toggle('on');
     }
-    _customPlantImage = cfg.customPlantImage || '';
+    _customPlantImage = !!cfg.customPlantImage;
     renderCustomPlantUpload();
-    _customMokugyoImage = cfg.customMokugyoImage || '';
+    _customMokugyoImage = !!cfg.customMokugyoImage;
     renderCustomMokugyoUpload();
 
     // 关于：版本号
@@ -360,12 +362,19 @@
     const hint = document.getElementById('custom-plant-hint');
     const pickerImage = document.querySelector('[data-plant-key="custom"] img');
     if (_customPlantImage) {
-      if (preview) { preview.src = _customPlantImage; preview.style.display = 'block'; }
-      if (pickerImage) pickerImage.src = _customPlantImage;
-      if (hint) hint.textContent = '已上传自定义图片，保存后会显示在桌面右下角';
+      // 异步从独立文件加载预览（图片数据不塞 config.json，避免配置膨胀）
+      if (window.dashboard && window.dashboard.customImageLoad) {
+        window.dashboard.customImageLoad('plant').then(dataUrl => {
+          if (dataUrl) {
+            if (preview) { preview.src = dataUrl; preview.style.display = 'block'; }
+            if (pickerImage) pickerImage.src = dataUrl;
+          }
+        });
+      }
+      if (hint) hint.textContent = '已上传自定义图片，保存后生效';
     } else {
       if (preview) { preview.removeAttribute('src'); preview.style.display = 'none'; }
-      if (hint) hint.textContent = '支持 JPG、PNG、WEBP，图片会自动缩放并保存在本机';
+      if (hint) hint.textContent = '支持 JPG/PNG/WEBP/GIF（含动画），保持原比例缩放';
     }
   }
 
@@ -375,9 +384,12 @@
     if (!file.type.startsWith('image/')) { showToast('请选择图片文件'); return; }
     if (file.size > 8 * 1024 * 1024) { showToast('图片不能超过 8MB'); return; }
     const reader = new FileReader();
-    reader.onload = () => {
-      // 直接存原图 dataURL：保留 GIF 动画帧，比例由 CSS object-fit:contain 保持（不裁切不变形）
-      _customPlantImage = reader.result;
+    reader.onload = async () => {
+      // 存到独立文件（不塞 config.json），config 只存 true 标志
+      if (window.dashboard && window.dashboard.customImageSave) {
+        await window.dashboard.customImageSave('plant', reader.result);
+      }
+      _customPlantImage = true;
       _selectedPlant = 'custom';
       renderCustomPlantUpload();
       selectPlantInPicker('custom');
@@ -392,8 +404,11 @@
     if (!file.type.startsWith('image/')) { showToast('请选择图片文件'); return; }
     if (file.size > 8 * 1024 * 1024) { showToast('图片不能超过 8MB'); return; }
     const reader = new FileReader();
-    reader.onload = () => {
-      _customMokugyoImage = reader.result;
+    reader.onload = async () => {
+      if (window.dashboard && window.dashboard.customImageSave) {
+        await window.dashboard.customImageSave('mokugyo', reader.result);
+      }
+      _customMokugyoImage = true;
       renderCustomMokugyoUpload();
       showToast('已加载自定义木鱼，保存后生效');
     };
@@ -404,7 +419,11 @@
     const preview = document.getElementById('custom-mokugyo-preview');
     const hint = document.getElementById('custom-mokugyo-hint');
     if (_customMokugyoImage) {
-      if (preview) { preview.src = _customMokugyoImage; preview.style.display = 'block'; }
+      if (window.dashboard && window.dashboard.customImageLoad) {
+        window.dashboard.customImageLoad('mokugyo').then(dataUrl => {
+          if (dataUrl && preview) { preview.src = dataUrl; preview.style.display = 'block'; }
+        });
+      }
       if (hint) hint.textContent = '已上传自定义木鱼，保存后生效';
     } else {
       if (preview) { preview.removeAttribute('src'); preview.style.display = 'none'; }

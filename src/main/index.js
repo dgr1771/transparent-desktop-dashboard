@@ -546,6 +546,27 @@ app.on('window-all-closed', (e) => {
 app.whenReady().then(() => {
   configStore = new ConfigStore();
 
+  // 迁移：旧版 customPlantImage/customMokugyoImage 把 dataURL 塞进 config.json，
+  // 新版改为独立文件存储。这里把旧 dataURL 迁移到文件，config 改存 true 标志。
+  (function migrateCustomImages() {
+    const cfg = configStore.getAll();
+    let changed = false;
+    const dir = path.join(app.getPath('userData'), 'images');
+    for (const [cfgKey, imgKey] of [['customPlantImage', 'plant'], ['customMokugyoImage', 'mokugyo']]) {
+      const val = cfg[cfgKey];
+      if (typeof val === 'string' && val.startsWith('data:')) {
+        try {
+          fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(path.join(dir, `${imgKey}.data`), val);
+          cfg[cfgKey] = true;
+          changed = true;
+          console.info(`[migrate] ${cfgKey} dataURL → 独立文件`);
+        } catch (e) { console.error('[migrate] failed:', e.message); }
+      }
+    }
+    if (changed) configStore.setAll(cfg);
+  })();
+
   createAllWindows();
   createTray();
   registerShortcuts();
@@ -667,6 +688,25 @@ function registerIpcHandlers() {
     for (const win of windows.values()) {
       if (win && !win.isDestroyed()) win.webContents.send('preview-opacity', val);
     }
+  });
+
+  // ===== 自定义图片存储（单独文件，不塞 config.json，避免配置膨胀 + 读写变慢）=====
+  const customImageDir = () => path.join(app.getPath('userData'), 'images');
+  ipcMain.handle('custom-image:save', (_e, key, dataUrl) => {
+    try {
+      fs.mkdirSync(customImageDir(), { recursive: true });
+      fs.writeFileSync(path.join(customImageDir(), `${key}.data`), dataUrl);
+      return true;
+    } catch (err) { console.error('[custom-image] save failed:', err.message); return false; }
+  });
+  ipcMain.handle('custom-image:load', (_e, key) => {
+    try {
+      const f = path.join(customImageDir(), `${key}.data`);
+      return fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null;
+    } catch (err) { return null; }
+  });
+  ipcMain.handle('custom-image:clear', (_e, key) => {
+    try { fs.unlinkSync(path.join(customImageDir(), `${key}.data`)); } catch (e) {}
   });
 
   // ===== 桌面整理：扫描桌面文件 =====

@@ -58,6 +58,11 @@ contextBridge.exposeInMainWorld('dashboard', {
   setConfig: (data) => ipcRenderer.invoke('config:set', data),
   previewOpacity: (val) => ipcRenderer.send('preview-opacity', val),
 
+  // ===== 自定义图片存储（单独文件，不塞 config.json）=====
+  customImageSave: (key, dataUrl) => ipcRenderer.invoke('custom-image:save', key, dataUrl),
+  customImageLoad: (key) => ipcRenderer.invoke('custom-image:load', key),
+  customImageClear: (key) => ipcRenderer.invoke('custom-image:clear', key),
+
   // ===== 数据获取 =====
   fetchWeather: () => ipcRenderer.invoke('data:weather'),
   fetchStocks: () => ipcRenderer.invoke('data:stocks'),

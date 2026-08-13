@@ -262,6 +262,7 @@ function createWindowForDisplay(display) {
               if (win.isDestroyed()) return;
               win.showInactive();
               win._recovering = false;
+              win._cursorIgnore = null;  // 重置缓存，强制下次轮询重新设置
               platform.setClickThrough(win, !interactionMode);
             }, 50);
           }
@@ -335,10 +336,14 @@ function startProtectionTimers() {
         const inWindow = cursor.x >= bounds.x && cursor.x < bounds.x + bounds.width &&
                          cursor.y >= bounds.y && cursor.y < bounds.y + bounds.height;
         if (!inWindow) {
-          try {
-            if (platform.isWin) win.setIgnoreMouseEvents(true, { forward: true });
-            else win.setIgnoreMouseEvents(true);
-          } catch (e) {}
+          // 鼠标不在窗口内：确保穿透（带缓存，避免反复设置导致闪烁）
+          if (win._cursorIgnore !== true) {
+            win._cursorIgnore = true;
+            try {
+              if (platform.isWin) win.setIgnoreMouseEvents(true, { forward: true });
+              else win.setIgnoreMouseEvents(true);
+            } catch (e) {}
+          }
           continue;
         }
         if (cursor.x === lastCursor.x && cursor.y === lastCursor.y) continue;
@@ -351,12 +356,15 @@ function startProtectionTimers() {
         ).then(onInteractive => {
           if (win.isDestroyed()) return;
           const shouldIgnore = !onInteractive;
-          // 去掉缓存：GWLP_HWNDPARENT 后 setIgnoreMouseEvents 状态可能被系统重置
-          // 每次都强制设置，确保状态正确（200ms 频率 CPU 开销可忽略）
-          try {
-            if (platform.isWin) win.setIgnoreMouseEvents(shouldIgnore, { forward: true });
-            else win.setIgnoreMouseEvents(shouldIgnore);
-          } catch (e) {}
+          // 恢复缓存：只在状态变化时才调 setIgnoreMouseEvents
+          // 避免鼠标静止时反复刷新窗口样式导致闪烁
+          if (win._cursorIgnore !== shouldIgnore) {
+            win._cursorIgnore = shouldIgnore;
+            try {
+              if (platform.isWin) win.setIgnoreMouseEvents(shouldIgnore, { forward: true });
+              else win.setIgnoreMouseEvents(shouldIgnore);
+            } catch (e) {}
+          }
         }).catch(() => {});
       }
       lastCursor = { x: cursor.x, y: cursor.y };
@@ -436,6 +444,7 @@ function setInteractionMode(interactive) {
     if (!win || win.isDestroyed()) continue;
     // 切换穿透
     platform.setClickThrough(win, !interactive);
+    win._cursorIgnore = null;  // 重置缓存
     // 退出编辑模式时重新应用 GWLP_HWNDPARENT（Electron 内部操作可能重置了它）
     if (!interactive && platform.isWin) {
       try {

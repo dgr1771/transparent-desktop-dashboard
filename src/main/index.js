@@ -240,104 +240,9 @@ function createWindowForDisplay(display) {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
-  // Windows：设置 WS_EX_TOOLWINDOW（工具窗口）
-  // ShowDesktop（Win+D）会跳过工具窗口，不会隐藏/最小化它。
-  // 需要在窗口原生句柄已经创建后执行，并在渲染完成后再补一次。
-  if (platform.isWin) {
-    win.webContents.once('did-finish-load', () => {
-      // WorkerW 附加（Win+D 防护的核心方案）
-      // 必须在页面加载完成后执行（窗口句柄已稳定）
-      setWindowsDesktopHost(win, true, 'did-finish-load');
-      // 1 秒后再附加一次（防止第一次 WorkerW 还没创建）
-      setTimeout(() => {
-        if (!win.isDestroyed() && !win._desktopHosted) {
-          setWindowsDesktopHost(win, true, 'retry-1s');
-        }
-      }, 1000);
-      // 3 秒后再试
-      setTimeout(() => {
-        if (!win.isDestroyed() && !win._desktopHosted) {
-          setWindowsDesktopHost(win, true, 'retry-3s');
-        }
-      }, 3000);
-    });
-    // 每次窗口显示后重新附加（Win+D 恢复后 WorkerW 可能断开）
-    win.on('show', () => {
-      win._desktopHosted = false;  // 重置标记，允许重新附加
-      setTimeout(() => {
-        if (!win.isDestroyed()) setWindowsDesktopHost(win, true, 'show-event');
-      }, 200);
-    });
-  }
-
-  // Win+D 诊断：记录所有窗口事件到日志文件
-  const os = require('os');
-  const diagLog = (msg) => {
-    try { require('fs').appendFileSync(require('path').join(os.tmpdir(), 'dashboard-wind.log'),
-      `${new Date().toISOString()} ${msg}\n`); } catch(e){}
-  };
-  // 清空旧日志
-  try { require('fs').writeFileSync(require('path').join(os.tmpdir(), 'dashboard-wind.log'), ''); } catch(e){}
-
-  win.on('minimize', () => { diagLog('EVENT minimize userHidden=' + !!win._userHidden); });
-  win.on('hide', () => {
-    diagLog('EVENT hide userHidden=' + !!win._userHidden + ' recovering=' + !!win._recovering);
-    if (win._userHidden || win._recovering) return;
-    // 恢复逻辑已由 blur 事件处理，这里不重复
-  });
-  win.on('restore', () => { diagLog('EVENT restore'); });
-  win.on('show', () => { diagLog('EVENT show'); });
-  win.on('close', (e) => { diagLog('EVENT close prevented=' + e.defaultPrevented); });
-  win.on('blur', () => {
-    diagLog('EVENT blur');
-    if (win._userHidden) return;
-    // Win+D 不触发 minimize/hide，但触发 blur
-    // blur 后 500ms 检测：如果窗口 visible=true 但不是 focused，
-    // 很可能是 Win+D（ShowDesktop 把窗口在 DWM 层隐藏了）
-    setTimeout(() => {
-      if (win.isDestroyed() || win._userHidden) return;
-      if (win.isVisible() && !win.isFocused()) {
-        // 检查渲染进程是否认为窗口被隐藏
-        win.webContents.executeJavaScript('document.hidden', true).then(hidden => {
-          diagLog('blur检测: document.hidden=' + hidden);
-          if (hidden) {
-            // 渲染进程认为窗口被隐藏 = Win+D 确实隐藏了窗口
-            diagLog('blur → Win+D detected, recovering');
-            try {
-              // hide + showInactive：先隐藏触发 Win32 ShowWindow(SW_HIDE)，
-              // 再显示触发 ShowWindow(SW_SHOWNA)——强制 DWM 重新合成窗口。
-              // 不用 setAlwaysOnTop（会遮挡其他窗口），不用 moveTop（也会遮挡）。
-              win._recovering = true;  // 防止 hide 事件递归
-              win.hide();
-              setTimeout(() => {
-                if (win.isDestroyed()) return;
-                win.showInactive();
-                win._recovering = false;
-                platform.setClickThrough(win, !interactionMode);
-                diagLog('blur → recovered (hide+showInactive)');
-              }, 50);
-            } catch (e) { diagLog('blur recover ERROR: ' + e.message); }
-          }
-        }).catch(() => {});
-      }
-    }, 500);
-  });
-  win.on('focus', () => { diagLog('EVENT focus'); });
-
-  // 保留 minimize/hide 事件处理（以防某些场景触发）
-  win.on('minimize', () => {
-    if (win._userHidden) return;
-    try {
-      win.setAlwaysOnTop(true, 'screen-saver');
-      win.showInactive();
-      diagLog('minimize → recovered');
-      setTimeout(() => {
-        if (win.isDestroyed() || win._userHidden) return;
-        win.setAlwaysOnTop(false);
-        platform.setClickThrough(win, !interactionMode);
-      }, 500);
-    } catch (e) {}
-  });
+  // Win+D 防护：type:'desktop' + hookWindowMessage 已在 platform.js 中处理
+  // 不需要 WorkerW 附加、不需要 blur 检测、不需要事件恢复
+  // type:'desktop' 让 Windows 直接把窗口视为桌面层组件
 
   // 开发模式：只给主屏窗口开 DevTools
   if (process.argv.includes('--dev') && win._isPrimary) {
@@ -364,33 +269,21 @@ function createWindowForDisplay(display) {
  * Win+D 防护 + 穿透状态定时器（全局，遍历所有窗口）
  */
 function startProtectionTimers() {
+  // Win+D 兜底：type:'desktop' + hookWindowMessage 已在窗口层处理
+  // 这里只保留简单的窗口恢复（防止意外最小化）
   if (platform.isWin) {
-    // Win+D 兜底：200ms 检测 + 诊断
-    const os = require('os');
-    const diagLog = (msg) => {
-      try { require('fs').appendFileSync(require('path').join(os.tmpdir(), 'dashboard-wind.log'),
-        `${new Date().toISOString()} ${msg}\n`); } catch(e){}
-    };
     setInterval(() => {
       for (const win of windows.values()) {
         if (!win || win.isDestroyed() || win._userHidden) continue;
-        const min = win.isMinimized();
-        const vis = win.isVisible();
-        if (min || !vis) {
-          diagLog('TIMER: isMinimized=' + min + ' isVisible=' + vis + ' → recovering');
+        if (win.isMinimized() || !win.isVisible()) {
           try {
-            win.setAlwaysOnTop(true, 'screen-saver');
+            win.restore();
             win.showInactive();
-            setTimeout(() => {
-              if (!win.isDestroyed()) {
-                win.setAlwaysOnTop(false);
-                platform.setClickThrough(win, !interactionMode);
-              }
-            }, 500);
-          } catch (err) { diagLog('TIMER ERROR: ' + err.message); }
+            platform.setClickThrough(win, !interactionMode);
+          } catch (err) {}
         }
       }
-    }, 200);
+    }, 1000);
   }
 
   // ===== 区域穿透：主进程 cursor 轮询 =====

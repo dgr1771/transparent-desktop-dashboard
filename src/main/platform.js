@@ -34,6 +34,10 @@ module.exports = {
     if (isMac) {
       return { ...base, vibrancy: 'under-window', visualEffectState: 'active', roundedCorners: true };
     }
+    // Windows：type:'desktop' 让窗口被视为桌面层组件，Win+D 跳过它
+    if (isWin) {
+      return { ...base, type: 'desktop', focusable: true };
+    }
     return base;
   },
 
@@ -41,6 +45,16 @@ module.exports = {
     if (isMac) {
       win.setVisibleOnAllWorkspaces(true, { transformProcessType: false });
       win.setAlwaysOnTop(true, 'floating');
+    } else if (isWin) {
+      // 拦截 WM_SYSCOMMAND(0x0112) 的 SC_MINIMIZE(0xF020)
+      // 阻止系统最小化命令执行——Win+D 的部分路径会走 WM_SYSCOMMAND
+      try {
+        win.hookWindowMessage(0x0112, (wParam) => {
+          const cmd = wParam.readUInt32LE(0) & 0xFFF0;
+          // SC_MINIMIZE = 0xF020
+          if (cmd === 0xF020) return true;
+        });
+      } catch (e) {}
     }
   },
 

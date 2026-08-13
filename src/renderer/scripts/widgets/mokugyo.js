@@ -7,6 +7,12 @@ const MokugyoWidget = {
     inner.querySelector('#mokugyo-hit').addEventListener('click', () => this._hit(inner));
   },
 
+  /** 更新木鱼图（保存自定义图后调用，不重建 DOM 避免丢失事件绑定） */
+  update() {
+    const img = document.querySelector('.widget[data-widget="mokugyo"] .mokugyo__stage img');
+    if (img) img.src = Store.get('customMokugyoImage') || 'assets/interactive/mokugyo.png';
+  },
+
   _render() {
     const inner = document.querySelector('.widget[data-widget="mokugyo"] .widget__inner');
     if (!inner) return;

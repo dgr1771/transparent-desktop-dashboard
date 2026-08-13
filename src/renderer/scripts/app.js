@@ -146,6 +146,8 @@
         applyTheme(Store.get('settings')?.theme);
         applyGlobalOpacity();
         if (typeof Plants !== 'undefined') Plants.setPlant(Store.get('plant') || 'grass');
+        // 自定义木鱼图：保存后实时更新（不重建 DOM，只换 img src）
+        if (typeof MokugyoWidget !== 'undefined' && MokugyoWidget.update) MokugyoWidget.update();
         // 全屏天气特效开关：保存后实时生效
         if (typeof WeatherFX !== 'undefined') {
           if (Store.get('settings')?.weatherFx !== false) WeatherFX.enable();

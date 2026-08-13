@@ -1,0 +1,40 @@
+name: Build macOS
+
+# 触发方式：1) 手动在 GitHub Actions 页面点 Run workflow  2) 推送 v* 开头的 tag
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 安装依赖
+        run: npm install --no-audit --no-fund
+
+      - name: 打包 macOS dmg（x64 + arm64）
+        run: npx electron-builder --mac dmg
+        env:
+          # 国内镜像加速 electron 二进制下载
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+          # 不做公证（无 Apple 开发者账号），用户在 macOS 首次打开需右键→打开
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 上传 dmg 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: |
+            release/*.dmg
+            release/*.dmg.blockmap

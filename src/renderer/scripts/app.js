@@ -50,43 +50,62 @@
       autoArrange();
     }
 
-    // 初始化拖拽缩放
+    // 初始化拖拽缩放（轻量，立即）
     DragResize.init();
 
-    // 初始化区域穿透（卡片可点、空白穿透）
+    // 初始化区域穿透（卡片可点、空白穿透）— 轻量，立即
     ClickThrough.init();
-    // 初始化桌面绿植
-    if (typeof Plants !== "undefined") Plants.init();
-    if (typeof WeatherFX !== "undefined") WeatherFX.init();
+
+    // 应用主题和透明度 — 立即，首屏配色就位
+    applyTheme(Store.get('settings')?.theme);
+    applyGlobalOpacity();
+
+    // 初始化交互模式 — 立即
+    initInteractionMode();
+
+    // ===== 启动性能优化：widget 分批错峰初始化 =====
+    // 避免启动瞬间 16 个 widget + PowerShell 扫描 + 网络请求同时抢占 CPU，
+    // 导致整机卡顿。改为：首屏（时钟）秒出，其余按优先级错峰加载。
+
+    // 第一批（立即）：时钟 — 用户第一眼要看的
+    if (isWidgetVisible('clock')) ClockWidget.init();
+
+    // 第二批（~120ms 后）：本地计算为主的轻量 widget
+    setTimeout(() => {
+      if (isWidgetVisible('todo')) TodoWidget.init();
+      if (isWidgetVisible('countdown')) CountdownWidget.init();
+      if (isWidgetVisible('calendar')) CalendarWidget.init();
+      if (isWidgetVisible('pomodoro')) PomodoroWidget.init();
+      if (isWidgetVisible('sysmonitor')) SysMonitorWidget.init();
+    }, 120);
+
+    // 第三批（~350ms 后）：需要网络请求 / 较重的 widget
+    setTimeout(() => {
+      if (isWidgetVisible('weather')) WeatherWidget.init();
+      if (isWidgetVisible('stock')) StockWidget.init();
+      if (isWidgetVisible('news')) NewsWidget.init();
+      if (isWidgetVisible('links')) LinksWidget.init();
+      if (isWidgetVisible('hotsearch')) HotSearchWidget.init();
+      if (isWidgetVisible('schulte')) SchulteWidget.init();
+      if (isWidgetVisible('mokugyo')) MokugyoWidget.init();
+      if (isWidgetVisible('tarot')) TarotWidget.init();
+      // 桌面绿植 + 天气特效（图片/Canvas 资源）
+      if (typeof Plants !== "undefined") Plants.init();
+      if (typeof WeatherFX !== "undefined") WeatherFX.init();
+    }, 350);
+
+    // 第四批（~2.5s 后）：桌面整理卡片 — 会拉起 PowerShell 提取图标（重活），
+    // 延后到首屏完全渲染后再执行，避免冷启动时整机卡顿
+    setTimeout(() => {
+      if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) {
+        DesktopWidget.init();
+      }
+    }, 2500);
 
     // 自动避让：不再用 MutationObserver 全局监听（太耗 CPU）
     // 改为只在 refreshAllWidgets 后触发一次（数据更新时才检查）
     // 首次加载后做一次
     setTimeout(() => { if (typeof AutoResize !== 'undefined') AutoResize.check(); }, 3000);
-
-    // 应用主题和透明度
-    applyTheme(Store.get('settings')?.theme);
-    applyGlobalOpacity();
-
-    // 初始化交互模式
-    initInteractionMode();
-
-    // 初始化各 widget（只初始化可见的）
-    if (isWidgetVisible('clock')) ClockWidget.init();
-    if (isWidgetVisible('weather')) WeatherWidget.init();
-    if (isWidgetVisible('stock')) StockWidget.init();
-    if (isWidgetVisible('news')) NewsWidget.init();
-    if (isWidgetVisible('todo')) TodoWidget.init();
-    if (isWidgetVisible('countdown')) CountdownWidget.init();
-    if (isWidgetVisible('hotsearch')) HotSearchWidget.init();
-    if (isWidgetVisible('sysmonitor')) SysMonitorWidget.init();
-    if (isWidgetVisible('calendar')) CalendarWidget.init();
-    if (isWidgetVisible('pomodoro')) PomodoroWidget.init();
-    if (isWidgetVisible('links')) LinksWidget.init();
-    if (isWidgetVisible('schulte')) SchulteWidget.init();
-    if (isWidgetVisible('mokugyo')) MokugyoWidget.init();
-    if (isWidgetVisible('tarot')) TarotWidget.init();
-    if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) DesktopWidget.init();
 
     // 监听刷新
     if (window.dashboard && window.dashboard.onRefreshAll) {

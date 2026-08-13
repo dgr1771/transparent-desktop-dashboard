@@ -280,7 +280,11 @@ function createWindowForDisplay(display) {
   try { require('fs').writeFileSync(require('path').join(os.tmpdir(), 'dashboard-wind.log'), ''); } catch(e){}
 
   win.on('minimize', () => { diagLog('EVENT minimize userHidden=' + !!win._userHidden); });
-  win.on('hide', () => { diagLog('EVENT hide userHidden=' + !!win._userHidden); });
+  win.on('hide', () => {
+    diagLog('EVENT hide userHidden=' + !!win._userHidden + ' recovering=' + !!win._recovering);
+    if (win._userHidden || win._recovering) return;
+    // 恢复逻辑已由 blur 事件处理，这里不重复
+  });
   win.on('restore', () => { diagLog('EVENT restore'); });
   win.on('show', () => { diagLog('EVENT show'); });
   win.on('close', (e) => { diagLog('EVENT close prevented=' + e.defaultPrevented); });
@@ -300,14 +304,18 @@ function createWindowForDisplay(display) {
             // 渲染进程认为窗口被隐藏 = Win+D 确实隐藏了窗口
             diagLog('blur → Win+D detected, recovering');
             try {
-              // 方案：showInactive + moveTop（不置顶，不抢焦点，不遮挡）
-              win.showInactive();
-              win.moveTop();  // 放到 z-order 顶部（不是 always-on-top，不会遮挡其他窗口）
-              // 如果 moveTop 不够，再触发一次 setBounds 让 DWM 重新合成
-              const b = win.getBounds();
-              win.setBounds({ x: b.x, y: b.y, width: b.width, height: b.height });
-              platform.setClickThrough(win, !interactionMode);
-              diagLog('blur → recovered (showInactive+moveTop+setBounds)');
+              // hide + showInactive：先隐藏触发 Win32 ShowWindow(SW_HIDE)，
+              // 再显示触发 ShowWindow(SW_SHOWNA)——强制 DWM 重新合成窗口。
+              // 不用 setAlwaysOnTop（会遮挡其他窗口），不用 moveTop（也会遮挡）。
+              win._recovering = true;  // 防止 hide 事件递归
+              win.hide();
+              setTimeout(() => {
+                if (win.isDestroyed()) return;
+                win.showInactive();
+                win._recovering = false;
+                platform.setClickThrough(win, !interactionMode);
+                diagLog('blur → recovered (hide+showInactive)');
+              }, 50);
             } catch (e) { diagLog('blur recover ERROR: ' + e.message); }
           }
         }).catch(() => {});

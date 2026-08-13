@@ -727,22 +727,27 @@ function registerIpcHandlers() {
   /**
    * 获取真实桌面路径（OneDrive 重定向后用注册表读取）
    */
-  function getRealDesktopPath() {
+  let _cachedDesktopPath = null;
+  async function getRealDesktopPath() {
+    if (_cachedDesktopPath) return _cachedDesktopPath;  // 桌面路径不变，缓存避免重复 reg query
     if (platform.isWin) {
       try {
-        const { execSync } = require('child_process');
-        const out = execSync('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders" /v Desktop', { encoding: 'utf8', timeout: 2000 });
-        const m = out.match(/Desktop\s+REG_[A-Z_]+\s+(.+)/);
-        if (m) return m[1].trim();
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const out = await promisify(exec)('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders" /v Desktop', { encoding: 'utf8', timeout: 2000 });
+        const m = (out.stdout || '').match(/Desktop\s+REG_[A-Z_]+\s+(.+)/);
+        if (m) { _cachedDesktopPath = m[1].trim(); return _cachedDesktopPath; }
       } catch (e) {}
-      return pathDesk.join(app.getPath('home'), 'Desktop');
+      _cachedDesktopPath = pathDesk.join(app.getPath('home'), 'Desktop');
+      return _cachedDesktopPath;
     } else if (platform.isLinux) {
       // 优先中文桌面，否则英文
       const cn = pathDesk.join(app.getPath('home'), '桌面');
-      if (fsDesk.existsSync(cn)) return cn;
-      return pathDesk.join(app.getPath('home'), 'Desktop');
+      _cachedDesktopPath = fsDesk.existsSync(cn) ? cn : pathDesk.join(app.getPath('home'), 'Desktop');
+      return _cachedDesktopPath;
     }
-    return app.getPath('desktop');
+    _cachedDesktopPath = app.getPath('desktop');
+    return _cachedDesktopPath;
   }
 
   /**
@@ -782,7 +787,7 @@ function registerIpcHandlers() {
   async function scanDesktop() {
     const result = { apps: [], folders: [], files: [] };
     // 从注册表读取真实桌面路径（解决 OneDrive 重定向）
-    const userDesk = getRealDesktopPath();
+    const userDesk = await getRealDesktopPath();
     const publicDesk = platform.isWin
       ? pathDesk.join(process.env.SystemDrive || 'C:', 'Users', 'Public', 'Desktop')
       : null;

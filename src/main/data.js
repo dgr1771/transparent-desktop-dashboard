@@ -453,16 +453,18 @@ async function getSysMonitor() {
     const now = Date.now();
     if (!_diskCache || (now - _diskCacheTime) > 5 * 60 * 1000) {
       try {
-        const { execSync } = require('child_process');
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
         if (process.platform === 'win32') {
-          const out = execSync('powershell -NoProfile -Command "(Get-Volume -DriveLetter C | Select-Object Size,SizeRemaining | ConvertTo-Json -Compress)"', { encoding: 'utf8', timeout: 5000 });
-          const j = JSON.parse(out.trim());
+          const { stdout } = await execAsync('powershell -NoProfile -Command "(Get-Volume -DriveLetter C | Select-Object Size,SizeRemaining | ConvertTo-Json -Compress)"', { encoding: 'utf8', timeout: 5000 });
+          const j = JSON.parse(stdout.trim());
           if (j && j.Size) {
             disk = { total: j.Size, used: j.Size - j.SizeRemaining, free: j.SizeRemaining, percent: Math.round((j.Size - j.SizeRemaining) / j.Size * 100) };
           }
         } else {
-          const out = execSync('df -k / 2>/dev/null | tail -1', { encoding: 'utf8', timeout: 3000 });
-          const parts = out.trim().split(/\s+/);
+          const { stdout } = await execAsync('df -k / 2>/dev/null | tail -1', { encoding: 'utf8', timeout: 3000 });
+          const parts = stdout.trim().split(/\s+/);
           const total = parseInt(parts[1], 10) * 1024;
           const free = parseInt(parts[3], 10) * 1024;
           if (total > 0) disk = { total, used: total - free, free, percent: Math.round((total - free) / total * 100) };

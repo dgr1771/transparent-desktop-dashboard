@@ -15,7 +15,7 @@ const MokugyoWidget = {
       <div class="mokugyo no-drag">
         <div class="mokugyo__title">🪵 今日敲木鱼</div>
         <button id="mokugyo-hit" class="mokugyo__stage" aria-label="敲一下木鱼">
-          <img src="assets/interactive/mokugyo.png" alt="可爱的木鱼">
+          <img src="${Store.get('customMokugyoImage') || 'assets/interactive/mokugyo.png'}" alt="可爱的木鱼">
           <span class="mokugyo__hammer" aria-hidden="true"></span>
           <span class="mokugyo__impact" aria-hidden="true">✦</span>
           <span class="mokugyo__sparkle">✦</span>

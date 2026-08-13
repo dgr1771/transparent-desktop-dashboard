@@ -9,6 +9,7 @@ const https = require('https');
 const http = require('http');
 const zlib = require('zlib');
 const { ipcMain } = require('electron');
+const platform = require('./platform');
 
 // ============================================================
 // 通用 HTTP 请求（支持 gzip/deflate 解压）
@@ -349,7 +350,12 @@ let _lastNet = { rx: 0, tx: 0, time: Date.now() };
  * os.loadavg() 返回 1/5/15 分钟平均负载，除以核心数得近似占用率
  */
 function getCpuUsage() {
-  const load = osMonitor.loadavg()[0]; // 1分钟平均负载
+  // Windows 上 os.loadavg() 恒返回 0，用 koffi GetSystemTimes 两次采样算真实占用
+  if (platform.isWin && platform.getCpuUsageByKoffi) {
+    const u = platform.getCpuUsageByKoffi();
+    if (u != null) return u;
+  }
+  const load = osMonitor.loadavg()[0]; // Linux/mac: 1分钟平均负载
   const cores = osMonitor.cpus().length;
   return Math.min(100, Math.round((load / cores) * 100));
 }

@@ -15,6 +15,8 @@ let _gdi32 = null;
 let _gdiplus = null;
 let _gdiplusToken = null;
 let _pngClsid = null;
+let _kernel32 = null;
+let _cpuPrev = null;  // GetSystemTimes 上次采样 {idle, total, time}
 
 function getUser32() {
   if (_user32) return _user32;
@@ -122,6 +124,38 @@ function getGdiplus() {
     GdiplusShutdown: g.func('void GdiplusShutdown(uintptr_t token)'),
   };
   return _gdiplus;
+}
+
+function getKernel32() {
+  if (_kernel32) return _kernel32;
+  const koffi = require('koffi');
+  _kernel32 = koffi.load('kernel32.dll');
+  return _kernel32;
+}
+
+/**
+ * CPU 占用率（Windows）：GetSystemTimes 两次采样算 idle/total 差值。
+ * os.loadavg() 在 Windows 恒返回 0，必须用此法。首次调用返回 0（无上次采样）。
+ */
+function getCpuUsageByKoffi() {
+  if (!isWin) return null;
+  try {
+    const k = getKernel32();
+    const GetSystemTimes = k.func('bool GetSystemTimes(_Out_ void *idle, _Out_ void *kernel, _Out_ void *user)');
+    const idle = Buffer.alloc(8), kernel = Buffer.alloc(8), user = Buffer.alloc(8);
+    if (!GetSystemTimes(idle, kernel, user)) return null;
+    const idleV = Number(idle.readBigUInt64LE(0));
+    const totalV = Number(kernel.readBigUInt64LE(0)) + Number(user.readBigUInt64LE(0));
+    let usage = 0;
+    const now = Date.now();
+    if (_cpuPrev && now - _cpuPrev.time > 500) {
+      const dIdle = idleV - _cpuPrev.idle;
+      const dTotal = totalV - _cpuPrev.total;
+      usage = dTotal > 0 ? Math.round((1 - dIdle / dTotal) * 100) : 0;
+    }
+    _cpuPrev = { idle: idleV, total: totalV, time: now };
+    return Math.max(0, Math.min(100, usage));
+  } catch (e) { console.error('[cpu] getCpuUsage failed:', e.message); return null; }
 }
 
 function ensureGdiplus() {
@@ -257,8 +291,10 @@ module.exports = {
   isMac, isWin, isLinux,
   extractIconViaKoffi,
   untrackHwnd,
+  getCpuUsageByKoffi,
 
   shouldDisableHardwareAcceleration() { return isMac; },
+
 
   getMainWindowOptions() {
     const base = { frame: false, transparent: true, hasShadow: false, skipTaskbar: true };

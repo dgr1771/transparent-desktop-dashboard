@@ -4,9 +4,20 @@
 
 const NewsWidget = {
   init() {
+    if (window.__dashboard.timers.news) clearInterval(window.__dashboard.timers.news);
     this.update();
     // 每 15 分钟更新
     window.__dashboard.timers.news = setInterval(() => this.update(), 15 * 60 * 1000);
+    // 新闻条目点击打开链接（事件委托，避免每次渲染重绑）
+    const el = document.querySelector('.widget[data-widget="news"] .widget__inner');
+    if (el) {
+      el.addEventListener('click', (e) => {
+        const item = e.target.closest('.news__item');
+        if (item && item.dataset.url && window.dashboard && window.dashboard.openExternal) {
+          window.dashboard.openExternal(item.dataset.url);
+        }
+      });
+    }
   },
 
   async update() {

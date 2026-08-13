@@ -1,6 +1,6 @@
 {
   "name": "transparent-desktop-dashboard",
-  "version": "0.9.20",
+  "version": "0.9.21",
   "description": "透明桌面信息看板 - 鼠标穿透的桌面常驻信息展示（天气/A股/新闻/待办/时钟/倒数日/热搜）",
   "main": "src/main/index.js",
   "scripts": {
@@ -40,14 +40,14 @@
     "asarUnpack": [
       "node_modules/koffi/**/*"
     ],
-    "extraResources": [
-      {
-        "from": "tools/keyblocker.exe",
-        "to": "tools/keyblocker.exe"
-      }
-    ],
     "win": {
       "icon": "assets/icons/icon.ico",
+      "extraResources": [
+        {
+          "from": "tools/keyblocker.exe",
+          "to": "tools/keyblocker.exe"
+        }
+      ],
       "target": [
         {
           "target": "nsis",

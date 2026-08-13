@@ -284,27 +284,24 @@ module.exports = {
       win.setVisibleOnAllWorkspaces(true, { transformProcessType: false });
       win.setAlwaysOnTop(true, 'floating');
     } else if (isWin) {
+      // GWLP_HWNDPARENT 设置 Owner=Progman（不用 SetParent，避免 GDI 裁切桌面图标）
+      // 注意：25H2 的 RaisedDesktop 模型下 WorkerW 壁纸嵌入无效，用 Owner + 模拟Win+D 恢复
       try {
         const u = getUser32();
         const hwnd = getHwnd(win);
-        // WS_EX_TOOLWINDOW（不在任务栏/Alt+Tab）+ 拦截 SC_MINIMIZE（所有嵌入方式都需要）
-        const GWL_EXSTYLE = -20;
-        const WS_EX_TOOLWINDOW = 0x00000080;
-        const WS_EX_APPWINDOW = 0x00040000;
-        let ex = Number(u.GetWindowLongPtrA(hwnd, GWL_EXSTYLE));
-        ex = (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
-        u.SetWindowLongPtrA(hwnd, GWL_EXSTYLE, ex);
-        win.hookWindowMessage(0x0112, (wParam) => {
-          if ((wParam.readUInt32LE(0) & 0xFFF0) === 0xF020) return true;
-        });
-        // 优先嵌入 WorkerW 壁纸层（彻底免疫 Show Desktop / Win+D）
-        // 失败（25H2 模型变化或透明窗口不兼容）则 fallback Owner=Progman
-        if (!embedToDesktopLayer(hwnd)) {
-          const progman = u.FindWindowA('Progman', null);
-          if (progman) {
-            u.SetWindowLongPtrA(hwnd, -8 /*GWLP_HWNDPARENT*/, progman);
-            console.info('[platform] fallback Owner=Progman + WS_EX_TOOLWINDOW');
-          }
+        const progman = u.FindWindowA('Progman', null);
+        if (progman) {
+          u.SetWindowLongPtrA(hwnd, -8 /*GWLP_HWNDPARENT*/, progman);
+          const GWL_EXSTYLE = -20;
+          const WS_EX_TOOLWINDOW = 0x00000080;
+          const WS_EX_APPWINDOW = 0x00040000;
+          let ex = Number(u.GetWindowLongPtrA(hwnd, GWL_EXSTYLE));
+          ex = (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
+          u.SetWindowLongPtrA(hwnd, GWL_EXSTYLE, ex);
+          win.hookWindowMessage(0x0112, (wParam) => {
+            if ((wParam.readUInt32LE(0) & 0xFFF0) === 0xF020) return true;
+          });
+          console.info('[platform] Owner=Progman + WS_EX_TOOLWINDOW');
         }
       } catch (e) { console.error('[platform] init failed:', e.message); }
     }
@@ -326,6 +323,24 @@ module.exports = {
     } else {
       try { win.setIgnoreMouseEvents(ignore, { forward: true }); } catch (e) {}
     }
+  },
+
+  /** 模拟 Win+D（toggle "显示桌面"状态）。
+   *  25H2 上点"显示桌面"用 DWM 层隐藏看板（isVisible 仍 true，show/restore 无效），
+   *  唯一恢复方式是再 toggle 一次退出该状态。检测到 document.hidden=true 时调用。 */
+  simulateWinD() {
+    if (!isWin) return;
+    try {
+      const koffi = require('koffi');
+      const uu = koffi.load('user32.dll');
+      const keybd_event = uu.func('void keybd_event(uint8 bVk, uint8 bScan, uint32 dwFlags, uintptr_t dwExtraInfo)');
+      const VK_LWIN = 0x5B, VK_D = 0x44, KEYEVENTF_KEYUP = 0x0002;
+      keybd_event(VK_LWIN, 0, 0, 0);
+      keybd_event(VK_D, 0, 0, 0);
+      keybd_event(VK_D, 0, KEYEVENTF_KEYUP, 0);
+      keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0);
+      console.info('[platform] 模拟 Win+D（恢复显示桌面状态）');
+    } catch (e) { console.error('[platform] simulateWinD failed:', e.message); }
   },
 
   isTraySupported() { return !isLinux || process.env.XDG_CURRENT_DESKTOP !== undefined; },

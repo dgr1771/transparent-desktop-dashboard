@@ -176,22 +176,15 @@ function createWindowForDisplay(display) {
       if (win.isDestroyed() || win._userHidden) return;
       if (win.isVisible() && !win.isFocused()) {
         win.webContents.executeJavaScript('document.hidden', true).then(hidden => {
-          console.info('[win-d] blur检测: document.hidden=' + hidden + ' isVisible=' + win.isVisible() + ' isMinimized=' + win.isMinimized() + ' isFocused=' + win.isFocused());
           if (hidden) {
-            // Win+D 检测到——hide + showInactive 恢复（不遮挡其他窗口）
-            win._recovering = true;
-            win.hide();
-            setTimeout(() => {
-              if (win.isDestroyed()) return;
-              win.showInactive();
-              win._recovering = false;
-              win._cursorIgnore = null;  // 重置缓存，强制下次轮询重新设置
-              platform.setClickThrough(win, !interactionMode);
-            }, 50);
+            // Show Desktop 检测到（DWM 层隐藏：isVisible 仍 true 但实际不可见）。
+            // 25H2 上 show/restore 对 DWM 隐藏无效，模拟 Win+D toggle 退出该状态恢复看板。
+            console.info('[win-d] Show Desktop 检测到 → 模拟 Win+D 恢复');
+            platform.simulateWinD();
           }
         }).catch(() => {});
       }
-    }, 500);
+    }, 600);
   });
   // 3. 兜底定时器
   if (platform.isWin) {

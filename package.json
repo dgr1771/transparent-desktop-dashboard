@@ -1,6 +1,6 @@
 {
   "name": "transparent-desktop-dashboard",
-  "version": "0.9.24",
+  "version": "0.9.25",
   "description": "透明桌面信息看板 - 鼠标穿透的桌面常驻信息展示（天气/A股/新闻/待办/时钟/倒数日/热搜）",
   "main": "src/main/index.js",
   "scripts": {
@@ -84,6 +84,7 @@
     },
     "linux": {
       "icon": "assets/icons/icon-256.png",
+      "executableName": "transparent-dashboard",
       "target": [
         {
           "target": "AppImage",
@@ -100,7 +101,7 @@
       ],
       "category": "Utility",
       "maintainer": "dashboard",
-      "artifactName": "${productName}-${version}.${ext}"
+      "artifactName": "${name}-${version}.${ext}"
     }
   },
   "dependencies": {

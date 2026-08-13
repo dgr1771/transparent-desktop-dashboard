@@ -14,7 +14,7 @@
 set -e
 
 APPID="com.dashboard.transparent"
-VERSION="0.5.8"
+VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.0.0")
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 

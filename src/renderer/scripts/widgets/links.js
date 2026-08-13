@@ -17,10 +17,10 @@ const LinksWidget = {
   _render() {
     const links = Store.get('links') || [];
     const items = links.map((l, i) => `
-      <a class="links__item no-drag" data-idx="${i}" title="${this._escape(l.url)}">
+      <a class="links__item no-drag" data-idx="${i}">
         <span class="links__icon">${this._getIcon(l.name, l.url)}</span>
         <span class="links__name">${this._escape(l.name)}</span>
-        <span class="links__del no-drag" data-del="${i}" title="删除">✕</span>
+        <span class="links__del no-drag" data-del="${i}">✕</span>
       </a>
     `).join('');
 
@@ -31,7 +31,7 @@ const LinksWidget = {
       <div class="links">
         <div class="links__header">
           <span>🔗 快捷链接</span>
-          <span class="links__add-btn no-drag" id="links-add-toggle" title="添加">+</span>
+          <span class="links__add-btn no-drag" id="links-add-toggle">+</span>
         </div>
         <div class="links__add-form no-drag" id="links-add-form" style="display:none">
           <input type="text" class="links__add-name selectable" id="links-name" placeholder="名称" maxlength="12">

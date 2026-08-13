@@ -688,137 +688,30 @@ function registerIpcHandlers() {
   }
 
   /**
-   * 批量提取图标（Windows）
-   * 用 Windows Shell API SHGetFileInfo —— 这是资源管理器显示桌面图标时
-   * 内部调用的同一个函数。直接传 .lnk 路径，Windows 自动解析快捷方式并返回
-   * 目标应用的真实图标，与桌面显示完全一致。
-   *
-   * 相比 ExtractAssociatedIcon 和 Electron getFileIcon 的优势：
-   * - 自动解析 .lnk 快捷方式（无需手动读 target/IconLocation）
-   * - 对 Electron 应用打包的 exe 也能正确返回真实图标
-   * - 返回的就是用户在桌面看到的图标
-   *
-   * 一次 PowerShell 进程提取所有图标，避免逐个启动的开销。
-   * @param {string[]} paths 文件路径数组（.lnk / .exe / 普通文件均可）
-   * @returns {Object} { path -> 'data:image/png;base64,...' }
+   * 批量提取桌面图标：优先 koffi SHGetFileInfo（系统级 Shell 解析，正确处理
+   * .lnk 含自定义 IconLocation / UWP），失败兜底 Electron getFileIcon。
+   * 分批 + setImmediate 让出主进程，避免同步调用连续阻塞。
    */
-  async function extractIconsBatch(paths) {
-    if (!paths || paths.length === 0) return {};
-    const { execFile } = require('child_process');
-    const os = require('os');
-    // ⚠️ 中文路径编码问题：通过 stdin/命令行传中文给 PowerShell 会乱码。
-    // 解决：把路径列表写到 UTF-8 临时文件，PowerShell 用 -Encoding UTF8 读取。
-    // 输出也写到临时文件（UTF-8），避免 stdout 管道编码问题。
-    const listFile = pathDesk.join(os.tmpdir(), 'desk-icons-list-' + process.pid + '.txt');
-    const outFile = pathDesk.join(os.tmpdir(), 'desk-icons-out-' + process.pid + '.txt');
-    // 写入路径列表（UTF-8）
-    fsDesk.writeFileSync(listFile, paths.join('\n') + '\n', 'utf8');
-
-    // PowerShell 脚本：读 UTF-8 路径文件，提取图标，输出到 UTF-8 文件
-    const psScript = `Add-Type -AssemblyName System.Drawing
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class ShellIcon {
-  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
-  public struct SHFILEINFO {
-    public IntPtr hIcon; public int iIcon; public uint dwAttributes;
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst=260)] public string szDisplayName;
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst=80)] public string szTypeName;
-  }
-  [DllImport("shell32.dll", CharSet=CharSet.Unicode, EntryPoint="SHGetFileInfoW")]
-  public static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
-  [DllImport("user32.dll")] public static extern bool DestroyIcon(IntPtr hIcon);
-}
-"@
-$ErrorActionPreference='SilentlyContinue'
-$flags=[uint32]0x100
-$lines=Get-Content -LiteralPath '${listFile.replace(/\\/g, '\\$&')}' -Encoding UTF8
-$sb=New-Object System.Text.StringBuilder
-foreach($line in $lines){
-  $line=$line.Trim()
-  if(-not $line){continue}
-  $fi=New-Object ShellIcon+SHFILEINFO
-  $sz=[uint32]([System.Runtime.InteropServices.Marshal]::SizeOf($fi))
-  [void][ShellIcon]::SHGetFileInfo($line,0,[ref]$fi,$sz,$flags)
-  if($fi.hIcon -ne [IntPtr]::Zero){
-    try{
-      $icon=[System.Drawing.Icon]::FromHandle($fi.hIcon)
-      $ms=New-Object System.IO.MemoryStream
-      $icon.ToBitmap().Save($ms,[System.Drawing.Imaging.ImageFormat]::Png)
-      $b64=[Convert]::ToBase64String($ms.ToArray())
-      $ms.Dispose();$icon.Dispose()
-      [void]$sb.AppendLine($line+'|'+$b64)
-    }catch{ [void]$sb.AppendLine($line+'|FAIL') }
-    [ShellIcon]::DestroyIcon($fi.hIcon)|Out-Null
-  }else{ [void]$sb.AppendLine($line+'|FAIL') }
-}
-[System.IO.File]::WriteAllText('${outFile.replace(/\\/g, '\\$&')}', $sb.ToString(), [System.Text.UTF8Encoding]::new($false))`;
-
-    return new Promise((resolve) => {
-      const result = {};
-      const proc = execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript], {
-        encoding: 'utf8',
-        timeout: 15000,
-        maxBuffer: 50 * 1024 * 1024,
-        windowsHide: true
-      });
-      proc.on('error', () => {
-        cleanupFiles(listFile, outFile);
-        resolve(result);
-      });
-      proc.on('close', () => {
-        // 从输出文件读取结果（UTF-8）
-        try {
-          const content = fsDesk.readFileSync(outFile, 'utf8');
-          for (const line of content.split('\n')) {
-            const idx = line.indexOf('|');
-            if (idx <= 0) continue;
-            const p = line.substring(0, idx).trim();
-            const rest = line.substring(idx + 1).trim();
-            if (rest && rest !== 'FAIL') {
-              result[p] = 'data:image/png;base64,' + rest;
-            }
-          }
-        } catch (e) {}
-        cleanupFiles(listFile, outFile);
-        resolve(result);
-      });
-    });
-  }
-
-  /** 清理临时文件 */
-  function cleanupFiles(...files) {
-    for (const f of files) {
-      try { fsDesk.unlinkSync(f); } catch (e) {}
-    }
-  }
-
-  /**
-   * 图标提取：Electron 原生 app.getFileIcon（Windows 内部即 SHGetFileInfo）
-   * 进程内调用，毫秒级，无 PowerShell 子进程 / C# 编译 / dll 分发依赖，
-   * 跨用户机器零兼容性问题。分批并发，避免一次性过多调用卡主进程。
-   */
-  async function extractIconsViaElectron(items) {
+  async function extractIcons(items) {
     const iconMap = {};
-    const batchSize = 8;
+    const batchSize = 6;
     for (let i = 0; i < items.length; i += batchSize) {
       const batch = items.slice(i, i + batchSize);
       await Promise.all(batch.map(async (it) => {
         try {
-          // .lnk 快捷方式：先解析目标路径，再提取目标应用/文件夹的真实图标。
-          // （app.getFileIcon 对 .lnk 本身只返回通用快捷方式图标，必须取目标）
-          let iconPath = it.fullPath;
-          if (it.ext === '.lnk' && platform.isWin) {
-            try {
-              const lnk = shell.readShortcutLink(it.fullPath);
-              if (lnk && lnk.target) iconPath = lnk.target;
-            } catch (e) {}
+          // 优先 koffi SHGetFileInfo：系统级 Shell 解析，正确处理 .lnk（含自定义
+          // IconLocation）、UWP 应用等，比 Electron getFileIcon 全面可靠。
+          if (platform.isWin && platform.extractIconViaKoffi) {
+            const dataUrl = platform.extractIconViaKoffi(it.fullPath);
+            if (dataUrl) { iconMap[it.fullPath] = dataUrl; return; }
           }
-          const img = await app.getFileIcon(iconPath, { size: 'normal' });
+          // 兜底（Linux/Mac 或 koffi 失败）：Electron getFileIcon
+          const img = await app.getFileIcon(it.fullPath, { size: 'normal' });
           if (img && !img.isEmpty()) iconMap[it.fullPath] = img.toDataURL();
         } catch (e) {}
       }));
+      // 让出主进程，避免同步 koffi 调用连续阻塞过久
+      await new Promise(r => setImmediate(r));
     }
     return iconMap;
   }
@@ -863,7 +756,7 @@ foreach($line in $lines){
     // 彻底去掉 PowerShell 子进程 + C# 编译，零系统依赖、跨用户机器兼容。
     let iconMap = {};
     if (allItems.length > 0) {
-      iconMap = await extractIconsViaElectron(allItems);
+      iconMap = await extractIcons(allItems);
     }
 
     // 构建 result，补充 emoji 后备

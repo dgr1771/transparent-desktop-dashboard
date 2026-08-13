@@ -165,6 +165,7 @@ function createWindowForDisplay(display) {
   // 1. minimize preventDefault（拦截 WM_SYSCOMMAND 路径）
   win.on('minimize', (e) => {
     if (win._userHidden) return;
+    console.info('[win-d] minimize 事件 → preventDefault+restore');
     e.preventDefault();
     try { win.restore(); } catch (err) {}
   });
@@ -175,6 +176,7 @@ function createWindowForDisplay(display) {
       if (win.isDestroyed() || win._userHidden) return;
       if (win.isVisible() && !win.isFocused()) {
         win.webContents.executeJavaScript('document.hidden', true).then(hidden => {
+          console.info('[win-d] blur检测: document.hidden=' + hidden + ' isVisible=' + win.isVisible() + ' isMinimized=' + win.isMinimized() + ' isFocused=' + win.isFocused());
           if (hidden) {
             // Win+D 检测到——hide + showInactive 恢复（不遮挡其他窗口）
             win._recovering = true;
@@ -196,6 +198,7 @@ function createWindowForDisplay(display) {
     setInterval(() => {
       if (win.isDestroyed() || win._userHidden) return;
       if (win.isMinimized() || !win.isVisible()) {
+        console.info('[win-d] 兜底恢复: isMinimized=' + win.isMinimized() + ' isVisible=' + win.isVisible());
         try { win.restore(); win.showInactive(); } catch (err) {}
       }
     }, 1000);

@@ -239,8 +239,8 @@
     const container = document.getElementById('display-widgets-checklist');
     if (!container || !container.children.length) return;
     const widgets = {};
-    container.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-      widgets[cb.dataset.displayWidget] = cb.checked;
+    container.querySelectorAll('.toggle[data-display-widget]').forEach((t) => {
+      widgets[t.dataset.displayWidget] = t.classList.contains('on');
     });
     if (!config.displayWidgets) config.displayWidgets = {};
     config.displayWidgets[_selectedDisplayKey] = widgets;
@@ -248,23 +248,22 @@
 
   function renderDisplayWidgets() {
     const container = document.getElementById('display-widgets-checklist');
+    if (!container) return;
     container.innerHTML = '';
     const displayWidgets = config.displayWidgets || {};
-    // 当前屏的配置，没有则用全局默认
     const visible = displayWidgets[_selectedDisplayKey] || config.settings?.visibleWidgets || {};
     WIDGETS.forEach((w) => {
       const checked = visible[w.key] !== false;
-      const label = document.createElement('label');
-      label.className = checked ? 'checked' : '';
-      label.innerHTML = `
-        <input type="checkbox" data-display-widget="${w.key}" ${checked ? 'checked' : ''}>
-        <span>${w.name} <small style="color:#6b7280">— ${w.desc}</small></span>
+      const item = document.createElement('div');
+      item.className = 'module-item';
+      item.innerHTML = `
+        <span class="module-icon">${w.name.split(' ')[0]}</span>
+        <div class="module-text"><div class="module-name">${w.name.replace(/^[^\s]+ /, '')}</div></div>
+        <div class="toggle module-toggle ${checked ? 'on' : ''}" data-display-widget="${w.key}"></div>
       `;
-      const cb = label.querySelector('input');
-      cb.addEventListener('change', () => {
-        label.classList.toggle('checked', cb.checked);
-      });
-      container.appendChild(label);
+      const toggle = item.querySelector('.toggle');
+      toggle.addEventListener('click', () => toggle.classList.toggle('on'));
+      container.appendChild(item);
     });
   }
 
@@ -378,18 +377,22 @@
     const container = document.getElementById('widgets-checklist');
     container.innerHTML = '';
     WIDGETS.forEach((w) => {
-      const checked = visible[w.key] !== false; // 默认显示
-      const label = document.createElement('label');
-      label.className = checked ? 'checked' : '';
-      label.innerHTML = `
-        <input type="checkbox" data-widget-key="${w.key}" ${checked ? 'checked' : ''}>
-        <span>${w.name} <small style="color:#6b7280">— ${w.desc}</small></span>
+      const checked = visible[w.key] !== false;
+      const item = document.createElement('div');
+      item.className = 'module-item';
+      item.innerHTML = `
+        <span class="module-icon">${w.name.split(' ')[0]}</span>
+        <div class="module-text">
+          <div class="module-name">${w.name.replace(/^[^\s]+ /, '')}</div>
+          <div class="module-desc">${w.desc}</div>
+        </div>
+        <div class="toggle module-toggle ${checked ? 'on' : ''}" data-widget-key="${w.key}"></div>
       `;
-      const cb = label.querySelector('input');
-      cb.addEventListener('change', () => {
-        label.classList.toggle('checked', cb.checked);
+      const toggle = item.querySelector('.toggle');
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('on');
       });
-      container.appendChild(label);
+      container.appendChild(item);
     });
   }
 
@@ -434,8 +437,8 @@
 
     // 模块显隐（主屏/全局默认）
     const visibleWidgets = {};
-    document.querySelectorAll('#widgets-checklist input[type="checkbox"]').forEach((cb) => {
-      visibleWidgets[cb.dataset.widgetKey] = cb.checked;
+    document.querySelectorAll('#widgets-checklist .toggle[data-widget-key]').forEach((t) => {
+      visibleWidgets[t.dataset.widgetKey] = t.classList.contains('on');
     });
 
     // 多显示器：各屏独立模块配置（保存前先写入当前屏草稿）

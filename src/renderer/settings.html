@@ -4,307 +4,349 @@
   <meta charset="UTF-8">
   <title>设置 - 透明桌面看板</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
     body {
-      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-      background: #1a1d29;
-      color: #e5e7eb;
-      padding: 24px;
-      line-height: 1.6;
+      font-family: -apple-system, 'SF Pro Display', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      background: #000000;
+      color: #f5f5f7;
+      padding: 0;
+      line-height: 1.5;
+      overflow-y: auto;
     }
-    h1 { font-size: 20px; margin-bottom: 4px; }
-    .subtitle { color: #9ca3af; font-size: 13px; margin-bottom: 20px; }
-    .section {
-      background: #232736;
-      border-radius: 10px;
-      padding: 16px 18px;
-      margin-bottom: 14px;
+
+    /* 顶部导航栏（macOS 风格） */
+    .titlebar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(28,28,30,0.72);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .section h2 {
+    .titlebar h1 {
+      font-size: 17px; font-weight: 600; letter-spacing: -0.3px;
+    }
+    .titlebar-actions { display: flex; gap: 8px; }
+    .titlebar-btn {
+      padding: 6px 16px; border: none; border-radius: 7px;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .titlebar-btn.primary {
+      background: #0a84ff; color: #fff;
+    }
+    .titlebar-btn.primary:hover { background: #0071e3; }
+    .titlebar-btn.secondary {
+      background: rgba(255,255,255,0.1); color: #f5f5f7;
+    }
+    .titlebar-btn.secondary:hover { background: rgba(255,255,255,0.15); }
+
+    /* 内容区域 */
+    .content { padding: 20px 24px 80px; max-width: 680px; margin: 0 auto; }
+
+    /* 分组标题（macOS Settings 风格） */
+    .group-label {
+      font-size: 13px; font-weight: 600;
+      color: #8e8e93; text-transform: uppercase;
+      letter-spacing: 0.5px; margin: 24px 0 8px 16px;
+    }
+    .group-label:first-child { margin-top: 8px; }
+
+    /* 圆角分组容器（macOS inset grouped 风格） */
+    .group {
+      background: rgba(44,44,46,0.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .group-item {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+    }
+    .group-item:last-child { border-bottom: none; }
+    .group-item:hover { background: rgba(255,255,255,0.03); }
+
+    /* 左侧标签 + 右侧控件 */
+    .item-label { font-size: 14px; color: #f5f5f7; flex-shrink: 0; }
+    .item-desc { font-size: 12px; color: #8e8e93; margin-top: 2px; }
+    .item-control { flex: 1; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+
+    /* 输入框（macOS 风格） */
+    input[type="text"], input[type="number"], select {
+      background: rgba(99,99,102,0.36);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 7px 12px;
+      color: #f5f5f7;
       font-size: 14px;
-      margin-bottom: 12px;
-      color: #60a5fa;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .field { margin-bottom: 12px; }
-    .field:last-child { margin-bottom: 0; }
-    label {
-      display: block;
-      font-size: 12px;
-      color: #9ca3af;
-      margin-bottom: 4px;
-    }
-    input[type="text"], input[type="number"] {
-      width: 100%;
-      background: #1a1d29;
-      border: 1px solid #374151;
-      border-radius: 6px;
-      padding: 8px 10px;
-      color: #e5e7eb;
-      font-size: 13px;
       outline: none;
+      width: 100%;
+      transition: border-color 0.15s, background 0.15s;
     }
-    input:focus { border-color: #60a5fa; }
-    .hint { font-size: 11px; color: #6b7280; margin-top: 3px; }
-    .hint a { color: #60a5fa; }
-    .sources-list { display: flex; flex-direction: column; gap: 6px; }
+    input[type="text"]:focus, select:focus {
+      border-color: #0a84ff;
+      background: rgba(99,99,102,0.5);
+    }
+    input::placeholder { color: #636366; }
+
+    /* 滑块 */
+    input[type="range"] {
+      -webkit-appearance: none; width: 160px; height: 4px;
+      background: rgba(255,255,255,0.15); border-radius: 2px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 20px; height: 20px;
+      background: #fff; border-radius: 50%; cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    /* 开关 (macOS Toggle) */
+    .toggle {
+      position: relative; width: 44px; height: 26px;
+      background: rgba(120,120,128,0.32); border-radius: 13px;
+      cursor: pointer; transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle.on { background: #30d158; }
+    .toggle::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 22px; height: 22px; background: #fff; border-radius: 50%;
+      transition: transform 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .toggle.on::after { transform: translateX(18px); }
+
+    /* 按钮 */
+    .btn {
+      padding: 7px 14px; border: none; border-radius: 7px;
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      transition: all 0.15s;
+    }
+    .btn-blue { background: #0a84ff; color: #fff; }
+    .btn-blue:hover { background: #0071e3; }
+    .btn-gray { background: rgba(99,99,102,0.36); color: #f5f5f7; }
+    .btn-gray:hover { background: rgba(99,99,102,0.5); }
+    .btn-red { background: #ff453a; color: #fff; font-size: 12px; padding: 4px 10px; }
+
+    /* 超链接 */
+    .link { color: #0a84ff; text-decoration: none; }
+    .link:hover { text-decoration: underline; }
+
+    /* 提示文字 */
+    .hint { font-size: 12px; color: #8e8e93; margin-top: 4px; line-height: 1.4; }
+    .hint-success { color: #30d158; }
+    .hint-error { color: #ff453a; }
+
+    /* 新闻源列表 */
     .source-row {
-      display: flex;
-      gap: 6px;
-      align-items: center;
+      display: flex; gap: 6px; align-items: center;
+      padding: 8px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
     }
     .source-row input { flex: 1; }
     .source-row .name { max-width: 100px; }
-    .btn-remove {
-      background: #dc2626;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 8px 10px;
-      cursor: pointer;
-      font-size: 12px;
+    .btn-add-source {
+      width: 100%; padding: 10px; background: none; border: none;
+      color: #0a84ff; font-size: 14px; cursor: pointer;
+      border-top: 1px solid rgba(255,255,255,0.06);
     }
-    .btn-add {
-      background: #374151;
-      color: #d1d5db;
-      border: 1px dashed #6b7280;
-      border-radius: 6px;
-      padding: 8px;
-      cursor: pointer;
-      font-size: 12px;
-      width: 100%;
-      margin-top: 6px;
+    .btn-add-source:hover { background: rgba(10,132,255,0.08); }
+
+    /* 主题/植物选择器 */
+    .picker { display: flex; flex-wrap: wrap; gap: 8px; }
+    .picker-item {
+      width: 44px; height: 44px; border-radius: 10px; cursor: pointer;
+      border: 2px solid rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; transition: all 0.15s;
     }
-    .btn-add:hover { background: #4b5563; }
-    .widgets-checklist {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+    .picker-item:hover { transform: scale(1.05); border-color: rgba(255,255,255,0.3); }
+    .picker-item.selected {
+      border-color: #0a84ff; transform: scale(1.08);
+      box-shadow: 0 0 0 3px rgba(10,132,255,0.2);
     }
-    .widgets-checklist label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      background: #1a1d29;
-      border: 1px solid #374151;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      color: #d1d5db;
-      margin: 0;
-      transition: border-color 0.15s, background 0.15s;
+
+    /* 模块列表 */
+    .module-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; }
+    .module-item {
+      background: rgba(44,44,46,0.72); padding: 12px 16px;
+      display: flex; align-items: center; gap: 10px; cursor: pointer;
+      transition: background 0.15s;
     }
-    .widgets-checklist label:hover { border-color: #60a5fa; }
-    .widgets-checklist label.checked { border-color: #3b82f6; background: rgba(59,130,246,0.12); }
-    .widgets-checklist input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      accent-color: #3b82f6;
-      cursor: pointer;
+    .module-item:hover { background: rgba(58,58,60,0.8); }
+    .module-icon { font-size: 20px; flex-shrink: 0; }
+    .module-name { font-size: 14px; color: #f5f5f7; }
+    .module-desc { font-size: 11px; color: #8e8e93; }
+    .module-text { flex: 1; }
+    .module-toggle { transform: scale(0.85); }
+
+    /* 关于页面 */
+    .about-header {
+      display: flex; align-items: center; gap: 16px; padding: 20px 16px;
     }
-    .templates-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
+    .about-icon {
+      width: 56px; height: 56px; border-radius: 12px;
+      background: linear-gradient(135deg, #34a853, #2d7d3a);
+      display: flex; align-items: center; justify-content: center; font-size: 32px;
     }
-    .template-card {
-      padding: 12px;
-      background: #1a1d29;
-      border: 1px solid #374151;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-      text-align: center;
+    .about-name { font-size: 18px; font-weight: 600; }
+    .about-tagline { font-size: 13px; color: #8e8e93; margin-top: 2px; }
+    .about-row {
+      padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; justify-content: space-between;
+      font-size: 14px;
     }
-    .template-card:hover { border-color: #60a5fa; background: rgba(59,130,246,0.08); }
-    .template-card__icon { font-size: 22px; margin-bottom: 4px; }
-    .template-card__name { font-size: 13px; color: #e5e7eb; font-weight: 500; }
-    .template-card__desc { font-size: 10px; color: #6b7280; margin-top: 2px; }
-    .custom-template-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 10px;
-      background: rgba(255,255,255,0.04);
-      border-radius: 6px;
-      margin-bottom: 4px;
-      font-size: 12px;
-    }
-    .custom-template-item button {
-      background: none;
-      border: none;
-      color: #f87171;
-      cursor: pointer;
-      font-size: 11px;
-    }
-    .btn-locate {
-      background: #2563eb;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 8px 14px;
-      cursor: pointer;
-      font-size: 12px;
-      white-space: nowrap;
-    }
-    .btn-locate:hover { background: #1d4ed8; }
-    .btn-locate:disabled { background: #4b5563; cursor: wait; }
-    #locate-hint.success { color: #34d399; }
-    #locate-hint.error { color: #f87171; }
-    .actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 18px;
-      justify-content: flex-end;
-    }
-    .btn {
-      padding: 10px 24px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .btn-primary { background: #3b82f6; color: #fff; }
-    .btn-primary:hover { background: #2563eb; }
-    .btn-secondary { background: #374151; color: #d1d5db; }
-    .btn-secondary:hover { background: #4b5563; }
+    .about-row:last-child { border-bottom: none; }
+    .about-row .key { color: #8e8e93; }
+    .about-row .val { color: #f5f5f7; }
+
+    /* Toast */
     .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #10b981;
-      color: #fff;
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-size: 13px;
-      opacity: 0;
-      transition: opacity 0.3s;
-      pointer-events: none;
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(30,30,30,0.95);
+      backdrop-filter: blur(20px);
+      color: #f5f5f7; padding: 12px 24px;
+      border-radius: 20px; font-size: 14px; font-weight: 500;
+      opacity: 0; transition: all 0.3s;
+      pointer-events: none; z-index: 9999;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
-    .toast.show { opacity: 1; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* 隐藏滚动条但保留功能 */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
   </style>
 </head>
 <body>
-  <h1>⚙️ 设置</h1>
-  <p class="subtitle">配置数据源与显示选项。修改后点击"保存"生效。</p>
-
-  <!-- 天气 -->
-  <div class="section">
-    <h2>🌤️ 天气</h2>
-    <div class="field">
-      <label>城市（留空则使用自动定位）</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="weather-city" placeholder="手动输入城市，或点右边自动定位" style="flex:1">
-        <button class="btn-locate" id="btn-locate" type="button">📍 自动定位</button>
-      </div>
-      <div class="hint" id="locate-hint">首次启动会自动定位。也可点"自动定位"重新获取当前位置。</div>
-    </div>
-    <div class="field">
-      <label>和风天气 API Key</label>
-      <input type="text" id="weather-apikey" placeholder="在此粘贴你的 Key">
-      <div class="hint">免费申请：<a href="https://dev.qweather.com/" id="link-qweather">dev.qweather.com</a>（注册后在控制台创建项目获取 Key）</div>
-    </div>
-    <div class="field">
-      <label>API Host（和风控制台里该 Key 绑定的域名）</label>
-      <input type="text" id="weather-apihost" placeholder="例如：devapi.qweather.com 或 你的专属域名.qweatherapi.com">
-      <div class="hint">若天气报"Invalid Host"错误，请填写和风控制台 → 应用设置 → API Host 里显示的域名。2024 年后注册的账号通常需要填这个。</div>
+  <!-- macOS 风格顶部导航栏 -->
+  <div class="titlebar">
+    <h1>⚙️ 设置</h1>
+    <div class="titlebar-actions">
+      <button class="titlebar-btn secondary" id="btn-cancel">取消</button>
+      <button class="titlebar-btn primary" id="btn-save">保存</button>
     </div>
   </div>
 
-  <!-- A股 -->
-  <div class="section">
-    <h2>📈 A股自选</h2>
-    <div class="field">
-      <label>股票代码（逗号分隔）</label>
-      <input type="text" id="stock-codes" placeholder="sh000001,sh600519,sz000001">
-      <div class="hint">沪市 sh + 6位代码，深市 sz + 6位代码。例：sh000001（上证指数）、sh600519（贵州茅台）</div>
-    </div>
-  </div>
+  <div class="content">
 
-  <!-- 新闻 -->
-  <div class="section">
-    <h2>📰 新闻 RSS 源（中文）</h2>
-    <div class="sources-list" id="news-sources"></div>
-    <button class="btn-add" id="btn-add-source">+ 添加 RSS 源</button>
-    <div class="hint" style="margin-top:8px">推荐中文源：量子位、少数派、36氪、机器之心。可在 <a href="https://docs.rsshub.app/" id="link-rsshub">RSSHub</a> 找到更多中文媒体 RSS。</div>
-  </div>
-
-
-  <!-- 多显示器选择 -->
-  <div class="section" id="display-section" style="display:none">
-    <h2>🖥️ 显示器</h2>
-    <div class="hint" style="margin-bottom:10px">检测到多个显示器，可分别为每个屏幕配置显示的模块。</div>
-    <div class="field">
-      <select id="display-select" style="width:100%;padding:8px;background:#1a1d29;border:1px solid #374151;border-radius:6px;color:#e5e7eb;font-size:13px"></select>
-    </div>
-    <div id="display-widgets-config" style="margin-top:10px">
-      <div class="hint" style="margin-bottom:6px;color:#9ca3af">当前选择的屏幕显示的模块：</div>
-      <div class="widgets-checklist" id="display-widgets-checklist"></div>
-    </div>
-  </div>
-
-  <!-- 模块显隐（主屏/全局默认） -->
-  <div class="section">
-    <h2>🔲 桌面模块</h2>
-    <div class="hint" style="margin-bottom:10px">勾选要在主屏桌面上显示的模块，取消勾选则隐藏。多屏模式下可在上方"显示器"区域单独配置副屏。</div>
-    <div class="widgets-checklist" id="widgets-checklist"></div>
-  </div>
-
-  <!-- 显示 -->
-  <div class="section">
-    <h2>🎨 显示</h2>
-    <div class="field">
-      <label style="margin-bottom:8px;display:block">主题颜色</label>
-      <div id="theme-picker" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
-    </div>
-    <div class="field">
-      <label style="margin-bottom:8px;display:block">🌱 桌面绿植</label>
-      <div id="plant-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
-      <div class="hint" id="plant-desc" style="font-size:11px;color:#6b7280"></div>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">
-        <img id="custom-plant-preview" alt="自定义植物预览" style="display:none;width:52px;height:58px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,0.05)">
-        <div style="flex:1">
-          <input id="plant-upload" type="file" accept="image/png,image/jpeg,image/webp" style="width:100%;font-size:11px;color:#9ca3af">
-          <div class="hint" id="custom-plant-hint">支持 JPG、PNG、WEBP，图片会自动缩放并保存在本机</div>
+    <!-- 天气 -->
+    <div class="group-label">天气</div>
+    <div class="group">
+      <div class="group-item" style="flex-direction:column;align-items:stretch">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+          <span class="item-label">城市</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="weather-city" placeholder="留空自动定位" style="width:200px">
+            <button class="btn btn-blue" id="btn-locate" type="button">📍 定位</button>
+          </div>
         </div>
-        <button id="btn-clear-custom-plant" class="btn-remove" type="button" style="background:#4b5563">清除</button>
+        <div class="hint" id="locate-hint">首次启动会自动定位</div>
+      </div>
+      <div class="group-item" style="flex-direction:column;align-items:stretch">
+        <span class="item-label">API Key</span>
+        <input type="text" id="weather-apikey" placeholder="粘贴和风天气 Key" style="margin-top:4px">
+        <div class="hint">免费申请：<a href="https://dev.qweather.com/" id="link-qweather" class="link">dev.qweather.com</a></div>
+      </div>
+      <div class="group-item" style="flex-direction:column;align-items:stretch">
+        <span class="item-label">API Host</span>
+        <input type="text" id="weather-apihost" placeholder="devapi.qweather.com" style="margin-top:4px">
+        <div class="hint">和风控制台里该 Key 绑定的域名（2024年后注册通常需要填）</div>
       </div>
     </div>
-    <div class="field">
-      <label>卡片透明度：<span id="opacity-value">100%</span></label>
-      <input type="range" id="global-opacity" min="20" max="100" value="100" style="width:100%">
-    </div>
-  </div>
 
-  <!-- 关于 -->
-  <div class="section">
-    <h2>ℹ️ 关于</h2>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-      <img src="assets/icons/icon-64.png" style="width:48px;height:48px;border-radius:8px" onerror="this.style.display='none'">
-      <div>
-        <div style="font-size:16px;font-weight:600;color:#e5e7eb">透明桌面看板</div>
-        <div style="font-size:12px;color:#6b7280;margin-top:2px">透明、鼠标穿透的桌面常驻信息看板</div>
+    <!-- A股 -->
+    <div class="group-label">A股自选</div>
+    <div class="group">
+      <div class="group-item" style="flex-direction:column;align-items:stretch">
+        <span class="item-label">股票代码</span>
+        <input type="text" id="stock-codes" placeholder="sh000001,sh600519,sz000001" style="margin-top:4px">
+        <div class="hint">沪市 sh + 6位代码，深市 sz + 6位代码</div>
       </div>
     </div>
-    <div style="font-size:13px;color:#9ca3af;line-height:1.8">
-      <div>版本：<span id="about-version" style="color:#60a5fa;font-weight:500">—</span></div>
-      <div>作者：<span style="color:#e5e7eb">隔壁村布布</span></div>
-      <div>技术栈：Electron + 原生 HTML/CSS/JS</div>
-      <div>平台：Windows / UOS / deepin</div>
-    </div>
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid #1f2937;font-size:11px;color:#4b5563">
-      功能：时钟 · 天气 · A股 · 新闻 · 热搜 · 待办 · 倒数日 · 系统监控 · 日历 · 番茄钟 · 快捷链接 · 舒尔特方格 · 桌面整理 · 多屏支持
-    </div>
-  </div>
 
-  <div class="actions">
-    <button class="btn btn-secondary" id="btn-cancel">取消</button>
-    <button class="btn btn-primary" id="btn-save">保存并应用</button>
+    <!-- 新闻 -->
+    <div class="group-label">新闻 RSS 源</div>
+    <div class="group">
+      <div class="sources-list" id="news-sources"></div>
+      <button class="btn-add-source" id="btn-add-source">+ 添加 RSS 源</button>
+    </div>
+
+    <!-- 多显示器 -->
+    <div class="group" id="display-section" style="display:none">
+      <div class="group-item" style="flex-direction:column;align-items:stretch">
+        <span class="item-label">🖥️ 显示器配置</span>
+        <select id="display-select" style="margin-top:4px"></select>
+      </div>
+      <div id="display-widgets-config">
+        <div class="group-item" style="flex-direction:column;align-items:stretch">
+          <div class="hint" style="margin-bottom:8px">当前屏幕显示的模块：</div>
+          <div class="module-list" id="display-widgets-checklist" style="border-radius:0"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 桌面模块 -->
+    <div class="group-label">桌面模块</div>
+    <div class="module-list" id="widgets-checklist"></div>
+
+    <!-- 显示 -->
+    <div class="group-label">外观</div>
+    <div class="group">
+      <div class="group-item" style="flex-direction:column;align-items:stretch">
+        <span class="item-label">🎨 主题颜色</span>
+        <div class="picker" id="theme-picker" style="margin-top:8px"></div>
+      </div>
+      <div class="group-item" style="flex-direction:column;align-items:stretch">
+        <span class="item-label">🌱 桌面绿植</span>
+        <div class="picker" id="plant-picker" style="margin-top:8px"></div>
+        <div class="hint" id="plant-desc"></div>
+      </div>
+      <div class="group-item">
+        <span class="item-label">卡片透明度</span>
+        <div class="item-control">
+          <span id="opacity-value" style="font-size:14px;color:#f5f5f7;min-width:40px;text-align:right">100%</span>
+          <input type="range" id="global-opacity" min="20" max="100" value="100">
+        </div>
+      </div>
+    </div>
+
+    <!-- 关于 -->
+    <div class="group-label">关于</div>
+    <div class="group">
+      <div class="about-header">
+        <div class="about-icon">
+          <img src="assets/icons/icon-64.png" style="width:56px;height:56px;border-radius:12px" onerror="this.style.display='none';this.parentElement.textContent='🌿'">
+        </div>
+        <div>
+          <div class="about-name">透明桌面看板</div>
+          <div class="about-tagline">透明 · 穿透 · 桌面常驻信息看板</div>
+        </div>
+      </div>
+      <div class="about-row">
+        <span class="key">版本</span>
+        <span class="val" id="about-version" style="color:#0a84ff">—</span>
+      </div>
+      <div class="about-row">
+        <span class="key">作者</span>
+        <span class="val">隔壁村布布</span>
+      </div>
+      <div class="about-row">
+        <span class="key">技术栈</span>
+        <span class="val">Electron + koffi + HTML/CSS/JS</span>
+      </div>
+      <div class="about-row">
+        <span class="key">平台</span>
+        <span class="val">Windows · UOS · deepin</span>
+      </div>
+    </div>
+
   </div>
 
   <div class="toast" id="toast">已保存</div>

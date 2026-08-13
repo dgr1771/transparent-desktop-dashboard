@@ -26,6 +26,7 @@ function getUser32() {
   });
   _user32 = {
     FindWindowA: u.func('void *FindWindowA(const char *cls, const char *win)'),
+    FindWindowExA: u.func('void *FindWindowExA(void *parent, void *childAfter, const char *cls, const char *win)'),
     SetParent: u.func('void *SetParent(void *child, void *parent)'),
     SendMessageTimeoutA: u.func('intptr_t SendMessageTimeoutA(void *h, uint msg, uintptr_t w, uintptr_t l, uint flags, uint timeout, void *result)'),
     SetWindowPos: u.func('bool SetWindowPos(void *h, void *after, int x, int y, int cx, int cy, uint flags)'),
@@ -44,6 +45,36 @@ function getHwnd(win) {
   const hwnd = process.arch === 'x64' ? Number(buf.readBigInt64LE(0)) : buf.readInt32LE(0);
   _winHwnds.set(win.id, hwnd);
   return hwnd;
+}
+
+/**
+ * 嵌入 WorkerW 壁纸层（桌面图标下方），彻底免疫 Show Desktop / Win+D
+ * 原理（Rainmeter 同款）：发 0x052C 给 Progman 让它创建 WorkerW，再 SetParent 到 WorkerW。
+ * 窗口进入壁纸层后，"显示桌面"只隐藏普通应用窗口，壁纸层窗口和桌面一起保留。
+ * 注意：区别于 SetParent 到 Progman（会和桌面图标同级触发 GDI 裁切），WorkerW 在图标下方。
+ */
+function embedToDesktopLayer(hwnd) {
+  try {
+    const u = getUser32();
+    const progman = u.FindWindowA('Progman', null);
+    if (!progman) return false;
+    // 1. 触发 Progman 创建 WorkerW
+    const res = Buffer.alloc(8);
+    u.SendMessageTimeoutA(progman, 0x052C, 0, 0, 0x0002 /*SMTO_NORMAL*/, 1000, res);
+    // 2. 找 SHELLDLL_DefView（Progman 的子窗口 = 桌面图标层）
+    const defView = u.FindWindowExA(progman, null, 'SHELLDLL_DefView', null);
+    if (!defView) { console.info('[platform] 未找到 SHELLDLL_DefView'); return false; }
+    // 3. 找 defView 之后的 WorkerW（壁纸层）
+    const workerW = u.FindWindowExA(null, defView, 'WorkerW', null);
+    if (!workerW) { console.info('[platform] 未找到 WorkerW'); return false; }
+    // 4. 嵌入 WorkerW
+    const r = u.SetParent(hwnd, workerW);
+    console.info('[platform] 嵌入 WorkerW 壁纸层 ' + (r ? '成功' : 'SetParent 返回空'));
+    return !!r;
+  } catch (e) {
+    console.error('[platform] embedToDesktopLayer failed:', e.message);
+    return false;
+  }
 }
 
 /* ============================================================
@@ -253,26 +284,27 @@ module.exports = {
       win.setVisibleOnAllWorkspaces(true, { transformProcessType: false });
       win.setAlwaysOnTop(true, 'floating');
     } else if (isWin) {
-      // 关键方案：GWLP_HWNDPARENT 设置 Owner（不是 SetParent！）
-      // SetParent 会让窗口变成 Progman 的子窗口，触发 GDI 裁切 bug（桌面图标消失）。
-      // GWLP_HWNDPARENT 只设 Owner，窗口仍是独立顶层，DWM 独立渲染。
       try {
         const u = getUser32();
         const hwnd = getHwnd(win);
-        const progman = u.FindWindowA('Progman', null);
-        if (progman) {
-          const GWLP_HWNDPARENT = -8;
-          u.SetWindowLongPtrA(hwnd, GWLP_HWNDPARENT, progman);
-          const GWL_EXSTYLE = -20;
-          const WS_EX_TOOLWINDOW = 0x00000080;
-          const WS_EX_APPWINDOW = 0x00040000;
-          let ex = Number(u.GetWindowLongPtrA(hwnd, GWL_EXSTYLE));
-          ex = (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
-          u.SetWindowLongPtrA(hwnd, GWL_EXSTYLE, ex);
-          win.hookWindowMessage(0x0112, (wParam) => {
-            if ((wParam.readUInt32LE(0) & 0xFFF0) === 0xF020) return true;
-          });
-          console.info('[platform] Owner=Progman + WS_EX_TOOLWINDOW + hookWM_SYSCOMMAND');
+        // WS_EX_TOOLWINDOW（不在任务栏/Alt+Tab）+ 拦截 SC_MINIMIZE（所有嵌入方式都需要）
+        const GWL_EXSTYLE = -20;
+        const WS_EX_TOOLWINDOW = 0x00000080;
+        const WS_EX_APPWINDOW = 0x00040000;
+        let ex = Number(u.GetWindowLongPtrA(hwnd, GWL_EXSTYLE));
+        ex = (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
+        u.SetWindowLongPtrA(hwnd, GWL_EXSTYLE, ex);
+        win.hookWindowMessage(0x0112, (wParam) => {
+          if ((wParam.readUInt32LE(0) & 0xFFF0) === 0xF020) return true;
+        });
+        // 优先嵌入 WorkerW 壁纸层（彻底免疫 Show Desktop / Win+D）
+        // 失败（25H2 模型变化或透明窗口不兼容）则 fallback Owner=Progman
+        if (!embedToDesktopLayer(hwnd)) {
+          const progman = u.FindWindowA('Progman', null);
+          if (progman) {
+            u.SetWindowLongPtrA(hwnd, -8 /*GWLP_HWNDPARENT*/, progman);
+            console.info('[platform] fallback Owner=Progman + WS_EX_TOOLWINDOW');
+          }
         }
       } catch (e) { console.error('[platform] init failed:', e.message); }
     }

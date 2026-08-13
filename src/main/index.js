@@ -885,7 +885,16 @@ foreach($line in $lines){
       const batch = items.slice(i, i + batchSize);
       await Promise.all(batch.map(async (it) => {
         try {
-          const img = await app.getFileIcon(it.fullPath, { size: 'normal' });
+          // .lnk 快捷方式：先解析目标路径，再提取目标应用/文件夹的真实图标。
+          // （app.getFileIcon 对 .lnk 本身只返回通用快捷方式图标，必须取目标）
+          let iconPath = it.fullPath;
+          if (it.ext === '.lnk' && platform.isWin) {
+            try {
+              const lnk = shell.readShortcutLink(it.fullPath);
+              if (lnk && lnk.target) iconPath = lnk.target;
+            } catch (e) {}
+          }
+          const img = await app.getFileIcon(iconPath, { size: 'normal' });
           if (img && !img.isEmpty()) iconMap[it.fullPath] = img.toDataURL();
         } catch (e) {}
       }));

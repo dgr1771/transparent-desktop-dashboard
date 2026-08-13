@@ -10,7 +10,9 @@ const MokugyoWidget = {
   /** 更新木鱼图（保存自定义图后调用，不重建 DOM 避免丢失事件绑定） */
   update() {
     const img = document.querySelector('.widget[data-widget="mokugyo"] .mokugyo__stage img');
-    if (img) img.src = Store.get('customMokugyoImage') || 'assets/interactive/mokugyo.png';
+    const src = Store.get('customMokugyoImage') || 'assets/interactive/mokugyo.png';
+    console.info('[mokugyo] update 被调用, src=', src.startsWith('data:') ? '自定义图' : src, ' imgFound=', !!img);
+    if (img) img.src = src;
   },
 
   _render() {

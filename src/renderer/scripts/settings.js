@@ -320,6 +320,12 @@
     // 主题
     selectThemeInPicker(cfg.settings?.theme);
     selectPlantInPicker(cfg.plant || 'grass');
+    // 全屏天气特效开关
+    const wfxToggle = document.getElementById('toggle-weatherFx');
+    if (wfxToggle) {
+      wfxToggle.classList.toggle('on', cfg.settings?.weatherFx !== false);
+      wfxToggle.onclick = () => wfxToggle.classList.toggle('on');
+    }
     _customPlantImage = cfg.customPlantImage || '';
     renderCustomPlantUpload();
 
@@ -459,6 +465,7 @@
       settings: {
         globalOpacity: parseInt(document.getElementById('global-opacity').value, 10) / 100,
         theme: _selectedTheme,
+        weatherFx: document.getElementById('toggle-weatherFx').classList.contains('on'),
         visibleWidgets
       }
     };

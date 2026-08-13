@@ -11,6 +11,7 @@ const WeatherFX = {
   _weatherType: 'none',  // none/sunny/rainy/snowy/windy/stormy/foggy
   _animationId: null,
   _lightningTimer: null,
+  _enabled: true,        // 全屏天气特效总开关（可在设置里手动关闭）
 
   /** 初始化全屏 Canvas 覆盖层 */
   init() {
@@ -25,6 +26,23 @@ const WeatherFX = {
 
     // 开始动画循环
     this._animate();
+  },
+
+  /** 启用全屏天气特效 */
+  enable() {
+    this._enabled = true;
+    if (!this._canvas) this.init();
+  },
+
+  /** 关闭全屏天气特效（移除 canvas + 停止动画 + 恢复植物默认摇摆） */
+  disable() {
+    this._enabled = false;
+    this._weatherType = 'none';
+    this._particles = [];
+    if (this._animationId) { cancelAnimationFrame(this._animationId); this._animationId = null; }
+    if (this._lightningTimer) { clearInterval(this._lightningTimer); this._lightningTimer = null; }
+    if (this._canvas) { this._canvas.remove(); this._canvas = null; this._ctx = null; }
+    this._updatePlantSway('none');
   },
 
   _resize() {
@@ -63,6 +81,7 @@ const WeatherFX = {
   },
 
   setWeatherType(type) {
+    if (!this._enabled) return;       // 特效已关闭，不渲染
     if (type === this._weatherType) return;
     this._weatherType = type;
     this._particles = [];

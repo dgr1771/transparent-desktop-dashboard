@@ -91,7 +91,7 @@
       if (isWidgetVisible('tarot')) TarotWidget.init();
       // 桌面绿植 + 天气特效（图片/Canvas 资源）
       if (typeof Plants !== "undefined") Plants.init();
-      if (typeof WeatherFX !== "undefined") WeatherFX.init();
+      if (typeof WeatherFX !== "undefined" && Store.get('settings')?.weatherFx !== false) WeatherFX.init();
     }, 350);
 
     // 第四批（~600ms 后）：桌面整理卡片 — 图标提取已改为 Electron 原生
@@ -146,6 +146,11 @@
         applyTheme(Store.get('settings')?.theme);
         applyGlobalOpacity();
         if (typeof Plants !== 'undefined') Plants.setPlant(Store.get('plant') || 'grass');
+        // 全屏天气特效开关：保存后实时生效
+        if (typeof WeatherFX !== 'undefined') {
+          if (Store.get('settings')?.weatherFx !== false) WeatherFX.enable();
+          else WeatherFX.disable();
+        }
 
         // 找出新增的卡片（之前不可见，现在可见）
         const newWidgets = [];

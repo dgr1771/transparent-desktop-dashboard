@@ -42,55 +42,37 @@ module.exports = {
       win.setVisibleOnAllWorkspaces(true, { transformProcessType: false });
       win.setAlwaysOnTop(true, 'floating');
     } else if (isWin) {
-      // 使用 koffi 直接调用 Win32 API 挂载到 WorkerW 桌面壁纸层
-      // 这是解决 Win+D 问题的正确方案：
-      // 1. 正确读取 64 位 HWND（之前 readInt32LE 会截断导致 SetParent 失败）
-      // 2. 剥离 WS_EX_APPWINDOW + 添加 WS_EX_TOOLWINDOW
-      // 3. SetParent 到 WorkerW（Win+D 的 ShowDesktop 跳过子窗口）
+      // 使用 koffi 调用 Win32 API 将窗口嵌入桌面层
+      // 方案：SetParent 到 Progman + SetWindowPos HWND_TOP
+      // 这样窗口成为桌面容器的一部分：
+      //   - Win+D 跳过它（桌面组件不受 ShowDesktop 影响）
+      //   - 在桌面图标(SHELLDLL_DefView)上面（卡片可交互）
+      //   - 在其他应用窗口下面（不遮挡其他软件）
       try {
         const koffi = require('koffi');
         const user32 = koffi.load('user32.dll');
-        const FindWindowA = user32.func('void *FindWindowA(const char *lpClassName, const char *lpWindowName)');
-        const FindWindowExA = user32.func('void *FindWindowExA(void *hWndParent, void *hWndChildAfter, const char *lpszClass, const char *lpszWindow)');
-        const SetParent = user32.func('void *SetParent(void *hWndChild, void *hWndNewParent)');
-        const SendMessageTimeoutA = user32.func('intptr_t SendMessageTimeoutA(void *hWnd, uint Msg, uintptr_t wParam, uintptr_t lParam, uint fuFlags, uint uTimeout, void *lpdwResult)');
-        const GetWindowLongPtrA = user32.func('intptr_t GetWindowLongPtrA(void *hWnd, int nIndex)');
-        const SetWindowLongPtrA = user32.func('intptr_t SetWindowLongPtrA(void *hWnd, int nIndex, intptr_t dwNewLong)');
+        const FindWindowA = user32.func('void *FindWindowA(const char *cls, const char *win)');
+        const SetParent = user32.func('void *SetParent(void *child, void *parent)');
+        const SendMessageTimeoutA = user32.func('intptr_t SendMessageTimeoutA(void *h, uint msg, uintptr_t w, uintptr_t l, uint flags, uint timeout, void *result)');
+        const SetWindowPos = user32.func('bool SetWindowPos(void *h, void *after, int x, int y, int cx, int cy, uint flags)');
 
-        // 1. 正确读取 64 位 HWND（关键修复！）
+        // 正确读取 64 位 HWND
         const buf = win.getNativeWindowHandle();
         const hwnd = process.arch === 'x64' ? Number(buf.readBigInt64LE(0)) : buf.readInt32LE(0);
 
-        // 2. 找 WorkerW
         const progman = FindWindowA('Progman', null);
         if (progman) {
-          // 触发 WorkerW 创建
+          // 触发壁纸分离（确保 Progman 内部结构正确）
           SendMessageTimeoutA(progman, 0x052C, 0, 0, 0, 1000, null);
 
-          let workerW = null;
-          let curr = FindWindowExA(null, null, 'WorkerW', null);
-          while (curr) {
-            const shellView = FindWindowExA(curr, null, 'SHELLDLL_DefView', null);
-            if (shellView) {
-              workerW = FindWindowExA(null, curr, 'WorkerW', null);
-              break;
-            }
-            curr = FindWindowExA(null, curr, 'WorkerW', null);
-          }
+          // 1. SetParent 到 Progman（成为桌面容器的子窗口）
+          SetParent(hwnd, progman);
 
-          const targetParent = workerW || progman;
+          // 2. SetWindowPos HWND_TOP：提到桌面图标(SHELLDLL_DefView)上面
+          //    HWND_TOP=0, SWP_NOMOVE|SWP_NOSIZE|SWP_SHOWWINDOW = 0x0043
+          SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0043);
 
-          // 3. 修改扩展样式
-          const GWL_EXSTYLE = -20;
-          const WS_EX_TOOLWINDOW = 0x00000080;
-          const WS_EX_APPWINDOW = 0x00040000;
-          let exStyle = Number(GetWindowLongPtrA(hwnd, GWL_EXSTYLE));
-          exStyle = (exStyle | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
-          SetWindowLongPtrA(hwnd, GWL_EXSTYLE, exStyle);
-
-          // 4. SetParent 到 WorkerW
-          SetParent(hwnd, targetParent);
-          console.info('[platform] Window attached to desktop layer (WorkerW)');
+          console.info('[platform] Window attached to Progman + positioned above desktop icons');
         }
       } catch (e) {
         console.error('[platform] koffi attach failed:', e.message);

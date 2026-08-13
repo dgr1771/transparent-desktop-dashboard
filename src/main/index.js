@@ -874,6 +874,26 @@ foreach($line in $lines){
   }
 
   /**
+   * 图标提取：Electron 原生 app.getFileIcon（Windows 内部即 SHGetFileInfo）
+   * 进程内调用，毫秒级，无 PowerShell 子进程 / C# 编译 / dll 分发依赖，
+   * 跨用户机器零兼容性问题。分批并发，避免一次性过多调用卡主进程。
+   */
+  async function extractIconsViaElectron(items) {
+    const iconMap = {};
+    const batchSize = 8;
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      await Promise.all(batch.map(async (it) => {
+        try {
+          const img = await app.getFileIcon(it.fullPath, { size: 'normal' });
+          if (img && !img.isEmpty()) iconMap[it.fullPath] = img.toDataURL();
+        } catch (e) {}
+      }));
+    }
+    return iconMap;
+  }
+
+  /**
    * 扫描桌面，按类型分类
    */
   async function scanDesktop() {
@@ -908,31 +928,20 @@ foreach($line in $lines){
       }
     }
 
-    // ===== 批量提取图标 =====
-    // 用 SHGetFileInfo（资源管理器同款 API）：直接传文件/.lnk 路径，
-    // Windows 自动解析快捷方式返回目标应用的真实图标，与桌面显示完全一致。
-    let iconMap = {}; // fullPath -> dataURL
-    if (platform.isWin && allItems.length > 0) {
-      // 直接用每个文件的完整路径（.lnk 也直接传，SHGetFileInfo 会自动解析）
-      const sourcePaths = allItems.map(it => it.fullPath);
-      iconMap = await extractIconsBatch(sourcePaths);
+    // ===== 批量提取图标：Electron 原生 app.getFileIcon =====
+    // Windows 上内部即 SHGetFileInfo，自动解析 .lnk 目标，进程内毫秒级，
+    // 彻底去掉 PowerShell 子进程 + C# 编译，零系统依赖、跨用户机器兼容。
+    let iconMap = {};
+    if (allItems.length > 0) {
+      iconMap = await extractIconsViaElectron(allItems);
     }
 
     // 构建 result，补充 emoji 后备
     const emojiMap = { '.lnk':'🚀','.exe':'⚙️','.txt':'📝','.doc':'📄','.docx':'📄','.pdf':'📕','.xls':'📊','.xlsx':'📊','.ppt':'📽️','.pptx':'📽️','.zip':'📦','.rar':'📦','.7z':'📦','.mp4':'🎬','.mkv':'🎬','.avi':'🎬','.mp3':'🎵','.jpg':'🖼️','.jpeg':'🖼️','.png':'🖼️','.gif':'🖼️','.bmp':'🖼️','.html':'🌐','.js':'📜','.json':'📋' };
 
     for (const it of allItems) {
-      let icon = iconMap[it.fullPath] || '';
-      // Windows: SHGetFileInfo 失败时用 getFileIcon 兜底
-      // Linux/Mac: 直接用 getFileIcon（SHGetFileInfo 不可用）
-      if (!icon) {
-        try {
-          const img = await app.getFileIcon(it.fullPath, { size: 'normal' });
-          if (img && !img.isEmpty()) icon = img.toDataURL();
-        } catch (e) {}
-      }
-      // 最终 emoji 后备
-      if (!icon) icon = emojiMap[it.ext] || '📄';
+      // getFileIcon 已是主提取方式，失败则用 emoji 后备
+      const icon = iconMap[it.fullPath] || emojiMap[it.ext] || '📄';
 
       const item = { name: it.name, path: it.fullPath, icon };
 

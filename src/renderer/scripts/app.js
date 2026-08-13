@@ -94,13 +94,13 @@
       if (typeof WeatherFX !== "undefined") WeatherFX.init();
     }, 350);
 
-    // 第四批（~2.5s 后）：桌面整理卡片 — 会拉起 PowerShell 提取图标（重活），
-    // 延后到首屏完全渲染后再执行，避免冷启动时整机卡顿
+    // 第四批（~600ms 后）：桌面整理卡片 — 图标提取已改为 Electron 原生
+    // getFileIcon（进程内毫秒级，无 PowerShell），延后到首屏渲染后即可
     setTimeout(() => {
       if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) {
         DesktopWidget.init();
       }
-    }, 2500);
+    }, 600);
 
     // 自动避让：不再用 MutationObserver 全局监听（太耗 CPU）
     // 改为只在 refreshAllWidgets 后触发一次（数据更新时才检查）

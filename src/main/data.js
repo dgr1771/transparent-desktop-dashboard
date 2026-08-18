@@ -211,7 +211,7 @@ async function getStocks(codes) {
 
       // 新浪字段顺序（沪深统一）：
       // 0名称,1今开,2昨收,3最新价,4最高,5最低,6买一,7卖一,
-      // 8-15买卖量价,16成交量(手),17成交额,18-29买卖盘,30日期,31时间
+      // 8成交量(手),9成交额(元),10-29买卖五档,30日期,31时间
       const name = fields[0];
       const price = parseFloat(fields[3]);
       const prevClose = parseFloat(fields[2]);
@@ -220,8 +220,8 @@ async function getStocks(codes) {
       const open = parseFloat(fields[1]);
       const high = parseFloat(fields[4]);
       const low = parseFloat(fields[5]);
-      const volume = parseFloat(fields[8]) + parseFloat(fields[9]); // 简化：买卖一量
-      const amount = parseFloat(fields[10]);
+      const volume = parseFloat(fields[8]);   // 成交量（手）
+      const amount = parseFloat(fields[9]);   // 成交额（元）
       const date = fields[30];
       const time = fields[31];
 

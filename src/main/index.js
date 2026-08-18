@@ -507,6 +507,9 @@ function updateTrayMenu() {
                 cfg.settings.visibleWidgets = JSON.parse(JSON.stringify(snap.visibleWidgets));
               }
               cfg.activeProfile = name;
+              // 清掉每屏独立显隐配置——它会优先于 settings.visibleWidgets，
+              // 不清的话方案显隐在配置过的屏上不生效
+              delete cfg.displayWidgets;
               configStore.setAll(cfg);
               console.info(`[layout-profile] 托盘切换「${name}」: ` +
                 Object.keys(cfg.displayLayout).length + ' 屏, 已广播 config-updated');

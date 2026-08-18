@@ -22,7 +22,11 @@ const WeatherFX = {
     document.body.appendChild(this._canvas);
     this._ctx = this._canvas.getContext('2d');
     this._resize();
-    window.addEventListener('resize', () => this._resize());
+    // resize 只绑一次（disable 后再 enable 会重走 init，重复绑定会累积监听器）
+    if (!this._resizeBound) {
+      this._resizeBound = true;
+      window.addEventListener('resize', () => this._resize());
+    }
 
     // 开始动画循环
     this._animate();

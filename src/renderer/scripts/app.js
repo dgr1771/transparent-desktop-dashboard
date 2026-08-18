@@ -432,10 +432,13 @@
     const cards = [];
     document.querySelectorAll('.widget[data-widget]').forEach(el => {
       if (el.style.display === 'none') return;
-      const left = parseInt(el.style.left) || 0;
-      const top = parseInt(el.style.top) || 0;
-      const w = parseInt(el.style.width) || 280;
-      const h = parseInt(el.style.height) || 200;
+      // 无 left/top 样式的卡片（HTML 里 right/bottom 锚定的）用实际渲染位置归一化，
+      // 否则解析为 0 会被排到左上角
+      const rect = el.getBoundingClientRect();
+      const left = parseInt(el.style.left) || Math.round(rect.left);
+      const top = parseInt(el.style.top) || Math.round(rect.top);
+      const w = parseInt(el.style.width) || el.offsetWidth || 280;
+      const h = parseInt(el.style.height) || el.offsetHeight || 200;
       cards.push({ el, left, top, w, h });
     });
     if (cards.length === 0) return;
@@ -578,6 +581,9 @@
     // 从右上角开始往下排
     let startX = window.innerWidth - MIN_W - 30;
     let startY = 50;
+    const displayKey = (window.__dashboard && window.__dashboard.displayKey) || 'primary';
+    const displayLayout = Store.get('displayLayout') || {};
+    if (!displayLayout[displayKey]) displayLayout[displayKey] = {};
     widgetNames.forEach((name, i) => {
       const el = document.querySelector(`.widget[data-widget="${name}"]`);
       if (!el) return;
@@ -588,7 +594,13 @@
       el.style.height = MIN_H + 'px';
       el.style.right = 'auto';
       el.style.bottom = 'auto';
+      // 位置落盘：不写 Store 的话重启后新卡片回到 HTML 默认位置
+      displayLayout[displayKey][name] = {
+        left: el.style.left, top: el.style.top,
+        width: el.style.width, height: el.style.height
+      };
     });
+    Store.set('displayLayout', displayLayout);
   }
 
   /** 初始化单个 widget */

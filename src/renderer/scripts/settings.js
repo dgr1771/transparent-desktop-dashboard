@@ -67,6 +67,7 @@
   // ===== 绿植选择器 =====
   let _selectedPlant = 'fern';
   let _customPlantImage = false;   // 是否有自定义植物图（图片数据单独存文件，不塞 config）
+  let _cityManual = false;         // 用户本次会话手动编辑过城市（防 IP 定位覆盖）
   let _customMokugyoImage = false;
   const PLANT_LIST = [
     { key: 'monstera', name: '龟背竹', emoji: '🌿', desc: '热带、清新自然' },
@@ -236,6 +237,8 @@
         config.settings.visibleWidgets = JSON.parse(JSON.stringify(snap.visibleWidgets));
       }
       config.activeProfile = name;   // 标记当前方案（托盘菜单显示 ✓）
+      // 清每屏独立显隐（displayWidgets 优先级更高会压住方案的 visibleWidgets）
+      delete config.displayWidgets;
       await persistConfig();
       // 同步模块清单 UI，防止用户随后点"保存"用旧 UI 状态覆盖方案的显隐
       renderWidgetsChecklist(config.settings?.visibleWidgets || {});
@@ -262,6 +265,10 @@
 
     // 用户手动改城市时，清除经纬度（让手动输入生效）
     document.getElementById('weather-city').addEventListener('input', () => {
+      // 手动改城市：清掉本会话 IP 定位坐标并打标志，防止保存时粘滞覆盖手动城市
+      config._autoLat = null;
+      config._autoLon = null;
+      _cityManual = true;
       document.getElementById('locate-hint').textContent = '已改为手动城市，将以输入的城市为准';
       document.getElementById('locate-hint').className = 'hint';
     });
@@ -556,9 +563,17 @@
       apiHost: document.getElementById('weather-apihost').value.trim()
     };
     // 自动定位得到的经纬度（点过自动定位按钮才有）
-    if (config._autoLat != null && config._autoLon != null) {
+    if (!_cityManual && config._autoLat != null && config._autoLon != null) {
       weather.lat = config._autoLat;
       weather.lon = config._autoLon;
+    }
+    // 手动城市：打标志（weather.js 启动时 IP 定位见标志不覆盖城市），并清自动坐标
+    if (_cityManual) {
+      weather.cityManual = true;
+      delete weather.lat;
+      delete weather.lon;
+    } else if ((config.weather || {}).cityManual) {
+      weather.cityManual = true;   // 保留既有手动标志
     }
 
     // 模块显隐（主屏/全局默认）

@@ -31,8 +31,9 @@ const WeatherWidget = {
    */
   async _autoLocate() {
     const cfg = Store.get('weather') || {};
-    // 已有经纬度或用户手动改过城市 → 不自动覆盖
+    // 已有经纬度或用户手动设过城市（cityManual 标志）→ 不自动覆盖
     if (cfg.lat != null && cfg.lon != null) return;
+    if (cfg.cityManual) return;
 
     try {
       const loc = await window.dashboard.fetchIpLocation();
@@ -76,18 +77,22 @@ const WeatherWidget = {
     }
   },
 
-  /** 根据内容实际高度调整卡片高度 */
+  /** 根据内容实际高度调整卡片高度（只放大不缩小——不覆盖用户手动调的高度） */
   _adjustHeight() {
     const widget = document.querySelector('.widget[data-widget="weather"]');
     if (!widget) return;
     const inner = widget.querySelector('.widget__inner');
     if (!inner) return;
     // 临时移除高度限制测量内容
-    const oldH = widget.style.height;
     widget.style.height = 'auto';
     const contentH = inner.scrollHeight;
-    // 恢复并设为内容高度（加 padding 余量）
-    widget.style.height = (contentH + 4) + 'px';
+    const curH = widget.offsetHeight;
+    // 内容超过当前高度才放大；用户手动拉高过则保持（防刷新回弹）
+    if (contentH + 4 > curH) {
+      widget.style.height = (contentH + 4) + 'px';
+    } else {
+      widget.style.height = curH + 'px';
+    }
   },
 
   _render(data, cfg) {

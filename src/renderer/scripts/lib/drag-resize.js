@@ -137,7 +137,6 @@ const DragResize = {
       // 左下角手柄：向左拖（dw 负）宽度增加，left 同步左移
       let newW = Math.max(200, Math.min(isBL ? startW - dw : startW + dw, this._screenW));
       let newH = Math.max(140, Math.min(startH + dh, this._screenH));
-      if (isBL) widget.style.left = Math.max(0, startLeft - (newW - startW)) + 'px';
 
       // 磁吸：缩放时右边/底边对齐其他卡片或屏幕边缘
       if (typeof Magnetic !== 'undefined') {
@@ -164,6 +163,8 @@ const DragResize = {
         Magnetic.showGuides(guides);
       }
 
+      // BL 左下角：left 在磁吸之后再算（磁吸会改 newW，先写 left 会导致右缘漂移）
+      if (isBL) widget.style.left = Math.max(0, startLeft - (newW - startW)) + 'px';
       widget.style.width = newW + 'px';
       widget.style.height = newH + 'px';
     };

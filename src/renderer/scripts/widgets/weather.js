@@ -23,7 +23,7 @@ const WeatherWidget = {
     this._autoLocate().then(() => this.update());
     // 每 30 分钟更新一次
     if (window.__dashboard.timers.weather) clearInterval(window.__dashboard.timers.weather);
-    window.__dashboard.timers.weather = setInterval(() => this.update(), 30 * 60 * 1000);
+    window.__dashboard.timers.weather = setInterval(() => this.update(), window.__dashboard.refreshMs(30 * 60 * 1000));
   },
 
   /**

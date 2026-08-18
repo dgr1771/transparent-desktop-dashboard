@@ -68,6 +68,7 @@ class ConfigStore {
         globalOpacity: 1,
         theme: 'deepblue',             // 主题颜色：deepblue/midnight/emerald/rose/purple/amber/ocean/slate
         plantEnabled: true,            // 桌面绿植开关
+        refreshRate: 'standard',       // 数据刷新频率：eco 省电(间隔×2) / standard / fast 迅捷(×0.5)
         weatherFx: true,               // 桌面植物关联天气的全屏特效（雨/雪/阳光/风/雷暴/雾）
         ai: {
           mode: 'off',                 // off / cloud / local —— 云端 BYOK 或本地算力（Ollama）

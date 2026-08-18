@@ -35,7 +35,7 @@ const StockWidget = {
     window.__dashboard.timers.stock = setTimeout(() => {
       this.update();
       this._scheduleNext();
-    }, interval);
+    }, window.__dashboard.refreshMs(interval));
   },
 
   async update() {

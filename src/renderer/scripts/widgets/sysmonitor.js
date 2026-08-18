@@ -10,7 +10,7 @@ const SysMonitorWidget = {
     if (window.__dashboard.timers.sysmonitor) clearInterval(window.__dashboard.timers.sysmonitor);
     this.update();
     // 每 10 秒刷新（桌面看板不需要 5 秒级精度）
-    window.__dashboard.timers.sysmonitor = setInterval(() => this.update(), 10 * 1000);
+    window.__dashboard.timers.sysmonitor = setInterval(() => this.update(), window.__dashboard.refreshMs(10 * 1000));
   },
 
   async update() {

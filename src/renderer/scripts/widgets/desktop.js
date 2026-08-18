@@ -22,7 +22,7 @@ const DesktopWidget = {
     if (window.__dashboard.timers.desktop) clearInterval(window.__dashboard.timers.desktop);
     this.refreshAll();
     // 每 5 分钟刷新（桌面文件不常变，降低频率减少 PowerShell 启动开销）
-    window.__dashboard.timers.desktop = setInterval(() => this.refreshAll(), 5 * 60 * 1000);
+    window.__dashboard.timers.desktop = setInterval(() => this.refreshAll(), window.__dashboard.refreshMs(5 * 60 * 1000));
   },
 
   _renderCard(widgetKey, label) {

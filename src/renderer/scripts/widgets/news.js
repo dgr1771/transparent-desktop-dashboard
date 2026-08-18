@@ -7,7 +7,7 @@ const NewsWidget = {
     if (window.__dashboard.timers.news) clearInterval(window.__dashboard.timers.news);
     this.update();
     // 每 15 分钟更新
-    window.__dashboard.timers.news = setInterval(() => this.update(), 15 * 60 * 1000);
+    window.__dashboard.timers.news = setInterval(() => this.update(), window.__dashboard.refreshMs(15 * 60 * 1000));
     // 新闻条目点击打开链接（onclick 属性赋值天然幂等——重复 init 不会累积监听器开两个标签）
     const el = document.querySelector('.widget[data-widget="news"] .widget__inner');
     if (el) {

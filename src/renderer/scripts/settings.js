@@ -460,6 +460,7 @@
 
     // AI 助手回填
     const ai = cfg.settings?.ai || {};
+    document.getElementById('refresh-rate').value = cfg.settings?.refreshRate || 'standard';
     document.getElementById('ai-mode').value = ai.mode || 'off';
     document.getElementById('ai-provider').value = ai.provider || 'zhipu';
     document.getElementById('ai-apikey').value = ai.apiKey || '';
@@ -657,6 +658,7 @@
         globalOpacity: parseInt(document.getElementById('global-opacity').value, 10) / 100,
         theme: _selectedTheme,
         weatherFx: document.getElementById('toggle-weatherFx').classList.contains('on'),
+        refreshRate: document.getElementById('refresh-rate').value,
         plantEnabled: document.getElementById('toggle-plant').classList.contains('on'),
         ai: {
           mode: document.getElementById('ai-mode').value,

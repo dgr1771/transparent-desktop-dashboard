@@ -12,6 +12,7 @@
   // 用于多显示器下按屏独立布局和卡片显隐
   let _displayKey = 'primary';
   let _isPrimary = true;
+  let _prevRefreshRate = 'standard';   // 上次刷新频率档位（变更时重建数据定时器）
 
   document.addEventListener('DOMContentLoaded', async () => {
     // 加载存储（异步）
@@ -211,6 +212,14 @@
         }
         // 方案揭示的卡片：位置已在 applyLayout 应用，只初始化数据
         profileRevealed.forEach(name => initWidget(name));
+
+        // 刷新频率档位变化 → 重建所有数据定时器（各 init 有清旧守卫，安全重入）
+        if (_prevRefreshRate && _prevRefreshRate !== (Store.get('settings') || {}).refreshRate) {
+          ['weather', 'stock', 'news', 'hotsearch', 'sysmonitor', 'calendar', 'countdown', 'desktop']
+            .filter(n => isWidgetVisible(n))
+            .forEach(n => initWidget(n));
+        }
+        _prevRefreshRate = (Store.get('settings') || {}).refreshRate || 'standard';
         console.log('[Dashboard] 配置已更新，新增卡片:', newWidgets);
       });
     }
@@ -639,6 +648,15 @@
     refreshAllWidgets,
     autoArrange,
     timers,
-    displayKey: _displayKey
+    displayKey: _displayKey,
+    /**
+     * 数据刷新频率档位（设置-性能）：省电=间隔×2 / 标准=×1 / 迅捷=×0.5。
+     * widget 的数据定时器统一用它换算基准间隔；交互类（时钟秒针/番茄钟/木鱼）不经过此函数。
+     */
+    refreshMs(baseMs) {
+      const rate = (Store.get('settings') || {}).refreshRate || 'standard';
+      const factor = rate === 'eco' ? 2 : (rate === 'fast' ? 0.5 : 1);
+      return Math.max(1000, Math.round(baseMs * factor));
+    }
   });
 })();

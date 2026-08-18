@@ -858,8 +858,13 @@ function registerIpcHandlers() {
   }
 
   /**
-   * 扫描桌面，按类型分类
+   * 扫描桌面，按类型分类。
+   * 结果缓存：桌面文件签名（路径+mtime+size）不变时直接返回上次结果——
+   * 图标提取（58×koffi+GDI+PNG编码）是最贵的部分，布局切换/设置保存触发的
+   * 重复扫描全部走缓存，毫秒级返回。
    */
+  let _deskCache = { sig: '', result: null };
+
   async function scanDesktop() {
     const result = { apps: [], folders: [], files: [] };
     // 从注册表读取真实桌面路径（解决 OneDrive 重定向）
@@ -874,7 +879,7 @@ function registerIpcHandlers() {
     const seen = new Set(); // 去重
 
     // 先收集所有文件项
-    const allItems = []; // { name, fullPath, isDir, ext }
+    const allItems = []; // { name, fullPath, isDir, ext, mtimeMs, size }
     for (const deskPath of desks) {
       if (!fsDesk.existsSync(deskPath)) continue;
       let entries;
@@ -888,13 +893,20 @@ function registerIpcHandlers() {
         const fullPath = pathDesk.join(deskPath, name);
         if (seen.has(name)) continue;
         seen.add(name);
-        allItems.push({ name, fullPath, isDir: entry.isDirectory(), ext: pathDesk.extname(name).toLowerCase() });
+        let mtimeMs = 0, size = 0;
+        try { const st = fsDesk.statSync(fullPath); mtimeMs = st.mtimeMs; size = st.size; } catch (e) {}
+        allItems.push({ name, fullPath, isDir: entry.isDirectory(), ext: pathDesk.extname(name).toLowerCase(), mtimeMs, size });
       }
     }
 
-    // ===== 批量提取图标：Electron 原生 app.getFileIcon =====
-    // Windows 上内部即 SHGetFileInfo，自动解析 .lnk 目标，进程内毫秒级，
-    // 彻底去掉 PowerShell 子进程 + C# 编译，零系统依赖、跨用户机器兼容。
+    // 签名比对：桌面内容没变 → 直接用缓存（跳过图标提取与分类）
+    const sig = allItems.map(it => `${it.fullPath}:${it.mtimeMs}:${it.size}`).join('|');
+    if (sig === _deskCache.sig && _deskCache.result) {
+      console.info('[desktop] 桌面无变化，使用缓存结果');
+      return _deskCache.result;
+    }
+
+    // ===== 批量提取图标 =====
     let iconMap = {};
     if (allItems.length > 0) {
       iconMap = await extractIcons(allItems);
@@ -932,6 +944,7 @@ function registerIpcHandlers() {
       }
     }
 
+    _deskCache = { sig, result };   // 桌面有变化 → 更新缓存
     return result;
   }
 }

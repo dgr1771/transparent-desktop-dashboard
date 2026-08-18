@@ -119,53 +119,58 @@ async function getIpLocation() {
 // 支持：1) 经纬度直接查（最准）2) 城市名查
 // ============================================================
 
+// 常用城市 → 和风 LocationID 离线映射（Geo API 对专属 Host 403 时的兜底，
+// LocationID 是和风固定地理编码，可直接查 /v7/weather/now）
+const CITY_ID_FALLBACK = {
+  '北京': '101010100', '上海': '101020100', '广州': '101280101', '深圳': '101280601',
+  '杭州': '101210101', '南京': '101190101', '成都': '101270101', '重庆': '101040100',
+  '武汉': '101200101', '西安': '101110101', '苏州': '101190401', '天津': '101030100',
+  '长沙': '101250101', '郑州': '101180101', '沈阳': '101070101', '大连': '101070201',
+  '青岛': '101120201', '济南': '101120101', '厦门': '101230201', '福州': '101230101',
+  '昆明': '101290101', '贵阳': '101260101', '南宁': '101300101', '海口': '101310101',
+  '兰州': '101160101', '乌鲁木齐': '101130101', '哈尔滨': '101050101', '长春': '101060101',
+  '太原': '101100101', '石家庄': '101090101', '合肥': '101220101', '南昌': '101240101',
+  '无锡': '101190201', '宁波': '101210401', '佛山': '101280800', '东莞': '101281601'
+};
+
 async function getWeather(city, apiKey, lat, lon, apiHost) {
   if (!apiKey) {
     return { error: '未配置和风天气 API Key。请在设置中填入（免费申请：dev.qweather.com）' };
   }
   // API Host：默认 devapi，可在设置里覆盖（和风 2024 后每个 Key 绑定特定域名）
   const host = apiHost || 'devapi.qweather.com';
+  const fetchWeather = async (location) => {
+    const wRes = JSON.parse(await fetch(`https://${host}/v7/weather/now?location=${location}&key=${apiKey}`));
+    if (wRes.code !== '200') throw new Error(`天气接口 code=${wRes.code}`);
+    return wRes;
+  };
   try {
-    let loc;
-    // 优先用经纬度（最准确）
+    // 1) 优先经纬度（最准）
     if (lat != null && lon != null) {
-      const weatherUrl = `https://${host}/v7/weather/now?location=${lon},${lat}&key=${apiKey}`;
-      const wRes = JSON.parse(await fetch(weatherUrl));
-      if (wRes.code === '200') {
-        return {
-          city: city || '当前位置',
-          region: '',
-          now: wRes.now,
-          updated: new Date().toLocaleString('zh-CN')
-        };
+      const wRes = await fetchWeather(`${lon},${lat}`);
+      return { city: city || '当前位置', region: '', now: wRes.now, updated: new Date().toLocaleString('zh-CN') };
+    }
+
+    // 2) 城市名 → 尝试 Geo lookup（公开 Host 可用；专属 Host 常对 Geo 403）
+    const bare = (city || '').replace(/[市省县区]$/, '');  // "沈阳市"→"沈阳"
+    let loc = null;
+    try {
+      const geoRes = JSON.parse(await fetch(`https://${host}/geo/v2/city/lookup?location=${encodeURIComponent(bare)}&key=${apiKey}`));
+      if (geoRes.location && geoRes.location.length > 0) loc = geoRes.location[0];
+    } catch (e) { /* Geo 失败走兜底 */ }
+
+    // 3) Geo 失败/403 → 内置城市 ID 映射兜底
+    if (!loc) {
+      const id = CITY_ID_FALLBACK[bare] || CITY_ID_FALLBACK[city];
+      if (!id) {
+        return { error: `城市「${city}」无法定位（Geo API 对该 Host 不可用，且不在内置城市表中）。建议在设置里点「📍 定位」用经纬度查询。` };
       }
-      // 403 通常是 API Host 不匹配
-      if (wRes.error && wRes.error.status === 403) {
-        return { error: `API Host 不匹配（${host}）。请在和风控制台检查该 Key 绑定的 API Host，或在本应用设置里填写正确的 Host。` };
-      }
+      const wRes = await fetchWeather(id);
+      return { city: bare, region: '', now: wRes.now, updated: new Date().toLocaleString('zh-CN') };
     }
 
-    // 退回城市名查询
-    const geoUrl = `https://${host}/geo/v2/city/lookup?location=${encodeURIComponent(city)}&key=${apiKey}`;
-    const geoRes = JSON.parse(await fetch(geoUrl));
-    if (geoRes.error && geoRes.error.status === 403) {
-      return { error: `API Host 不匹配（${host}）。请检查和风控制台该 Key 绑定的 API Host。` };
-    }
-    if (!geoRes.location || geoRes.location.length === 0) {
-      return { error: `未找到城市：${city}` };
-    }
-    loc = geoRes.location[0];
-
-    // 实时天气
-    const weatherUrl = `https://${host}/v7/weather/now?location=${loc.id}&key=${apiKey}`;
-    const wRes = JSON.parse(await fetch(weatherUrl));
-
-    return {
-      city: loc.name,
-      region: loc.adm1,
-      now: wRes.now,
-      updated: new Date().toLocaleString('zh-CN')
-    };
+    const wRes = await fetchWeather(loc.id);
+    return { city: loc.name, region: loc.adm1, now: wRes.now, updated: new Date().toLocaleString('zh-CN') };
   } catch (e) {
     return { error: `天气获取失败：${e.message}` };
   }

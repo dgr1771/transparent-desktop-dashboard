@@ -58,7 +58,8 @@ class ConfigStore {
     return {
       layout: {},                    // 旧版布局（向后兼容，已迁移到 displayLayout）
       displayLayout: {},             // 新版：{ [displayKey]: { widgetKey: {left,top,width,height} } }
-      layoutProfiles: {},            // 布局方案：{ 方案名: displayLayout快照 }，一键切换解决组件过多
+      layoutProfiles: {},            // 布局方案：{ 方案名: {displayLayout, visibleWidgets} }
+      activeProfile: '',             // 当前激活的布局方案名（托盘菜单显示 ✓）
       displayWidgets: {},            // 每屏独立卡片显隐：{ [displayKey]: { clock:true, ... } }
                                     // 不配置的屏默认使用 settings.visibleWidgets
       todos: [],

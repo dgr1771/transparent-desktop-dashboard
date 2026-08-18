@@ -448,12 +448,15 @@ function updateTrayMenu() {
   if (!tray) return;
   // 布局方案子菜单：直接从 config 读取，点击即切换（Rainmeter Layout Profiles 实践）
   const layoutProfiles = (configStore && configStore.getAll().layoutProfiles) || {};
+  const activeProfile = (configStore && configStore.getAll().activeProfile) || '';
   const profileNames = Object.keys(layoutProfiles);
   const profileMenu = {
     label: '🗂️ 布局方案',
     submenu: profileNames.length > 0
       ? profileNames.map(name => ({
-          label: `切换到：${name}`,
+          label: name,
+          type: 'radio',
+          checked: name === activeProfile,
           click: () => {
             try {
               const cfg = configStore.getAll();
@@ -464,6 +467,7 @@ function updateTrayMenu() {
                 cfg.settings = cfg.settings || {};
                 cfg.settings.visibleWidgets = JSON.parse(JSON.stringify(snap.visibleWidgets));
               }
+              cfg.activeProfile = name;
               configStore.setAll(cfg);
               console.info(`[layout-profile] 托盘切换「${name}」: ` +
                 Object.keys(cfg.displayLayout).length + ' 屏, 已广播 config-updated');
@@ -476,7 +480,7 @@ function updateTrayMenu() {
             } catch (e) { console.error('[layout-profile] 切换失败:', e.message); }
           }
         }))
-      : [{ label: '暂无方案（在设置-外观里保存）', enabled: false }]
+      : [{ label: '暂无方案（编辑模式退出时保存）', enabled: false }]
   };
   const menuTemplate = [
     {

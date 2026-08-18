@@ -300,6 +300,7 @@
           visibleWidgets: JSON.parse(JSON.stringify(Store.get('settings')?.visibleWidgets || {}))
         };
         Store.set('layoutProfiles', profiles);  // 持久化（config:set → 托盘菜单自动刷新）
+        Store.set('activeProfile', name);       // 保存即当前方案（托盘菜单 ✓）
         console.info('[layout-profile] 编辑模式保存方案「' + name + '」: ' + Object.keys(profiles[name].displayLayout).length + ' 屏');
       } catch (e) { console.error('[layout-profile] 保存失败:', e.message); }
       overlay.remove();

@@ -212,6 +212,7 @@
         displayLayout: JSON.parse(JSON.stringify(fresh.displayLayout)),
         visibleWidgets: JSON.parse(JSON.stringify(fresh.settings?.visibleWidgets || {}))
       };
+      config.activeProfile = name;   // 保存即当前方案（托盘菜单显示 ✓）
       await persistConfig();
       renderProfileOptions(name);
       showToast(`方案「${name}」已保存（位置+大小+显隐）`);
@@ -231,6 +232,7 @@
         config.settings = config.settings || {};
         config.settings.visibleWidgets = JSON.parse(JSON.stringify(snap.visibleWidgets));
       }
+      config.activeProfile = name;   // 标记当前方案（托盘菜单显示 ✓）
       await persistConfig();
       // 同步模块清单 UI，防止用户随后点"保存"用旧 UI 状态覆盖方案的显隐
       renderWidgetsChecklist(config.settings?.visibleWidgets || {});

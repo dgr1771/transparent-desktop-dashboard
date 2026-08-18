@@ -337,6 +337,19 @@
           <input type="range" id="global-opacity" min="20" max="100" value="100">
         </div>
       </div>
+      <div class="group-item" style="flex-direction:column;align-items:stretch">
+        <span class="item-label">🗂️ 布局方案</span>
+        <div class="hint">保存多套卡片布局一键切换——组件太多一屏放不下时，分套使用（如"工作模式"开时钟/待办/番茄，"行情模式"开股票/新闻/热搜）</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <input type="text" id="profile-name" placeholder="方案名，如：工作模式" maxlength="12" style="width:150px">
+          <button class="btn btn-blue" type="button" id="btn-profile-save">📷 存为方案</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <select id="profile-select" style="flex:1;min-width:120px"></select>
+          <button class="btn btn-gray" type="button" id="btn-profile-apply">应用</button>
+          <button class="btn btn-red" type="button" id="btn-profile-delete">删除</button>
+        </div>
+      </div>
     </div>
 
     <!-- 关于 -->

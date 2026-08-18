@@ -130,7 +130,7 @@
 
     // 监听托盘"自动排列"指令
     if (window.dashboard && window.dashboard.onAutoArrange) {
-      window.dashboard.onAutoArrange(() => autoArrange());
+      window.dashboard.onAutoArrange(() => compactArrange());
     }
 
     // 监听配置更新（设置窗口保存后触发）→ 重新加载配置并刷新
@@ -145,6 +145,8 @@
         await Store.load();
         applyTheme(Store.get('settings')?.theme);
         applyGlobalOpacity();
+        // 布局可能被切换（布局方案应用），重新应用并拉回可视区
+        applyLayout(Store.get('displayLayout'));
         if (typeof Plants !== 'undefined') Plants.setPlant(Store.get('plant') || 'grass');
         // 自定义木鱼图：保存后实时更新（不重建 DOM，只换 img src）
         if (typeof MokugyoWidget !== 'undefined' && MokugyoWidget.update) MokugyoWidget.update();
@@ -302,6 +304,8 @@
         if (!pos.bottom) el.style.bottom = 'auto';
       }
     });
+    // 加载的布局可能超出屏幕（分辨率变化/卡片过多），拉回可视区保证可拖拽
+    clampWidgetsIntoViewport();
   }
 
   /**
@@ -359,9 +363,86 @@
         width: c.w + 'px', height: c.h + 'px'
       };
     });
-
     Store.set('displayLayout', displayLayout);
-    console.log('[Dashboard] 智能整理完成：', cards.length, '个卡片，', rows.length, '行');
+    clampWidgetsIntoViewport();
+  }
+
+  /**
+   * 把所有可见卡片拉回可视区。
+   * 解决：保存的布局在屏幕外（分辨率变化/卡片过多挤出）导致手柄够不到、无法拖回。
+   * 垂直方向完全收回（顶部手柄必须可见），水平方向至少露出 80px 保证可拖。
+   */
+  function clampWidgetsIntoViewport() {
+    const sw = window.innerWidth, sh = window.innerHeight;
+    const minVisibleW = 80;
+    document.querySelectorAll('.widget[data-widget]').forEach(el => {
+      if (el.style.display === 'none') return;
+      const left = parseInt(el.style.left) || 0;
+      const top = parseInt(el.style.top) || 0;
+      const w = el.offsetWidth || 280;
+      let nx = left, ny = top;
+      if (nx > sw - minVisibleW) nx = Math.max(0, sw - minVisibleW);
+      if (nx < -w + minVisibleW) nx = -w + minVisibleW;
+      if (ny > sh - 40) ny = Math.max(0, sh - 40);
+      if (ny < 0) ny = 0;
+      if (nx !== left || ny !== top) {
+        el.style.left = nx + 'px';
+        el.style.top = ny + 'px';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+      }
+    });
+  }
+
+  /**
+   * 紧凑网格排列（托盘"自动排列卡片"）：
+   * 按当前视觉顺序流式排列到左上角，行满换行，间距 12px。
+   * 屏幕放不下时继续向下排（clamp 保证卡片至少能被拖到），
+   * 根本解法是布局方案（分套布局，见设置-外观）。
+   */
+  function compactArrange() {
+    const GAP = 12;
+    const sw = window.innerWidth;
+    const cards = [];
+    document.querySelectorAll('.widget[data-widget]').forEach(el => {
+      if (el.style.display === 'none') return;
+      cards.push({
+        el,
+        w: el.offsetWidth || 280,
+        h: el.offsetHeight || 200,
+        left: parseInt(el.style.left) || 0,
+        top: parseInt(el.style.top) || 0
+      });
+    });
+    if (cards.length === 0) return;
+    // 保持当前视觉顺序（左上到右下）作为排列优先级
+    cards.sort((a, b) => a.top - b.top || a.left - b.left);
+
+    let x = GAP, y = GAP, rowMaxH = 0;
+    const displayKey = (window.__dashboard && window.__dashboard.displayKey) || 'primary';
+    const displayLayout = Store.get('displayLayout') || {};
+    if (!displayLayout[displayKey]) displayLayout[displayKey] = {};
+
+    cards.forEach(c => {
+      if (x + c.w > sw - GAP && x > GAP) { // 当前行放不下，换行
+        x = GAP;
+        y += rowMaxH + GAP;
+        rowMaxH = 0;
+      }
+      c.el.style.left = x + 'px';
+      c.el.style.top = y + 'px';
+      c.el.style.right = 'auto';
+      c.el.style.bottom = 'auto';
+      displayLayout[displayKey][c.el.dataset.widget] = {
+        left: x + 'px', top: y + 'px',
+        width: c.w + 'px', height: c.h + 'px'
+      };
+      x += c.w + GAP;
+      rowMaxH = Math.max(rowMaxH, c.h);
+    });
+    Store.set('displayLayout', displayLayout);
+    clampWidgetsIntoViewport();
+    if (typeof AutoResize !== 'undefined') AutoResize.schedule();
   }
 
   /** 主题定义表 */

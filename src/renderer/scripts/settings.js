@@ -197,6 +197,45 @@
       }
     });
 
+    // ===== 布局方案（多套布局一键切换，Rainmeter Layout Profiles 实践）=====
+    document.getElementById('btn-profile-save').addEventListener('click', () => {
+      const name = document.getElementById('profile-name').value.trim();
+      if (!name) { showToast('请先输入方案名'); return; }
+      if (!config.displayLayout || Object.keys(config.displayLayout).length === 0) {
+        showToast('当前没有布局可保存，请先摆放卡片'); return;
+      }
+      config.layoutProfiles = config.layoutProfiles || {};
+      config.layoutProfiles[name] = JSON.parse(JSON.stringify(config.displayLayout));
+      persistConfig();
+      renderProfileOptions(name);
+      showToast(`方案「${name}」已保存`);
+    });
+
+    document.getElementById('btn-profile-apply').addEventListener('click', async () => {
+      const sel = document.getElementById('profile-select');
+      const name = sel.value;
+      if (!name || !config.layoutProfiles || !config.layoutProfiles[name]) {
+        showToast('请先选择要应用的方案'); return;
+      }
+      config.displayLayout = JSON.parse(JSON.stringify(config.layoutProfiles[name]));
+      await persistConfig();
+      // 通知主窗口应用新布局并刷新
+      window.dashboard.refreshMain?.();
+      showToast(`已切换到「${name}」，主界面即将刷新`);
+    });
+
+    document.getElementById('btn-profile-delete').addEventListener('click', () => {
+      const sel = document.getElementById('profile-select');
+      const name = sel.value;
+      if (!name || !config.layoutProfiles || !config.layoutProfiles[name]) {
+        showToast('请先选择要删除的方案'); return;
+      }
+      delete config.layoutProfiles[name];
+      persistConfig();
+      renderProfileOptions();
+      showToast(`方案「${name}」已删除`);
+    });
+
     // 自动定位按钮
     document.getElementById('btn-locate').addEventListener('click', autoLocate);
 
@@ -344,6 +383,8 @@
     renderCustomPlantUpload();
     _customMokugyoImage = !!cfg.customMokugyoImage;
     renderCustomMokugyoUpload();
+    // 布局方案下拉
+    renderProfileOptions();
 
     // 关于：版本号
     const versionEl = document.getElementById('about-version');
@@ -522,6 +563,22 @@
         visibleWidgets
       }
     };
+  }
+
+  /** 布局方案：立即持久化当前 config（不走"保存"按钮，布局操作即时生效） */
+  async function persistConfig() {
+    await window.dashboard.setConfig(config);
+  }
+
+  /** 布局方案：填充方案下拉框 */
+  function renderProfileOptions(selected) {
+    const sel = document.getElementById('profile-select');
+    if (!sel) return;
+    const profiles = (config && config.layoutProfiles) || {};
+    const names = Object.keys(profiles);
+    sel.innerHTML = names.length
+      ? names.map(n => `<option value="${n}"${n === selected ? ' selected' : ''}>${n}</option>`).join('')
+      : '<option value="" disabled>暂无方案，请先保存</option>';
   }
 
   async function save() {

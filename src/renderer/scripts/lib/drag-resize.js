@@ -9,6 +9,7 @@
 const DragResize = {
   _screenW: window.innerWidth,
   _screenH: window.innerHeight,
+  _dirty: false,   // 本次编辑会话是否拖拽/缩放过（退出编辑时提示保存布局方案）
 
   init() {
     // 屏幕尺寸变化时更新边界
@@ -174,6 +175,7 @@ const DragResize = {
    * displayKey 从 window.__dashboard.displayKey 获取（app.js 设置）
    */
   _saveWidgetLayout(widget) {
+    this._dirty = true;   // 标记本次编辑改过布局
     const name = widget.dataset.widget;
     const displayKey = (window.__dashboard && window.__dashboard.displayKey) || 'primary';
     const displayLayout = Store.get('displayLayout') || {};

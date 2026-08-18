@@ -465,6 +465,8 @@ function updateTrayMenu() {
                 cfg.settings.visibleWidgets = JSON.parse(JSON.stringify(snap.visibleWidgets));
               }
               configStore.setAll(cfg);
+              console.info(`[layout-profile] 托盘切换「${name}」: ` +
+                Object.keys(cfg.displayLayout).length + ' 屏, 已广播 config-updated');
               for (const win of windows.values()) {
                 if (win && !win.isDestroyed()) {
                   win.webContents.send('config-updated');

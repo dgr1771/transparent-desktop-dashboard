@@ -143,6 +143,8 @@
         });
 
         await Store.load();
+        console.info('[config-updated] displayLayout 屏数:', Object.keys(Store.get('displayLayout') || {}).length,
+          '本屏卡片布局数:', Object.keys((Store.get('displayLayout') || {})[_displayKey] || {}).length);
         applyTheme(Store.get('settings')?.theme);
         applyGlobalOpacity();
         // 布局可能被切换（布局方案应用），重新应用并拉回可视区
@@ -240,11 +242,74 @@
       document.body.classList.add('interactive');
       banner.classList.remove('hidden');
     } else {
-      document.body.classList.remove('interactive');
-      banner.classList.add('hidden');
+      // 退出编辑：本次编辑拖动过卡片 → 提示保存为布局方案（浮层期间保持可交互）
+      if (typeof DragResize !== 'undefined' && DragResize._dirty) {
+        DragResize._dirty = false;
+        showProfileSavePrompt();
+        return;
+      }
+      finishExitEditMode();
     }
+  }
+
+  /** 真正退出编辑模式（浮层关闭后执行） */
+  function finishExitEditMode() {
+    document.body.classList.remove('interactive');
+    const banner = document.getElementById('mode-banner');
+    banner.classList.add('hidden');
     // 模式切换后重置区域穿透状态
     if (typeof ClickThrough !== 'undefined') ClickThrough.reset();
+  }
+
+  /**
+   * 退出编辑模式时的"保存布局方案"命名浮层。
+   * 方案 = 全套快照（卡片位置/大小 + 模块显隐），保存后托盘「布局方案」直接可切。
+   */
+  function showProfileSavePrompt() {
+    if (document.getElementById('profile-save-prompt')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'profile-save-prompt';
+    overlay.className = 'no-drag';
+    overlay.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;background:rgba(28,28,30,0.96);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:20px 24px;color:#fff;display:flex;flex-direction:column;gap:10px;min-width:300px;box-shadow:0 12px 44px rgba(0,0,0,0.5);';
+    overlay.innerHTML = `
+      <div style="font-weight:600;font-size:15px">🗂️ 保存当前布局为方案？</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.55);line-height:1.5">保存卡片位置、大小和模块显隐。<br>之后可在 托盘右键 → 布局方案 一键切回。</div>
+      <input type="text" id="profile-prompt-name" placeholder="方案名，如：工作模式" maxlength="12"
+        style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);border-radius:8px;padding:9px 12px;color:#fff;font-size:14px;outline:none;">
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button data-act="skip" style="padding:8px 16px;border:none;border-radius:8px;background:rgba(255,255,255,0.14);color:#fff;font-size:13px;cursor:pointer">跳过</button>
+        <button data-act="save" style="padding:8px 16px;border:none;border-radius:8px;background:#0ABAB5;color:#fff;font-size:13px;font-weight:500;cursor:pointer">📷 存为方案</button>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('#profile-prompt-name');
+    input.focus();
+
+    overlay.querySelector('[data-act="skip"]').addEventListener('click', () => {
+      overlay.remove();
+      finishExitEditMode();
+    });
+
+    overlay.querySelector('[data-act="save"]').addEventListener('click', () => {
+      const name = input.value.trim();
+      if (!name) { input.style.borderColor = '#FF6B8A'; input.focus(); return; }
+      try {
+        const profiles = Store.get('layoutProfiles') || {};
+        profiles[name] = {
+          displayLayout: JSON.parse(JSON.stringify(Store.get('displayLayout') || {})),
+          visibleWidgets: JSON.parse(JSON.stringify(Store.get('settings')?.visibleWidgets || {}))
+        };
+        Store.set('layoutProfiles', profiles);  // 持久化（config:set → 托盘菜单自动刷新）
+        console.info('[layout-profile] 编辑模式保存方案「' + name + '」: ' + Object.keys(profiles[name].displayLayout).length + ' 屏');
+      } catch (e) { console.error('[layout-profile] 保存失败:', e.message); }
+      overlay.remove();
+      finishExitEditMode();
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') overlay.querySelector('[data-act="save"]').click();
+      if (e.key === 'Escape') overlay.querySelector('[data-act="skip"]').click();
+    });
   }
 
   // ============================================================

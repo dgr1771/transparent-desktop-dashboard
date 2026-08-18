@@ -8,12 +8,23 @@
 const AutoResize = {
   _lastHeights: {},   // 记录每个卡片的上次高度
   GAP: 24,             // 卡片间最小间距
+  _suspended: false,   // 暂停避让（应用布局方案时防止把刚应用的位置推开）
+
+  /**
+   * 暂停自动避让一段时间（应用布局方案后调用，防止 refresh 过程把方案布局推开）
+   */
+  suspend(duration = 2500) {
+    this._suspended = true;
+    clearTimeout(this._suspendTimer);
+    this._suspendTimer = setTimeout(() => { this._suspended = false; }, duration);
+  },
 
   /**
    * 检查某个卡片的高度变化，推开被遮挡的卡片
    * @param {string} widgetKey - 触发检查的卡片 key（可选，不传则检查全部）
    */
   check(widgetKey) {
+    if (this._suspended) return;   // 应用布局方案期间暂停避让
     const widgets = document.querySelectorAll('.widget[data-widget]');
     if (!widgets.length) return;
 

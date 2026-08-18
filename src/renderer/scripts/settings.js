@@ -198,17 +198,23 @@
     });
 
     // ===== 布局方案（多套布局一键切换，Rainmeter Layout Profiles 实践）=====
-    document.getElementById('btn-profile-save').addEventListener('click', () => {
+    document.getElementById('btn-profile-save').addEventListener('click', async () => {
       const name = document.getElementById('profile-name').value.trim();
       if (!name) { showToast('请先输入方案名'); return; }
-      if (!config.displayLayout || Object.keys(config.displayLayout).length === 0) {
+      // 重新拉取最新布局（用户可能在主窗口刚拖过卡片）
+      const fresh = await window.dashboard.getConfig();
+      if (!fresh.displayLayout || Object.keys(fresh.displayLayout).length === 0) {
         showToast('当前没有布局可保存，请先摆放卡片'); return;
       }
       config.layoutProfiles = config.layoutProfiles || {};
-      config.layoutProfiles[name] = JSON.parse(JSON.stringify(config.displayLayout));
-      persistConfig();
+      // 方案 = 全套快照：卡片位置/大小 + 模块显隐（切换时整套应用，无需手动调整）
+      config.layoutProfiles[name] = {
+        displayLayout: JSON.parse(JSON.stringify(fresh.displayLayout)),
+        visibleWidgets: JSON.parse(JSON.stringify(fresh.settings?.visibleWidgets || {}))
+      };
+      await persistConfig();
       renderProfileOptions(name);
-      showToast(`方案「${name}」已保存`);
+      showToast(`方案「${name}」已保存（位置+大小+显隐）`);
     });
 
     document.getElementById('btn-profile-apply').addEventListener('click', async () => {
@@ -217,8 +223,17 @@
       if (!name || !config.layoutProfiles || !config.layoutProfiles[name]) {
         showToast('请先选择要应用的方案'); return;
       }
-      config.displayLayout = JSON.parse(JSON.stringify(config.layoutProfiles[name]));
+      const profile = config.layoutProfiles[name];
+      // 兼容旧格式（纯 displayLayout）与新格式（{displayLayout, visibleWidgets}）
+      const snap = profile.displayLayout ? profile : { displayLayout: profile };
+      config.displayLayout = JSON.parse(JSON.stringify(snap.displayLayout));
+      if (snap.visibleWidgets) {
+        config.settings = config.settings || {};
+        config.settings.visibleWidgets = JSON.parse(JSON.stringify(snap.visibleWidgets));
+      }
       await persistConfig();
+      // 同步模块清单 UI，防止用户随后点"保存"用旧 UI 状态覆盖方案的显隐
+      renderWidgetsChecklist(config.settings?.visibleWidgets || {});
       // 通知主窗口应用新布局并刷新
       window.dashboard.refreshMain?.();
       showToast(`已切换到「${name}」，主界面即将刷新`);

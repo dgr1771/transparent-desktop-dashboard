@@ -457,7 +457,13 @@ function updateTrayMenu() {
           click: () => {
             try {
               const cfg = configStore.getAll();
-              cfg.displayLayout = JSON.parse(JSON.stringify(layoutProfiles[name]));
+              // 兼容旧格式（纯 displayLayout）与新格式（{displayLayout, visibleWidgets}）
+              const snap = layoutProfiles[name].displayLayout ? layoutProfiles[name] : { displayLayout: layoutProfiles[name] };
+              cfg.displayLayout = JSON.parse(JSON.stringify(snap.displayLayout));
+              if (snap.visibleWidgets) {
+                cfg.settings = cfg.settings || {};
+                cfg.settings.visibleWidgets = JSON.parse(JSON.stringify(snap.visibleWidgets));
+              }
               configStore.setAll(cfg);
               for (const win of windows.values()) {
                 if (win && !win.isDestroyed()) {

@@ -161,11 +161,21 @@
 
         // 找出新增的卡片（之前不可见，现在可见）
         const newWidgets = [];
+        // 布局方案里已指定位置的卡片不做最小化放置（方案含全套位置，切换后原样呈现）
+        const profilePositions = (Store.get('displayLayout') || {})[_displayKey] || {};
         document.querySelectorAll('.widget[data-widget]').forEach(el => {
           const name = el.dataset.widget;
           const nowVisible = isWidgetVisible(name);
-          if (nowVisible && !prevVisible[name]) {
+          if (nowVisible && !prevVisible[name] && !profilePositions[name]) {
             newWidgets.push(name);
+          }
+        });
+        // 方案中指定了位置的新显示卡片：只初始化，不最小化、不打乱位置
+        const profileRevealed = [];
+        document.querySelectorAll('.widget[data-widget]').forEach(el => {
+          const name = el.dataset.widget;
+          if (isWidgetVisible(name) && !prevVisible[name] && profilePositions[name]) {
+            profileRevealed.push(name);
           }
         });
 
@@ -188,6 +198,8 @@
           // 没有新增：只刷新数据
           refreshAllWidgets();
         }
+        // 方案揭示的卡片：位置已在 applyLayout 应用，只初始化数据
+        profileRevealed.forEach(name => initWidget(name));
         console.log('[Dashboard] 配置已更新，新增卡片:', newWidgets);
       });
     }
@@ -309,6 +321,8 @@
     });
     // 加载的布局可能超出屏幕（分辨率变化/卡片过多），拉回可视区保证可拖拽
     clampWidgetsIntoViewport();
+    // 暂停自动避让：防止随后的 widget refresh 把刚应用的布局推开
+    if (typeof AutoResize !== 'undefined') AutoResize.suspend();
   }
 
   /**

@@ -503,8 +503,9 @@ function updateTrayMenu() {
                 Object.keys(cfg.displayLayout).length + ' 屏, 已广播 config-updated');
               for (const win of windows.values()) {
                 if (win && !win.isDestroyed()) {
+                  // 只发 config-updated（渲染层内部会 refreshAllWidgets），
+                  // 不再重复发 refresh-all——此前每次切换触发 2 次全量刷新+桌面扫描
                   win.webContents.send('config-updated');
-                  win.webContents.send('refresh-all');
                 }
               }
             } catch (e) { console.error('[layout-profile] 切换失败:', e.message); }
@@ -737,12 +738,11 @@ function registerIpcHandlers() {
     }
   });
 
-  // 设置保存后，刷新所有窗口
+  // 设置保存后，刷新所有窗口（config-updated 渲染层内部会 refreshAllWidgets，无需重复发 refresh-all）
   ipcMain.on('refresh-main', () => {
     for (const win of windows.values()) {
       if (win && !win.isDestroyed()) {
         win.webContents.send('config-updated');
-        win.webContents.send('refresh-all');
       }
     }
   });

@@ -263,6 +263,36 @@
     // 自动定位按钮
     document.getElementById('btn-locate').addEventListener('click', autoLocate);
 
+    // ===== AI 助手：模式切换显隐 + 本地模型检测 =====
+    const aiMode = document.getElementById('ai-mode');
+    const syncAiRows = () => {
+      const mode = aiMode.value;
+      document.getElementById('ai-cloud-row').style.display = mode === 'cloud' ? '' : 'none';
+      document.getElementById('ai-key-row').style.display = mode === 'cloud' ? '' : 'none';
+      const custom = mode === 'cloud' && document.getElementById('ai-provider').value === 'custom';
+      document.getElementById('ai-custom-row').style.display = custom ? '' : 'none';
+      document.getElementById('ai-local-row').style.display = mode === 'local' ? '' : 'none';
+    };
+    aiMode.addEventListener('change', syncAiRows);
+    document.getElementById('ai-provider').addEventListener('change', syncAiRows);
+
+    document.getElementById('btn-ai-detect').addEventListener('click', async () => {
+      const hint = document.getElementById('ai-local-hint');
+      const sel = document.getElementById('ai-local-model');
+      hint.textContent = '检测中...';
+      // 检测时用输入框里的地址（先存临时，主进程读 config 的 localBaseUrl）
+      config.settings = config.settings || {};
+      config.settings.ai = Object.assign({}, config.settings.ai, { localBaseUrl: document.getElementById('ai-local-url').value.trim() });
+      const r = await window.dashboard.aiLocalModels();
+      if (r.ok && r.models.length) {
+        sel.innerHTML = r.models.map(m => `<option value="${m}">${m}</option>`).join('');
+        hint.textContent = `✅ 检测到 ${r.models.length} 个模型`;
+      } else {
+        sel.innerHTML = '<option value="">未检测到</option>';
+        hint.textContent = r.reason || '未检测到模型';
+      }
+    });
+
     // 用户手动改城市时，清除经纬度（让手动输入生效）
     document.getElementById('weather-city').addEventListener('input', () => {
       // 手动改城市：清掉本会话 IP 定位坐标并打标志，防止保存时粘滞覆盖手动城市
@@ -419,6 +449,23 @@
     renderCustomMokugyoUpload();
     // 布局方案下拉
     renderProfileOptions();
+
+    // AI 助手回填
+    const ai = cfg.settings?.ai || {};
+    document.getElementById('ai-mode').value = ai.mode || 'off';
+    document.getElementById('ai-provider').value = ai.provider || 'zhipu';
+    document.getElementById('ai-apikey').value = ai.apiKey || '';
+    document.getElementById('ai-custom-url').value = ai.customBaseUrl || '';
+    document.getElementById('ai-custom-model').value = ai.customModel || '';
+    document.getElementById('ai-local-url').value = (ai.localBaseUrl || 'http://localhost:11434').replace(/\/v1\/?$/, '');
+    const localModelSel = document.getElementById('ai-local-model');
+    if (ai.localModel) {
+      localModelSel.innerHTML = `<option value="${ai.localModel}">${ai.localModel}</option>`;
+    } else {
+      localModelSel.innerHTML = '<option value="">点「检测模型」选择</option>';
+    }
+    // 显隐同步（回填后触发）
+    document.getElementById('ai-mode').dispatchEvent(new Event('change'));
 
     // 关于：版本号
     const versionEl = document.getElementById('about-version');
@@ -603,6 +650,15 @@
         theme: _selectedTheme,
         weatherFx: document.getElementById('toggle-weatherFx').classList.contains('on'),
         plantEnabled: document.getElementById('toggle-plant').classList.contains('on'),
+        ai: {
+          mode: document.getElementById('ai-mode').value,
+          provider: document.getElementById('ai-provider').value,
+          apiKey: document.getElementById('ai-apikey').value.trim(),
+          customBaseUrl: document.getElementById('ai-custom-url').value.trim(),
+          customModel: document.getElementById('ai-custom-model').value.trim(),
+          localBaseUrl: (document.getElementById('ai-local-url').value.trim() || 'http://localhost:11434') + '/v1',
+          localModel: document.getElementById('ai-local-model').value
+        },
         visibleWidgets
       }
     };

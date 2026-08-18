@@ -438,6 +438,20 @@ body.interactive .widget__resize {
   color: rgba(255, 255, 255, 0.4);
 }
 
+.news__ai-btn {
+  font-size: 11px; color: #7dd3fc; padding: 2px 8px; border-radius: 9px;
+  background: rgba(125, 211, 252, 0.12); cursor: pointer; user-select: none;
+  transition: all 0.15s; white-space: nowrap;
+}
+.news__ai-btn:hover { background: rgba(125, 211, 252, 0.25); color: #bae6fd; }
+.news__ai-summary {
+  font-size: 12px; line-height: 1.7; color: rgba(255, 255, 255, 0.85);
+  background: rgba(125, 211, 252, 0.08); border-left: 2px solid rgba(125, 211, 252, 0.5);
+  border-radius: 0 8px 8px 0; padding: 8px 10px; margin: 6px 0;
+  white-space: pre-wrap; animation: newsAiIn 0.3s ease;
+}
+@keyframes newsAiIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+
 .news__list {
   flex: 1;
   overflow-y: auto;

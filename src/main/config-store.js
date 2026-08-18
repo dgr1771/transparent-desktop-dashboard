@@ -69,6 +69,15 @@ class ConfigStore {
         theme: 'deepblue',             // 主题颜色：deepblue/midnight/emerald/rose/purple/amber/ocean/slate
         plantEnabled: true,            // 桌面绿植开关
         weatherFx: true,               // 桌面植物关联天气的全屏特效（雨/雪/阳光/风/雷暴/雾）
+        ai: {
+          mode: 'off',                 // off / cloud / local —— 云端 BYOK 或本地算力（Ollama）
+          provider: 'zhipu',           // cloud: zhipu(默认,flash免费)/deepseek/qwen/custom
+          apiKey: '',
+          customBaseUrl: '',           // provider=custom 时填写
+          customModel: '',             // 留空用服务商默认模型
+          localBaseUrl: 'http://localhost:11434/v1',   // Ollama 标准 OpenAI 兼容端点
+          localModel: ''               // 从 ai:local-models 检测选择
+        },
         visibleWidgets: {
           clock: true,
           weather: true,

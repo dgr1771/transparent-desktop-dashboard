@@ -12,12 +12,46 @@ const NewsWidget = {
     const el = document.querySelector('.widget[data-widget="news"] .widget__inner');
     if (el) {
       el.onclick = (e) => {
+        // AI 摘要按钮
+        if (e.target.id === 'news-ai-btn') { this._aiSummarize(); return; }
         const item = e.target.closest('.news__item');
         if (item && item.dataset.url && window.dashboard && window.dashboard.openExternal) {
           window.dashboard.openExternal(item.dataset.url);
         }
       };
     }
+  },
+
+  /** AI 汇总今日头条（取前 12 条标题 → 3-5 条要点） */
+  async _aiSummarize() {
+    const btn = document.getElementById('news-ai-btn');
+    const box = document.getElementById('news-ai-summary');
+    if (!btn || !box || this._aiBusy) return;
+    // 组装标题列表（用最近一次渲染的数据）
+    const titles = [];
+    document.querySelectorAll('.widget[data-widget="news"] .news__title').forEach(t => {
+      if (titles.length < 12) titles.push(t.textContent.trim());
+    });
+    if (titles.length === 0) return;
+    this._aiBusy = true;
+    btn.textContent = '⏳ 生成中...';
+    box.style.display = 'block';
+    box.textContent = '正在总结 ' + titles.length + ' 条资讯...';
+    try {
+      const r = await window.dashboard.aiChat([
+        { role: 'system', content: '你是新闻编辑，输出精炼中文要点，不加开场白和客套，直接输出条目。' },
+        { role: 'user', content: '以下是今日科技新闻标题，总结为 3-5 条要点，每条一句话并以「· 」开头：\n' + titles.map((t, i) => (i + 1) + '. ' + t).join('\n') }
+      ], { maxTokens: 500, temperature: 0.3 });
+      if (r.ok) {
+        box.textContent = r.text.trim();
+      } else {
+        box.textContent = '⚠️ ' + r.reason;
+      }
+    } catch (e) {
+      box.textContent = '⚠️ AI 请求异常';
+    }
+    btn.textContent = '✨ AI 摘要';
+    this._aiBusy = false;
   },
 
   async update() {
@@ -60,13 +94,21 @@ const NewsWidget = {
       ? `<div class="news__errors">${this._escape(data.errors.join('; '))}</div>`
       : '';
 
+    // AI 摘要按钮：仅在已配置 AI（云端/本地）时显示，未配置零打扰
+    const aiBtn = window.dashboard && window.dashboard.aiChat
+      ? `<span class="news__ai-btn no-drag" id="news-ai-btn">✨ AI 摘要</span>` : '';
+
     return `
       <div class="news">
         <div class="news__header">
           <span>📰 AI 资讯</span>
-          <span class="news__count">${data.items.length} 条</span>
+          <span style="display:flex;gap:8px;align-items:center">
+            ${aiBtn}
+            <span class="news__count">${data.items.length} 条</span>
+          </span>
         </div>
-        <div class="news__list">${items}</div>
+        <div class="news__ai-summary" id="news-ai-summary" style="display:none"></div>
+        <div class="news__list">${items}${empty}</div>
         ${errMsg}
       </div>
     `;

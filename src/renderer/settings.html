@@ -237,6 +237,47 @@
 
   <div class="content">
 
+    <!-- AI 助手 -->
+    <div class="group-label">AI 助手</div>
+    <div class="group">
+      <div class="group-item">
+        <span class="item-label">🤖 AI 模式</span>
+        <select id="ai-mode" style="width:130px">
+          <option value="off">关闭</option>
+          <option value="cloud">云端（填 Key 即用）</option>
+          <option value="local">本地算力（Ollama）</option>
+        </select>
+      </div>
+      <div class="group-item" id="ai-cloud-row" style="display:none">
+        <span class="item-label">服务商</span>
+        <select id="ai-provider" style="width:160px">
+          <option value="zhipu">智谱 GLM（默认·flash 免费）</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="qwen">通义千问</option>
+          <option value="custom">自定义（OpenAI 兼容）</option>
+        </select>
+      </div>
+      <div class="group-item" id="ai-key-row" style="display:none;flex-direction:column;align-items:stretch">
+        <span class="item-label">API Key</span>
+        <input type="text" id="ai-apikey" placeholder="只需粘贴 Key，其它已自动配置" style="margin-top:4px">
+        <div class="hint" id="ai-key-hint">免费申请：devconsole.deepseek.com / open.bigmodel.cn（智谱 flash 档免费）</div>
+      </div>
+      <div class="group-item" id="ai-custom-row" style="display:none;flex-direction:column;align-items:stretch">
+        <span class="item-label">自定义接口</span>
+        <input type="text" id="ai-custom-url" placeholder="https://your-host/v1" style="margin-top:4px">
+        <input type="text" id="ai-custom-model" placeholder="模型名，留空用默认" style="margin-top:4px">
+      </div>
+      <div class="group-item" id="ai-local-row" style="display:none;flex-direction:column;align-items:stretch">
+        <span class="item-label">本地服务（Ollama）</span>
+        <div style="display:flex;gap:8px;margin-top:4px;align-items:center">
+          <input type="text" id="ai-local-url" placeholder="http://localhost:11434" style="flex:1">
+          <button class="btn btn-blue" type="button" id="btn-ai-detect">🔍 检测模型</button>
+        </div>
+        <select id="ai-local-model" style="margin-top:4px"></select>
+        <div class="hint" id="ai-local-hint">未安装？ollama.com 下载后执行 ollama pull qwen2.5:7b</div>
+      </div>
+    </div>
+
     <!-- 天气 -->
     <div class="group-label">天气</div>
     <div class="group">

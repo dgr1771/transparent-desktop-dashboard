@@ -63,6 +63,10 @@ contextBridge.exposeInMainWorld('dashboard', {
   customImageLoad: (key) => ipcRenderer.invoke('custom-image:load', key),
   customImageClear: (key) => ipcRenderer.invoke('custom-image:clear', key),
 
+  // ===== AI（云端 BYOK / 本地 Ollama，配置在设置-AI 助手）=====
+  aiChat: (messages, opts) => ipcRenderer.invoke('ai:chat', messages, opts),
+  aiLocalModels: () => ipcRenderer.invoke('ai:local-models'),
+
   // ===== 数据获取 =====
   fetchWeather: () => ipcRenderer.invoke('data:weather'),
   fetchStocks: () => ipcRenderer.invoke('data:stocks'),

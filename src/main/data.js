@@ -555,6 +555,95 @@ function registerDataHandlers(configStore) {
   ipcMain.handle('data:hotsearch', async () => getHotSearch());
 
   ipcMain.handle('data:sysmonitor', async () => getSysMonitor());
+
+  // ============================================================
+  // AI 能力（BYOK：云端自选服务商只填 Key / 本地算力默认 Ollama）
+  // 所有服务商统一 OpenAI 兼容 /chat/completions，一套代码全通。
+  // Key 只存本机 config.json，请求从主进程直发（绕 CORS，复用超时控制）。
+  // ============================================================
+  const AI_PROVIDERS = {
+    zhipu:   { label: '智谱 GLM', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },  // flash 档免费
+    deepseek:{ label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat' },
+    qwen:    { label: '通义千问', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
+  };
+
+  /** 解析当前配置 → {baseUrl, model, apiKey, ok, reason} */
+  function resolveAI() {
+    const ai = (configStore.getAll().settings || {}).ai || {};
+    if (ai.mode === 'cloud') {
+      if (!ai.apiKey) return { ok: false, reason: '未填写 API Key（设置 → AI 助手）' };
+      if (ai.provider === 'custom') {
+        if (!ai.customBaseUrl) return { ok: false, reason: '自定义服务商未填写接口地址' };
+        return { ok: true, baseUrl: ai.customBaseUrl, model: ai.customModel || 'gpt-3.5-turbo', apiKey: ai.apiKey };
+      }
+      const p = AI_PROVIDERS[ai.provider || 'zhipu'];
+      return { ok: true, baseUrl: p.baseUrl, model: ai.customModel || p.model, apiKey: ai.apiKey };
+    }
+    if (ai.mode === 'local') {
+      const baseUrl = ai.localBaseUrl || 'http://localhost:11434/v1';
+      if (!ai.localModel) return { ok: false, reason: '未选择本地模型（需先启动 Ollama）' };
+      return { ok: true, baseUrl, model: ai.localModel, apiKey: 'ollama' };  // Ollama 不校验鉴权头
+    }
+    return { ok: false, reason: 'AI 未启用（设置 → AI 助手）' };
+  }
+
+  /** 列出本地 Ollama 已安装模型（用户免手填模型名） */
+  ipcMain.handle('ai:local-models', async () => {
+    try {
+      const ai = (configStore.getAll().settings || {}).ai || {};
+      const base = (ai.localBaseUrl || 'http://localhost:11434').replace(/\/v1\/?$/, '');
+      const raw = await fetch(base + '/api/tags', { timeout: 5000, retries: 0 });
+      const j = JSON.parse(raw);
+      return { ok: true, models: (j.models || []).map(m => m.name) };
+    } catch (e) { return { ok: false, reason: '未检测到本地服务，请先安装并启动 Ollama' }; }
+  });
+
+  /** AI 对话（OpenAI 兼容格式）。返回 {ok, text} 或 {ok:false, reason} */
+  ipcMain.handle('ai:chat', async (_e, messages, opts = {}) => {
+    const cfg = resolveAI();
+    if (!cfg.ok) return cfg;
+    const url = cfg.baseUrl.replace(/\/$/, '') + '/chat/completions';
+    const body = JSON.stringify({
+      model: cfg.model,
+      messages,
+      temperature: opts.temperature != null ? opts.temperature : 0.5,
+      max_tokens: opts.maxTokens || 800,
+      stream: false
+    });
+    const doReq = () => new Promise((resolve, reject) => {
+      const lib = url.startsWith('https') ? https : http;
+      const req = lib.request(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + cfg.apiKey,
+          'Content-Length': Buffer.byteLength(body)
+        },
+        timeout: 60000   // 生成式请求默认 10s 不够，给 60s
+      }, (res) => {
+        let d = '';
+        res.on('data', c => { d += c; });
+        res.on('end', () => {
+          if (res.statusCode !== 200) {
+            return reject(new Error('HTTP ' + res.statusCode + ' ' + d.slice(0, 200)));
+          }
+          try {
+            resolve(JSON.parse(d).choices[0].message.content);
+          } catch (e) { reject(new Error('响应解析失败')); }
+        });
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('AI 请求超时')); });
+      req.write(body);
+      req.end();
+    });
+    try {
+      const text = await doReq().catch(() => doReq());   // 网络错误重试 1 次
+      return { ok: true, text };
+    } catch (e) {
+      return { ok: false, reason: 'AI 请求失败：' + e.message };
+    }
+  });
 }
 
 

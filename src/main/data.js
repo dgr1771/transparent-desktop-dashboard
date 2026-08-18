@@ -601,7 +601,8 @@ function registerDataHandlers(configStore) {
   /** AI 对话（OpenAI 兼容格式）。返回 {ok, text} 或 {ok:false, reason} */
   ipcMain.handle('ai:chat', async (_e, messages, opts = {}) => {
     const cfg = resolveAI();
-    if (!cfg.ok) return cfg;
+    if (!cfg.ok) { console.warn('[ai] 未就绪:', cfg.reason); return cfg; }
+    console.info(`[ai] 请求: ${cfg.baseUrl} model=${cfg.model} msgs=${messages.length}`);
     const url = cfg.baseUrl.replace(/\/$/, '') + '/chat/completions';
     const body = JSON.stringify({
       model: cfg.model,
@@ -639,8 +640,10 @@ function registerDataHandlers(configStore) {
     });
     try {
       const text = await doReq().catch(() => doReq());   // 网络错误重试 1 次
+      console.info('[ai] 成功: ' + String(text).slice(0, 80).replace(/\n/g, ' '));
       return { ok: true, text };
     } catch (e) {
+      console.error('[ai] 失败:', e.message);
       return { ok: false, reason: 'AI 请求失败：' + e.message };
     }
   });

@@ -13,4 +13,4 @@ Description: 透明桌面信息看板
  .
  基于Electron，支持UOS/deepin，遵循UOS应用打包规范，
  所有文件安装到 /opt/apps/com.dashboard.transparent/。
-Homepage: https://github.com/example/transparent-desktop-dashboard
+Homepage: https://github.com/dgr1771/transparent-desktop-dashboard

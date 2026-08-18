@@ -167,6 +167,14 @@
       e.preventDefault();
       window.dashboard.openExternal('https://dev.qweather.com/');
     });
+    document.getElementById('link-github').addEventListener('click', (e) => {
+      e.preventDefault();
+      window.dashboard.openExternal('https://github.com/dgr1771/transparent-desktop-dashboard');
+    });
+    document.getElementById('link-releases').addEventListener('click', (e) => {
+      e.preventDefault();
+      window.dashboard.openExternal('https://github.com/dgr1771/transparent-desktop-dashboard/releases');
+    });
 
     document.getElementById('btn-add-source').addEventListener('click', addSourceRow);
     document.getElementById('btn-save').addEventListener('click', save);

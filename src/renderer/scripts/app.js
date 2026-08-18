@@ -130,7 +130,10 @@
 
     // 监听托盘"自动排列"指令
     if (window.dashboard && window.dashboard.onAutoArrange) {
-      window.dashboard.onAutoArrange(() => compactArrange());
+      window.dashboard.onAutoArrange(() => {
+        // 只收拢超出屏幕的卡片，绝不动用户已布局好的位置（此前网格重排会打乱布局）
+        clampWidgetsIntoViewport();
+      });
     }
 
     // 监听配置更新（设置窗口保存后触发）→ 重新加载配置并刷新
@@ -267,6 +270,9 @@
    */
   function showProfileSavePrompt() {
     if (document.getElementById('profile-save-prompt')) return;
+    // 关键：退出编辑时主进程已把窗口设为鼠标穿透（点击会落到下层，输入框无法聚焦）。
+    // 浮层显示期间立即关闭穿透；body 保持 interactive 使 ClickThrough 轮询不重复开启。
+    if (window.dashboard && window.dashboard.setMouseIgnore) window.dashboard.setMouseIgnore(false);
     const overlay = document.createElement('div');
     overlay.id = 'profile-save-prompt';
     overlay.className = 'no-drag';
@@ -387,8 +393,8 @@
     });
     // 加载的布局可能超出屏幕（分辨率变化/卡片过多），拉回可视区保证可拖拽
     clampWidgetsIntoViewport();
-    // 暂停自动避让：防止随后的 widget refresh 把刚应用的布局推开
-    if (typeof AutoResize !== 'undefined') AutoResize.suspend();
+    // 暂停自动避让 + 重置高度基线：防止随后的 widget refresh 把刚应用的布局推开
+    if (typeof AutoResize !== 'undefined') { AutoResize.suspend(); AutoResize.resetBaseline(); }
   }
 
   /**
@@ -483,50 +489,6 @@
    * 屏幕放不下时继续向下排（clamp 保证卡片至少能被拖到），
    * 根本解法是布局方案（分套布局，见设置-外观）。
    */
-  function compactArrange() {
-    const GAP = 12;
-    const sw = window.innerWidth;
-    const cards = [];
-    document.querySelectorAll('.widget[data-widget]').forEach(el => {
-      if (el.style.display === 'none') return;
-      cards.push({
-        el,
-        w: el.offsetWidth || 280,
-        h: el.offsetHeight || 200,
-        left: parseInt(el.style.left) || 0,
-        top: parseInt(el.style.top) || 0
-      });
-    });
-    if (cards.length === 0) return;
-    // 保持当前视觉顺序（左上到右下）作为排列优先级
-    cards.sort((a, b) => a.top - b.top || a.left - b.left);
-
-    let x = GAP, y = GAP, rowMaxH = 0;
-    const displayKey = (window.__dashboard && window.__dashboard.displayKey) || 'primary';
-    const displayLayout = Store.get('displayLayout') || {};
-    if (!displayLayout[displayKey]) displayLayout[displayKey] = {};
-
-    cards.forEach(c => {
-      if (x + c.w > sw - GAP && x > GAP) { // 当前行放不下，换行
-        x = GAP;
-        y += rowMaxH + GAP;
-        rowMaxH = 0;
-      }
-      c.el.style.left = x + 'px';
-      c.el.style.top = y + 'px';
-      c.el.style.right = 'auto';
-      c.el.style.bottom = 'auto';
-      displayLayout[displayKey][c.el.dataset.widget] = {
-        left: x + 'px', top: y + 'px',
-        width: c.w + 'px', height: c.h + 'px'
-      };
-      x += c.w + GAP;
-      rowMaxH = Math.max(rowMaxH, c.h);
-    });
-    Store.set('displayLayout', displayLayout);
-    clampWidgetsIntoViewport();
-    if (typeof AutoResize !== 'undefined') AutoResize.schedule();
-  }
 
   /** 主题定义表 */
   const THEMES = {

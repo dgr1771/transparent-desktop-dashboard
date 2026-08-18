@@ -19,8 +19,15 @@ const DragResize = {
     });
 
     document.querySelectorAll('.widget').forEach((widget) => {
+      // 左下角缩放手柄（动态注入，index.html 只写了右下角）
+      if (!widget.querySelector('.widget__resize--bl')) {
+        const bl = document.createElement('div');
+        bl.className = 'widget__resize widget__resize--bl';
+        widget.appendChild(bl);
+      }
       this._bindDrag(widget);
-      this._bindResize(widget);
+      this._bindResize(widget, widget.querySelector('.widget__resize:not(.widget__resize--bl)'), 'br');
+      this._bindResize(widget, widget.querySelector('.widget__resize--bl'), 'bl');
     });
   },
 
@@ -100,11 +107,11 @@ const DragResize = {
   /**
    * 缩放（通过右下角手柄）
    */
-  _bindResize(widget) {
-    const handle = widget.querySelector('.widget__resize');
+  _bindResize(widget, handle, dir) {
     if (!handle) return;
+    const isBL = dir === 'bl';   // 左下角：向左拖增宽（同步改 left）
 
-    let startX, startY, startW, startH, isResizing = false;
+    let startX, startY, startW, startH, startLeft, isResizing = false;
 
     const onDown = (e) => {
       if (!document.body.classList.contains('interactive')) return;
@@ -115,6 +122,7 @@ const DragResize = {
       startY = e.clientY;
       startW = widget.offsetWidth;
       startH = widget.offsetHeight;
+      startLeft = parseInt(widget.style.left) || widget.getBoundingClientRect().left;
 
       e.preventDefault();
       e.stopPropagation();
@@ -126,8 +134,10 @@ const DragResize = {
       if (!isResizing) return;
       let dw = e.clientX - startX;
       let dh = e.clientY - startY;
-      let newW = Math.max(200, Math.min(startW + dw, this._screenW));
+      // 左下角手柄：向左拖（dw 负）宽度增加，left 同步左移
+      let newW = Math.max(200, Math.min(isBL ? startW - dw : startW + dw, this._screenW));
       let newH = Math.max(140, Math.min(startH + dh, this._screenH));
+      if (isBL) widget.style.left = Math.max(0, startLeft - (newW - startW)) + 'px';
 
       // 磁吸：缩放时右边/底边对齐其他卡片或屏幕边缘
       if (typeof Magnetic !== 'undefined') {

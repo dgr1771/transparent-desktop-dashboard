@@ -490,7 +490,7 @@ function updateTrayMenu() {
       checked: interactionMode
     },
     {
-      label: '🪄 自动排列卡片',
+      label: '📥 收拢超出屏幕的卡片（不动已布局位置）',
       click: () => {
         for (const win of windows.values()) {
           if (win && !win.isDestroyed()) {

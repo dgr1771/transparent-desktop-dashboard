@@ -133,6 +133,22 @@ body.interactive .widget__resize {
   opacity: 1;
 }
 
+/* 左下角缩放手柄（镜像右下角） */
+.widget__resize--bl {
+  left: 0;
+  right: auto;
+  cursor: nesw-resize;
+}
+.widget__resize--bl::before {
+  left: 4px;
+  right: auto;
+  border-right: none;
+  border-bottom: none;
+  border-left: 2px solid rgba(var(--accent-color), 0.8);
+  border-bottom: 2px solid rgba(var(--accent-color), 0.8);
+  border-radius: 0 0 0 3px;
+}
+
 /* ============================================================
    占位卡片内容
    ============================================================ */

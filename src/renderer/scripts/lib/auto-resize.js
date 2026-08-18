@@ -44,6 +44,9 @@ const AutoResize = {
     if (el.style.display === 'none') return;
 
     const rect = el.getBoundingClientRect();
+    // 只有卡片相对基线"变高"才推开下方（防布局方案应用后 refresh 误触发重排）
+    const lastH = this._lastHeights[el.dataset.widget];
+    if (lastH != null && rect.height <= lastH + 2) return;
     const bottom = rect.bottom;
     const left = rect.left;
     const right = rect.right;
@@ -91,5 +94,10 @@ const AutoResize = {
     document.querySelectorAll('.widget[data-widget]').forEach(el => {
       this._lastHeights[el.dataset.widget] = el.getBoundingClientRect().height;
     });
+  },
+
+  /** 以当前实际高度为基线（应用布局方案后调用，防止后续数据到达误触发推开） */
+  resetBaseline() {
+    this._saveHeights();
   }
 };

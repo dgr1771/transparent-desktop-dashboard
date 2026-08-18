@@ -8,6 +8,36 @@ const ConfigStore = require('./config-store');
 const { registerDataHandlers } = require('./data');
 const platform = require('./platform');
 
+// ===== 主进程日志写文件（商业级健壮性）=====
+// 根因：console 输出到已断开的 stdout 管道会抛 EPIPE → Uncaught Exception → 整个 app 崩溃
+// （用户从重定向管道/某些启动器启动时触发）。改为写 userData/main.log，永不因管道断开崩溃，
+// 且日志持久化便于诊断。
+(function redirectConsoleToFile() {
+  try {
+    const logPath = path.join(app.getPath('userData'), 'main.log');
+    // 超过 2MB 时重开（防无限增长）
+    try { if (fs.existsSync(logPath) && fs.statSync(logPath).size > 2 * 1024 * 1024) fs.unlinkSync(logPath); } catch (e) {}
+    const stream = fs.createWriteStream(logPath, { flags: 'a' });
+    const write = (level) => (...args) => {
+      try {
+        stream.write(`[${level}] ${new Date().toISOString().slice(11, 19)} ${args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}\n`);
+      } catch (e) { /* 日志失败静默，绝不影响主流程 */ }
+    };
+    console.log = write('log');
+    console.info = write('info');
+    console.warn = write('warn');
+    console.error = write('error');
+  } catch (e) { /* userData 不可用时保持原生 console */ }
+})();
+
+// 未捕获异常兜底：任何异常只记日志，不让主进程崩溃（看板是常驻桌面应用，崩溃体验最差）
+process.on('uncaughtException', (err) => {
+  try { console.error('[uncaught]', err && err.message, err && err.stack); } catch (e) {}
+});
+process.on('unhandledRejection', (reason) => {
+  try { console.error('[unhandledRejection]', reason); } catch (e) {}
+});
+
 // 禁用 GPU 磁盘缓存（Chromium 的 shader/disk cache）
 // 这个缓存目录经常因进程异常退出被锁（报 0x5 拒绝访问），导致应用无法启动。
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');

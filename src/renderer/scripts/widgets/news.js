@@ -12,8 +12,13 @@ const NewsWidget = {
     const el = document.querySelector('.widget[data-widget="news"] .widget__inner');
     if (el) {
       el.onclick = (e) => {
-        // AI 摘要按钮
+        // AI 摘要按钮 / 摘要关闭按钮
         if (e.target.id === 'news-ai-btn') { this._aiSummarize(); return; }
+        if (e.target.id === 'news-ai-close') {
+          const box = document.getElementById('news-ai-summary');
+          if (box) box.style.display = 'none';
+          return;
+        }
         const item = e.target.closest('.news__item');
         if (item && item.dataset.url && window.dashboard && window.dashboard.openExternal) {
           window.dashboard.openExternal(item.dataset.url);
@@ -36,19 +41,21 @@ const NewsWidget = {
     this._aiBusy = true;
     btn.textContent = '⏳ 生成中...';
     box.style.display = 'block';
-    box.textContent = '正在总结 ' + titles.length + ' 条资讯...';
+    box.innerHTML = '<div class="news__ai-body">正在总结 ' + titles.length + ' 条资讯...</div>';
     try {
       const r = await window.dashboard.aiChat([
-        { role: 'system', content: '你是新闻编辑，输出精炼中文要点，不加开场白和客套，直接输出条目。' },
-        { role: 'user', content: '以下是今日科技新闻标题，总结为 3-5 条要点，每条一句话并以「· 」开头：\n' + titles.map((t, i) => (i + 1) + '. ' + t).join('\n') }
-      ], { maxTokens: 500, temperature: 0.3 });
+        { role: 'system', content: '你是科技新闻编辑。把标题按主题归类后输出 6-10 条要点：每条一行，格式「· 主题词：一句话概括（可合并同类事件）」。信息量要足，覆盖尽量多的新闻，不加开场白和总结语。' },
+        { role: 'user', content: '以下是今日科技新闻标题：\n' + titles.map((t, i) => (i + 1) + '. ' + t).join('\n') }
+      ], { maxTokens: 1000, temperature: 0.4 });
       if (r.ok) {
-        box.textContent = r.text.trim();
+        box.innerHTML = `
+          <div class="news__ai-head"><span>✨ AI 要点</span><span class="news__ai-close" id="news-ai-close" title="收起">✕</span></div>
+          <div class="news__ai-body">${this._escape(r.text.trim())}</div>`;
       } else {
-        box.textContent = '⚠️ ' + r.reason;
+        box.innerHTML = '<div class="news__ai-body">⚠️ ' + this._escape(r.reason) + '</div>';
       }
     } catch (e) {
-      box.textContent = '⚠️ AI 请求异常';
+      box.innerHTML = '<div class="news__ai-body">⚠️ AI 请求异常</div>';
     }
     btn.textContent = '✨ AI 摘要';
     this._aiBusy = false;

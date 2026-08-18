@@ -452,10 +452,23 @@ body.interactive .widget__resize {
 }
 .news__ai-btn:hover { background: rgba(125, 211, 252, 0.25); color: #bae6fd; }
 .news__ai-summary {
-  font-size: 12px; line-height: 1.7; color: rgba(255, 255, 255, 0.85);
   background: rgba(125, 211, 252, 0.08); border-left: 2px solid rgba(125, 211, 252, 0.5);
-  border-radius: 0 8px 8px 0; padding: 8px 10px; margin: 6px 0;
-  white-space: pre-wrap; animation: newsAiIn 0.3s ease;
+  border-radius: 0 8px 8px 0; margin: 6px 0;
+  max-height: 240px; overflow-y: auto;            /* 内容多时卡片内滚动，不撑爆布局 */
+  animation: newsAiIn 0.3s ease;
+}
+.news__ai-summary::-webkit-scrollbar { width: 4px; }
+.news__ai-summary::-webkit-scrollbar-thumb { background: rgba(125, 211, 252, 0.35); border-radius: 2px; }
+.news__ai-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; color: #7dd3fc; padding: 6px 10px 0; position: sticky; top: 0;
+  background: rgba(125, 211, 252, 0.08);
+}
+.news__ai-close { cursor: pointer; opacity: 0.55; padding: 0 2px; font-size: 12px; }
+.news__ai-close:hover { opacity: 1; }
+.news__ai-body {
+  font-size: 12px; line-height: 1.75; color: rgba(255, 255, 255, 0.87);
+  padding: 4px 10px 8px; white-space: pre-wrap;
 }
 @keyframes newsAiIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
 

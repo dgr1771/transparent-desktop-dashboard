@@ -69,14 +69,16 @@ const MokugyoWidget = {
   _startAuto() {
     this._autoRunning = true;
     const inner = document.querySelector('.widget[data-widget="mokugyo"] .widget__inner');
-    if (!inner) return;
+    if (!inner) { this._autoRunning = false; return; }
     this._hit(inner);
     this._autoTimer = setInterval(() => {
       const el = document.querySelector('.widget[data-widget="mokugyo"] .widget__inner');
       if (el) this._hit(el);
     }, 1500);
+    // ⚠️ key 必须与卡片名一致（app.js 按卡片名清理 timers），
+    // 用 mokugyo_auto 会导致隐藏卡片后清不掉 → 每 1.5s 全量写 config + 重建托盘
     if (window.__dashboard && window.__dashboard.timers) {
-      window.__dashboard.timers.mokugyo_auto = this._autoTimer;
+      window.__dashboard.timers.mokugyo = this._autoTimer;
     }
   },
 
@@ -84,15 +86,24 @@ const MokugyoWidget = {
     this._autoRunning = false;
     if (this._autoTimer) { clearInterval(this._autoTimer); this._autoTimer = null; }
     if (window.__dashboard && window.__dashboard.timers) {
-      delete window.__dashboard.timers.mokugyo_auto;
+      delete window.__dashboard.timers.mokugyo;
     }
+    this._flushMerit();
   },
 
   _hit(inner) {
+    // 功德内存累加 + 30s 节流落盘：自动敲击时每 1.5s 全量写 config 会写放大
+    // （44KB JSON 序列化+落盘+托盘重建），常驻一天可到 5.7 万次写
     const cfg = Store.get('mokugyo') || {};
     cfg.merit = Number(cfg.merit || 0) + 1;
     cfg.lastHit = Date.now();
-    Store.set('mokugyo', cfg);
+    this._meritDirty = true;
+    const now = Date.now();
+    if (!this._lastPersist || now - this._lastPersist > 30000) {
+      this._lastPersist = now;
+      this._meritDirty = false;
+      Store.set('mokugyo', cfg);
+    }
     const stage = inner.querySelector('#mokugyo-hit');
     const count = inner.querySelector('#mokugyo-count');
     if (count) count.textContent = cfg.merit;
@@ -106,5 +117,13 @@ const MokugyoWidget = {
     plus.textContent = '+1 功德';
     inner.querySelector('.mokugyo').appendChild(plus);
     setTimeout(() => plus.remove(), 900);
+  },
+
+  /** 节流未落盘的功德补写（停止自动/隐藏卡片时调用） */
+  _flushMerit() {
+    if (!this._meritDirty) return;
+    this._meritDirty = false;
+    this._lastPersist = Date.now();
+    Store.set('mokugyo', Store.get('mokugyo') || {});
   }
 };

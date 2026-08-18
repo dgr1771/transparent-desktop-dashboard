@@ -18,6 +18,7 @@ const platform = require('./platform');
     // 超过 2MB 时重开（防无限增长）
     try { if (fs.existsSync(logPath) && fs.statSync(logPath).size > 2 * 1024 * 1024) fs.unlinkSync(logPath); } catch (e) {}
     const stream = fs.createWriteStream(logPath, { flags: 'a' });
+    stream.on('error', () => {});   // 磁盘满/只读时静默丢日志，绝不触发未处理错误
     const write = (level) => (...args) => {
       try {
         stream.write(`[${level}] ${new Date().toISOString().slice(11, 19)} ${args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}\n`);
@@ -467,6 +468,14 @@ function createTray() {
     tray.on('click', () => toggleAllWindows());
     // 配置保存后（data.js 的 config:set）刷新托盘菜单，布局方案列表保持最新
     global.__refreshTrayMenu = updateTrayMenu;
+    // config:set 后向除发送者外的窗口广播（多屏 Store 缓存同步，防互相回滚）
+    global.__broadcastConfigUpdated = (exceptSenderId) => {
+      for (const win of windows.values()) {
+        if (win && !win.isDestroyed() && win.webContents.id !== exceptSenderId) {
+          win.webContents.send('config-updated');
+        }
+      }
+    };
     console.log('[Tray] 托盘创建成功（左键单击切换显示）');
   } catch (e) {
     console.error('[Tray] 托盘创建失败（可能缺少 libappindicator）:', e.message);

@@ -227,6 +227,9 @@
       const profile = config.layoutProfiles[name];
       // 兼容旧格式（纯 displayLayout）与新格式（{displayLayout, visibleWidgets}）
       const snap = profile.displayLayout ? profile : { displayLayout: profile };
+      // 应用前重新拉最新配置（防旧快照回滚打开期间的其他变更，如功德/待办）
+      const fresh = await window.dashboard.getConfig();
+      config = Object.assign({}, fresh, config);
       config.displayLayout = JSON.parse(JSON.stringify(snap.displayLayout));
       if (snap.visibleWidgets) {
         config.settings = config.settings || {};
@@ -248,6 +251,7 @@
         showToast('请先选择要删除的方案'); return;
       }
       delete config.layoutProfiles[name];
+      if (config.activeProfile === name) config.activeProfile = '';   // 防悬挂引用
       persistConfig();
       renderProfileOptions();
       showToast(`方案「${name}」已删除`);
@@ -607,9 +611,11 @@
 
   async function save() {
     const collected = collectForm();
-    // 合并到现有配置（保留 layout、todos 等不在此界面编辑的字段）
-    config = Object.assign({}, config, collected, {
-      settings: Object.assign({}, config.settings, collected.settings)
+    // ⚠️ 重新拉取最新配置再合并——settings 打开期间主窗口可能已拖动卡片/木鱼积功德/
+    // 托盘切过方案，用打开时的旧快照整体覆盖会回滚这些变更（此前 bug）
+    const fresh = await window.dashboard.getConfig();
+    config = Object.assign({}, fresh, collected, {
+      settings: Object.assign({}, fresh.settings, collected.settings)
     });
     // 清除临时字段，避免污染持久化配置
     delete config._autoLat;

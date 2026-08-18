@@ -34,6 +34,8 @@ const Plants = {
     // 读取配置
     this._current = this.LEGACY_MAP[Store.get('plant')] || Store.get('plant') || 'fern';
     this._clickEnabled = (Store.get('plantInteraction') !== false);
+    this._container.style.display = '';   // 容器默认 display:none（防关闭时留隐形死区）
+    this._container.classList.add('no-drag');
     this.render();
 
     // 设置容器可点击（如果有交互）
@@ -85,16 +87,18 @@ const Plants = {
 
   /** 显示绿植（保存设置后实时生效） */
   enable() {
-    if (!this._container) { this.init(); return; }
+    if (!this._container || !this._container.innerHTML) { this.init(); return; }
     this._container.style.display = '';
+    this._container.classList.add('no-drag');
     this.render();
   },
 
-  /** 隐藏绿植（不销毁容器，便于再次开启） */
+  /** 隐藏绿植（不销毁容器，便于再次开启；同时移除 no-drag 防隐形交互死区） */
   disable() {
-    if (!this._container && !document.getElementById('grass-deco')) return;
     const c = this._container || document.getElementById('grass-deco');
+    if (!c) return;
     c.style.display = 'none';
+    c.classList.remove('no-drag');
   },
 
   /** 点击回应动画 */

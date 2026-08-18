@@ -105,7 +105,11 @@
     // 自动避让：不再用 MutationObserver 全局监听（太耗 CPU）
     // 改为只在 refreshAllWidgets 后触发一次（数据更新时才检查）
     // 首次加载后做一次
-    setTimeout(() => { if (typeof AutoResize !== 'undefined') AutoResize.check(); }, 3000);
+    // 启动 3 秒后：先把避让基线校准到"有数据"的实际高度，再检查——
+    // 否则基线还是骨架高度，首次 check 会把用户紧凑布局的下方卡片推开
+    setTimeout(() => {
+      if (typeof AutoResize !== 'undefined') { AutoResize.resetBaseline(); AutoResize.check(); }
+    }, 3000);
 
     // 监听刷新
     if (window.dashboard && window.dashboard.onRefreshAll) {
@@ -151,7 +155,9 @@
         applyTheme(Store.get('settings')?.theme);
         applyGlobalOpacity();
         // 布局可能被切换（布局方案应用），重新应用并拉回可视区
-        applyLayout(Store.get('displayLayout'));
+        // ⚠️ 必须取当前屏的布局（getDisplayLayout），传整个 displayLayout 多屏对象
+        // 会导致 name=屏key 永远匹配不到卡片 → 切换方案位置不动（此前 bug）
+        applyLayout(getDisplayLayout());
         if (typeof Plants !== 'undefined') {
           if (Store.get('settings')?.plantEnabled !== false) { Plants.enable(); Plants.setPlant(Store.get('plant') || 'grass'); }
           else Plants.disable();
@@ -242,6 +248,9 @@
   function applyModeUI(interactive) {
     const banner = document.getElementById('mode-banner');
     if (interactive) {
+      // 进入编辑时清掉可能残留的保存浮层（防与编辑态叠加导致界面卡死）
+      const stale = document.getElementById('profile-save-prompt');
+      if (stale) stale.remove();
       document.body.classList.add('interactive');
       banner.classList.remove('hidden');
     } else {
@@ -280,7 +289,10 @@
    * 方案 = 全套快照（卡片位置/大小 + 模块显隐），保存后托盘「布局方案」直接可切。
    */
   function showProfileSavePrompt() {
-    if (document.getElementById('profile-save-prompt')) return;
+    // 已有浮层（连按 Ctrl+Shift+D 场景）→ 先移除再重建，绝不裸 return
+    // （裸 return 会导致 finishExitEditMode 永不执行，界面卡在编辑态+穿透，点不动）
+    const stale = document.getElementById('profile-save-prompt');
+    if (stale) stale.remove();
     // 关键：退出编辑时主进程已把窗口设为鼠标穿透（点击会落到下层，输入框无法聚焦）。
     // 浮层显示期间立即关闭穿透；body 保持 interactive 使 ClickThrough 轮询不重复开启。
     if (window.dashboard && window.dashboard.setMouseIgnore) window.dashboard.setMouseIgnore(false);

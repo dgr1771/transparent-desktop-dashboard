@@ -45,10 +45,15 @@ function _fetchOnce(url, options = {}) {
       timeout: options.timeout || 10000
     }, (res) => {
       // 重定向：先 resume 消费 body 释放 socket（修 socket 泄漏），再跟随（支持相对路径）
+      // 上限 5 次：A→B→A 式循环重定向若无上限会永不 settle（news 卡永久转圈）
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
+        const redirects = (options._redirects || 0) + 1;
+        if (redirects > 5) {
+          return reject(new Error('too many redirects'));
+        }
         const next = new URL(res.headers.location, url).toString();
-        return resolve(fetch(next, options));
+        return resolve(fetch(next, { ...options, _redirects: redirects }));
       }
       if (res.statusCode !== 200) {
         res.resume(); // 非 200 也消费 body，避免 socket 滞留
@@ -508,10 +513,16 @@ function registerDataHandlers(configStore) {
   // 读取配置（主进程侧持久化文件）
   ipcMain.handle('config:get', () => configStore.getAll());
 
-  ipcMain.handle('config:set', (_e, data) => {
+  ipcMain.handle('config:set', (e, data) => {
+    const prev = configStore.getAll();
+    const profilesChanged = JSON.stringify(prev.layoutProfiles) !== JSON.stringify(data.layoutProfiles)
+      || prev.activeProfile !== data.activeProfile;
     configStore.setAll(data);
-    // 配置变更后刷新托盘菜单（布局方案列表可能变化），由 index.js 注册回调
-    if (global.__refreshTrayMenu) global.__refreshTrayMenu();
+    // 布局方案/当前方案变化才重建托盘菜单（防木鱼等高频写入放大）
+    if (profilesChanged && global.__refreshTrayMenu) global.__refreshTrayMenu();
+    // 广播给除发送者外的窗口：多显示器各窗口 Store 缓存互不知情，
+    // 不广播会 last-writer-wins 互相回滚布局
+    if (global.__broadcastConfigUpdated) global.__broadcastConfigUpdated(e.sender.id);
     return true;
   });
 

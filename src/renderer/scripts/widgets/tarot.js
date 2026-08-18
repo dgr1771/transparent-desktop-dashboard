@@ -22,25 +22,41 @@ const TarotWidget = {
     return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
   },
 
+  getSaved() {
+    return Store.get('tarotDaily') || {};
+  },
+
   getTodayCard() {
-    const saved = Store.get('tarotDaily') || {};
+    const saved = this.getSaved();
     return saved.date === this.today() && Number.isInteger(saved.index) ? this.CARDS[saved.index] : null;
+  },
+
+  _aiAvailable() {
+    return (Store.get('settings') || {}).ai?.mode !== 'off' && window.dashboard && window.dashboard.aiChat;
   },
 
   render() {
     const inner = document.querySelector('.widget[data-widget="tarot"] .widget__inner');
     if (!inner) return;
-    const card = this.getTodayCard();
+    const saved = this.getSaved();
+    const card = saved.date === this.today() && Number.isInteger(saved.index) ? this.CARDS[saved.index] : null;
+    const aiBlock = card && saved.aiText ? `<div class="tarot__ai">✨ ${saved.aiText}</div>` : '';
+    const aiBtn = card && !saved.aiText && this._aiAvailable()
+      ? `<button class="tarot__ai-btn no-drag" id="tarot-ai-btn">✨ AI 为你解读</button>` : '';
     inner.innerHTML = `
       <div class="tarot no-drag">
         <div class="tarot__title">🔮 每日塔罗</div>
         <div class="tarot__simple-card ${card ? 'is-open' : ''}" id="tarot-simple-card">
           ${card ? `<div class="tarot__simple-emoji">${card[2]}</div><b>${card[0]}</b><p>${card[1]}</p>` : '<div class="tarot__simple-back">✦<small>静心后点击翻牌</small></div>'}
         </div>
+        ${aiBlock}
+        ${aiBtn}
         <button class="tarot__simple-btn" id="tarot-simple-draw" ${card ? 'disabled' : ''}>${card ? '今日已抽取 · 明天再来' : '翻开今日牌面'}</button>
       </div>`;
     const button = inner.querySelector('#tarot-simple-draw');
     if (button && !card) button.addEventListener('click', () => this.draw(inner));
+    const aiBtnEl = inner.querySelector('#tarot-ai-btn');
+    if (aiBtnEl) aiBtnEl.addEventListener('click', () => this.aiRead(inner));
   },
 
   draw(inner) {
@@ -58,6 +74,36 @@ const TarotWidget = {
       panel.innerHTML = `<div class="tarot__simple-emoji">${card[2]}</div><b>${card[0]}</b><p>${card[1]}</p>`;
       const button = inner.querySelector('#tarot-simple-draw');
       if (button) { button.disabled = true; button.textContent = '今日已抽取 · 明天再来'; }
+      // 已配置 AI → 翻牌后自动生成今日解读（结果缓存全天，不重复请求）
+      if (this._aiAvailable()) this.aiRead(inner);
     }, 280);
+  },
+
+  /** AI 生成今日塔罗解读（缓存到 tarotDaily.aiText，一天只生成一次） */
+  async aiRead(inner) {
+    const saved = this.getSaved();
+    const card = Number.isInteger(saved.index) ? this.CARDS[saved.index] : null;
+    if (!card) return;
+    // 幂等防重入
+    if (this._aiBusy) return;
+    this._aiBusy = true;
+    const btn = inner.querySelector('#tarot-ai-btn');
+    if (btn) btn.textContent = '🧠 解读生成中...';
+    try {
+      const r = await window.dashboard.aiChat([
+        { role: 'system', content: '你是温柔的塔罗解读师。用 2-3 句中文给出今日行动指引，语气治愈、贴近生活、不玄乎、不说教，直接输出内容不要开场白。' },
+        { role: 'user', content: `今日牌面：「${card[0]}」（牌意：${card[1]}）。请给我今天的专属解读。` }
+      ], { maxTokens: 300, temperature: 0.8 });
+      if (r.ok && r.text) {
+        const text = r.text.trim();
+        Store.set('tarotDaily', Object.assign({}, saved, { aiText: text }));
+        this.render();
+      } else if (btn) {
+        btn.textContent = '⚠️ ' + (r.reason || '生成失败，点击重试');
+      }
+    } catch (e) {
+      if (btn) btn.textContent = '⚠️ 生成失败，点击重试';
+    }
+    this._aiBusy = false;
   }
 };

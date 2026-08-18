@@ -210,6 +210,13 @@ body.interactive .widget__resize {
 .tarot__simple-flip { animation:tarotFlip .56s ease-in-out; }
 .tarot__simple-btn { border:1px solid rgba(196,181,253,.5); background:rgba(124,58,237,.4); color:#f5f3ff; border-radius:999px; padding:6px 12px; font-size:11px; cursor:pointer; }
 .tarot__simple-btn:disabled { opacity:.65; cursor:default; }
+.tarot__ai { margin-top:8px; font-size:12px; line-height:1.7; color:#e9d5ff;
+  background:rgba(147,51,234,.12); border-left:2px solid rgba(196,181,253,.6);
+  border-radius:0 8px 8px 0; padding:8px 10px; animation:tarotAiIn .4s ease; }
+.tarot__ai-btn { margin-top:8px; border:1px solid rgba(196,181,253,.4); background:rgba(147,51,234,.15);
+  color:#ddd6fe; border-radius:999px; padding:4px 12px; font-size:11px; cursor:pointer; }
+.tarot__ai-btn:hover { background:rgba(147,51,234,.3); }
+@keyframes tarotAiIn { from { opacity:0; transform:translateY(-4px);} to { opacity:1; } }
 .tarot__back { font-size:48px; color:#fef3c7; text-shadow:0 0 16px #fbbf24; }
 .tarot__back small { display:block; font-size:12px; margin-top:10px; color:#ddd6fe; }
 .tarot__emoji { font-size:34px; margin-bottom:8px; }
@@ -618,6 +625,13 @@ body.interactive .news__item:hover {
 .todo__text--done {
   text-decoration: line-through;
   color: rgba(255, 255, 255, 0.35);
+}
+
+.todo__time {
+  display: inline-block; font-style: normal; font-size: 10px; line-height: 1;
+  color: #7dd3fc; background: rgba(125, 211, 252, 0.12);
+  border-radius: 4px; padding: 2px 5px; margin-right: 6px; vertical-align: 1px;
+  white-space: nowrap;
 }
 
 .todo__del {

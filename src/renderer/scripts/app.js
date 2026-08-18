@@ -264,6 +264,17 @@
     if (typeof ClickThrough !== 'undefined') ClickThrough.reset();
   }
 
+  // 编辑模式提示条让位：鼠标进入顶部区域（banner 高度 + 60px 缓冲）时自动变透明，
+  // 不遮挡正上方/中间卡片的拖拽与缩放；移开后恢复。
+  (function initBannerYield() {
+    const YIELD_RANGE = 60;
+    document.addEventListener('mousemove', (e) => {
+      const banner = document.getElementById('mode-banner');
+      if (!banner || banner.classList.contains('hidden')) return;
+      banner.classList.toggle('near', e.clientY < banner.offsetHeight + YIELD_RANGE);
+    }, { passive: true });
+  })();
+
   /**
    * 退出编辑模式时的"保存布局方案"命名浮层。
    * 方案 = 全套快照（卡片位置/大小 + 模块显隐），保存后托盘「布局方案」直接可切。

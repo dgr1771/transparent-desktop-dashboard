@@ -49,6 +49,13 @@ html, body {
   transition: opacity 0.2s;
 }
 
+/* 鼠标靠近时让位（不遮挡顶部卡片的拖拽/缩放） */
+.mode-banner:hover,
+.mode-banner.near {
+  opacity: 0.06;
+  pointer-events: none;
+}
+
 .mode-banner.hidden {
   opacity: 0;
   pointer-events: none;

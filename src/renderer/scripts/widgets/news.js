@@ -108,7 +108,7 @@ const NewsWidget = {
           </span>
         </div>
         <div class="news__ai-summary" id="news-ai-summary" style="display:none"></div>
-        <div class="news__list">${items}${empty}</div>
+        <div class="news__list">${items}</div>
         ${errMsg}
       </div>
     `;

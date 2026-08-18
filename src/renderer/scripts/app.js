@@ -90,7 +90,7 @@
       if (isWidgetVisible('mokugyo')) MokugyoWidget.init();
       if (isWidgetVisible('tarot')) TarotWidget.init();
       // 桌面绿植 + 天气特效（图片/Canvas 资源）
-      if (typeof Plants !== "undefined") Plants.init();
+      if (typeof Plants !== "undefined" && Store.get('settings')?.plantEnabled !== false) Plants.init();
       if (typeof WeatherFX !== "undefined" && Store.get('settings')?.weatherFx !== false) WeatherFX.init();
     }, 350);
 
@@ -147,7 +147,10 @@
         applyGlobalOpacity();
         // 布局可能被切换（布局方案应用），重新应用并拉回可视区
         applyLayout(Store.get('displayLayout'));
-        if (typeof Plants !== 'undefined') Plants.setPlant(Store.get('plant') || 'grass');
+        if (typeof Plants !== 'undefined') {
+          if (Store.get('settings')?.plantEnabled !== false) { Plants.enable(); Plants.setPlant(Store.get('plant') || 'grass'); }
+          else Plants.disable();
+        }
         // 自定义木鱼图：保存后实时更新（不重建 DOM，只换 img src）
         if (typeof MokugyoWidget !== 'undefined' && MokugyoWidget.update) MokugyoWidget.update();
         // 全屏天气特效开关：保存后实时生效

@@ -66,6 +66,7 @@ class ConfigStore {
       settings: {
         globalOpacity: 1,
         theme: 'deepblue',             // 主题颜色：deepblue/midnight/emerald/rose/purple/amber/ocean/slate
+        plantEnabled: true,            // 桌面绿植开关
         weatherFx: true,               // 桌面植物关联天气的全屏特效（雨/雪/阳光/风/雷暴/雾）
         visibleWidgets: {
           clock: true,

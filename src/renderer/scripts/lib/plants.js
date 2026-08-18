@@ -83,6 +83,20 @@ const Plants = {
     this.render();
   },
 
+  /** 显示绿植（保存设置后实时生效） */
+  enable() {
+    if (!this._container) { this.init(); return; }
+    this._container.style.display = '';
+    this.render();
+  },
+
+  /** 隐藏绿植（不销毁容器，便于再次开启） */
+  disable() {
+    if (!this._container && !document.getElementById('grass-deco')) return;
+    const c = this._container || document.getElementById('grass-deco');
+    c.style.display = 'none';
+  },
+
   /** 点击回应动画 */
   _onClick() {
     const inner = document.getElementById('plant-img');

@@ -505,6 +505,8 @@ function registerDataHandlers(configStore) {
 
   ipcMain.handle('config:set', (_e, data) => {
     configStore.setAll(data);
+    // 配置变更后刷新托盘菜单（布局方案列表可能变化），由 index.js 注册回调
+    if (global.__refreshTrayMenu) global.__refreshTrayMenu();
     return true;
   });
 

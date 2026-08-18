@@ -162,6 +162,9 @@ body.interactive .widget__resize {
 .mokugyo__title,.tarot__title { font-size:14px; font-weight:600; color:#fde68a; }
 .mokugyo__stage { position:relative; border:0; background:transparent; cursor:pointer; padding:0; width:150px; height:160px; }
 .mokugyo__stage img { width:150px; height:150px; object-fit:contain; transition:transform .12s; }
+.mokugyo__auto-btn { font-size:11px; color:rgba(255,255,255,0.55); padding:2px 8px; border-radius:9px;
+  background:rgba(255,255,255,0.1); cursor:pointer; margin-left:6px; user-select:none; transition:all .15s; }
+.mokugyo__auto-btn:hover { color:#fff; background:rgba(255,255,255,0.2); }
 .mokugyo__stage:hover img { filter:drop-shadow(0 0 12px rgba(251,191,36,.65)); }
 .mokugyo__hammer { position:absolute; right:2px; top:56px; width:48px; height:10px; border-radius:8px; background:linear-gradient(90deg,#7c2d12,#f59e0b); transform:translateY(-12px) rotate(-12deg); transform-origin:6px 5px; box-shadow:0 2px 4px rgba(0,0,0,.3); z-index:2; }
 .mokugyo__hammer::after { content:''; position:absolute; left:-8px; top:-7px; width:22px; height:24px; border-radius:50%; background:#fbbf24; box-shadow:inset -3px -3px 4px rgba(120,53,15,.25); }

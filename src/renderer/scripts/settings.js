@@ -379,6 +379,12 @@
       wfxToggle.classList.toggle('on', cfg.settings?.weatherFx !== false);
       wfxToggle.onclick = () => wfxToggle.classList.toggle('on');
     }
+    // 桌面绿植开关
+    const plantToggle = document.getElementById('toggle-plant');
+    if (plantToggle) {
+      plantToggle.classList.toggle('on', cfg.settings?.plantEnabled !== false);
+      plantToggle.onclick = () => plantToggle.classList.toggle('on');
+    }
     _customPlantImage = !!cfg.customPlantImage;
     renderCustomPlantUpload();
     _customMokugyoImage = !!cfg.customMokugyoImage;
@@ -560,6 +566,7 @@
         globalOpacity: parseInt(document.getElementById('global-opacity').value, 10) / 100,
         theme: _selectedTheme,
         weatherFx: document.getElementById('toggle-weatherFx').classList.contains('on'),
+        plantEnabled: document.getElementById('toggle-plant').classList.contains('on'),
         visibleWidgets
       }
     };

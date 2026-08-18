@@ -435,6 +435,8 @@ function createTray() {
     updateTrayMenu();
     updateTrayTooltip(true);
     tray.on('click', () => toggleAllWindows());
+    // 配置保存后（data.js 的 config:set）刷新托盘菜单，布局方案列表保持最新
+    global.__refreshTrayMenu = updateTrayMenu;
     console.log('[Tray] 托盘创建成功（左键单击切换显示）');
   } catch (e) {
     console.error('[Tray] 托盘创建失败（可能缺少 libappindicator）:', e.message);
@@ -444,6 +446,30 @@ function createTray() {
 
 function updateTrayMenu() {
   if (!tray) return;
+  // 布局方案子菜单：直接从 config 读取，点击即切换（Rainmeter Layout Profiles 实践）
+  const layoutProfiles = (configStore && configStore.getAll().layoutProfiles) || {};
+  const profileNames = Object.keys(layoutProfiles);
+  const profileMenu = {
+    label: '🗂️ 布局方案',
+    submenu: profileNames.length > 0
+      ? profileNames.map(name => ({
+          label: `切换到：${name}`,
+          click: () => {
+            try {
+              const cfg = configStore.getAll();
+              cfg.displayLayout = JSON.parse(JSON.stringify(layoutProfiles[name]));
+              configStore.setAll(cfg);
+              for (const win of windows.values()) {
+                if (win && !win.isDestroyed()) {
+                  win.webContents.send('config-updated');
+                  win.webContents.send('refresh-all');
+                }
+              }
+            } catch (e) { console.error('[layout-profile] 切换失败:', e.message); }
+          }
+        }))
+      : [{ label: '暂无方案（在设置-外观里保存）', enabled: false }]
+  };
   const menuTemplate = [
     {
       label: interactionMode ? '✅ 编辑模式（可拖动卡片）' : '🖱️ 穿透模式（透明壁纸）',
@@ -460,6 +486,7 @@ function updateTrayMenu() {
         }
       }
     },
+    profileMenu,
     {
       label: '切换编辑/穿透模式 (Ctrl+Shift+D)',
       click: () => toggleInteractionMode(),

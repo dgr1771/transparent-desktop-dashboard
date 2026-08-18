@@ -484,10 +484,11 @@ function updateTrayMenu() {
   };
   const menuTemplate = [
     {
-      label: interactionMode ? '✅ 编辑模式（可拖动卡片）' : '🖱️ 穿透模式（透明壁纸）',
-      enabled: false
+      label: interactionMode ? '✏️ 编辑模式中（可拖动卡片）— 点击切回穿透' : '🖱️ 切换编辑/穿透模式 (Ctrl+Shift+D)',
+      click: () => toggleInteractionMode(),
+      type: 'checkbox',
+      checked: interactionMode
     },
-    { type: 'separator' },
     {
       label: '🪄 自动排列卡片',
       click: () => {
@@ -499,12 +500,6 @@ function updateTrayMenu() {
       }
     },
     profileMenu,
-    {
-      label: '切换编辑/穿透模式 (Ctrl+Shift+D)',
-      click: () => toggleInteractionMode(),
-      type: 'checkbox',
-      checked: interactionMode
-    },
     { type: 'separator' },
     {
       label: '显示/隐藏看板（左键单击 或 Ctrl+Shift+H）',

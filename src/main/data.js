@@ -201,13 +201,14 @@ async function getStocks(codes) {
 
     // 解析：var hq_str_sh000001="上证指数,3289.99,...";
     const stocks = [];
+    const invalidCodes = [];   // 无效/停牌代码显式提示（新浪对无效代码返回空串，静默跳过用户会困惑）
     const lines = raw.split('\n');
     for (const line of lines) {
       const m = line.match(/var hq_str_(\w+)="(.*)";/);
       if (!m) continue;
       const code = m[1];
       const fields = m[2].split(',');
-      if (fields.length < 32 || !fields[0]) continue;
+      if (fields.length < 32 || !fields[0]) { invalidCodes.push(code); continue; }
 
       // 新浪字段顺序（沪深统一）：
       // 0名称,1今开,2昨收,3最新价,4最高,5最低,6买一,7卖一,
@@ -241,8 +242,14 @@ async function getStocks(codes) {
         isUp: change >= 0
       });
     }
-    return { stocks, updated: new Date().toLocaleString('zh-CN') };
+    if (stocks.length === 0 && invalidCodes.length > 0) {
+      return { error: `全部代码无效：${invalidCodes.join('、')}（请检查股票代码，如 sh600519 / sz000001）` };
+    }
+    const warn = invalidCodes.length > 0 ? `（${invalidCodes.join('、')} 为无效代码已跳过）` : undefined;
+    console.info(`[stocks] 成功 ${stocks.length} 只${warn || ''}`);
+    return { stocks, updated: new Date().toLocaleString('zh-CN'), warn };
   } catch (e) {
+    console.error('[stocks] 获取失败:', e.message, 'codes=', JSON.stringify(codes));
     return { error: `股票获取失败：${e.message}` };
   }
 }

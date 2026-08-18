@@ -1364,3 +1364,5 @@ body.interactive .news__item:hover {
 .deskapp__empty { display:flex; align-items:center; justify-content:center; height:100%; color:rgba(255,255,255,0.3); font-size:12px; }
 .deskapp__list::-webkit-scrollbar { width:4px; }
 .deskapp__list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:2px; }
+
+.stock__warn { font-size: 11px; color: rgba(251, 191, 36, 0.85); padding: 4px 2px 0; }

@@ -59,6 +59,7 @@ const StockWidget = {
       }
 
       // 如果尚未初始化或股票列表变化（增删），全量渲染一次
+      this._warn = data.warn;   // 无效代码提示（渲染尾部小字）
       const codes = data.stocks.map(s => s.code).join(',');
       const lastCodes = this._lastStocks.map(s => s.code).join(',');
       if (!this._initialized || codes !== lastCodes) {
@@ -127,6 +128,7 @@ const StockWidget = {
           <button class="stock__add-btn" id="stock-add-btn">+</button>
         </div>
         <div class="stock__list">${rows}</div>
+        ${this._warn ? `<div class="stock__warn">${this._escape(this._warn)}</div>` : ''}
       </div>
     `;
   },

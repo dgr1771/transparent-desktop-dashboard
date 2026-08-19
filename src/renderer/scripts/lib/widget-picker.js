@@ -36,7 +36,8 @@ const WidgetPicker = (() => {
   let _dockOpen = false;
   let _dockArmAt = 0;          // 鼠标贴右缘的起始时刻
   let _dockCloseTimer = null;
-  let _dockTip = null;         // 边缘坞的浮动信息提示（挂 body，避免被坞容器裁剪）
+  let _dockTip = null;         // 边缘坞的浮动信息提示（挂 body，复用单元素，避免逐悬停建删 DOM）
+  let _mmGate = 0;             // 边缘坞 mousemove 限频时间戳（30Hz）
 
   // ============================================================
   // 仪式感：合成音效（WebAudio，零素材依赖；音量克制）
@@ -527,20 +528,28 @@ const WidgetPicker = (() => {
     document.body.appendChild(dock);
 
     // 信息提示：挂在 body 的浮动层（坞容器 overflow 会裁剪内部定位的标签，
-    // 且固定在图标左侧不会被鼠标挡住）
+    // 且固定在图标左侧不会被鼠标挡住）。单元素复用 + display 切换——
+    // 逐悬停 createElement/removeChild 会造成布局抖动，滑动经过整列图标时尤其明显
+    const tipEl = () => {
+      if (!_dockTip) {
+        _dockTip = document.createElement('div');
+        _dockTip.className = 'wp-docktip';
+        _dockTip.style.display = 'none';
+        document.body.appendChild(_dockTip);
+      }
+      return _dockTip;
+    };
     const showTip = (item) => {
-      hideTip();
       const m = metaOf(item.dataset.id);
       if (!m) return;
-      _dockTip = document.createElement('div');
-      _dockTip.className = 'wp-docktip';
-      _dockTip.textContent = `${m.name} · ${m.desc} · 点击${isOn(m.id) ? '关闭' : '开启'}`;
-      document.body.appendChild(_dockTip);
+      const t = tipEl();
+      t.textContent = `${m.name} · ${m.desc} · 点击${isOn(m.id) ? '关闭' : '开启'}`;
+      t.style.display = '';
       const r = item.getBoundingClientRect();
-      _dockTip.style.left = (r.left - _dockTip.offsetWidth - 12) + 'px';  // 图标左侧 12px
-      _dockTip.style.top = (r.top + r.height / 2) + 'px';                 // 与图标垂直居中
+      t.style.left = (r.left - t.offsetWidth - 12) + 'px';  // 图标左侧 12px
+      t.style.top = (r.top + r.height / 2) + 'px';          // 与图标垂直居中
     };
-    const hideTip = () => { if (_dockTip) { _dockTip.remove(); _dockTip = null; } };
+    const hideTip = () => { if (_dockTip) _dockTip.style.display = 'none'; };
 
     dock.querySelectorAll('.wp-dock__item').forEach((item, idx) => {
       item.addEventListener('mouseenter', () => { showTip(item); Sound.chime(idx); });
@@ -574,8 +583,13 @@ const WidgetPicker = (() => {
       });
     });
 
-    // 热区判定用 mousemove 坐标（穿透态下 Windows 仍能收到转发的 mousemove）
+    // 热区判定用 mousemove 坐标（穿透态下 Windows 仍能收到转发的 mousemove）。
+    // 限频 30Hz：热区判定/收起调度不需要逐事件响应，高回报率鼠标（500-1000Hz）
+    // 下逐事件跑 DOM 查询+定时器操作是可感知的卡顿来源
     document.addEventListener('mousemove', (e) => {
+      const now = performance.now();
+      if (now - _mmGate < 33) return;
+      _mmGate = now;
       if (_open || document.querySelector('.widget.dragging')) { _dockArmAt = 0; return; }
       const nearEdge = e.clientX >= window.innerWidth - 8;
       if (nearEdge) {
@@ -610,8 +624,10 @@ const WidgetPicker = (() => {
   }
 
   function scheduleDockClose() {
-    cancelDockClose();
-    _dockCloseTimer = setTimeout(closeDock, 700);
+    // 已有待触发的收起就不重建——鼠标在桌面滑动时每次 mousemove
+    // 都 clearTimeout+setTimeout 造定时器是无谓抖动
+    if (_dockCloseTimer) return;
+    _dockCloseTimer = setTimeout(() => { _dockCloseTimer = null; closeDock(); }, 700);
   }
 
   function cancelDockClose() {
@@ -620,7 +636,7 @@ const WidgetPicker = (() => {
 
   function closeDock() {
     cancelDockClose();
-    if (_dockTip) { _dockTip.remove(); _dockTip = null; }
+    if (_dockTip) _dockTip.style.display = 'none';
     const dock = document.getElementById('wp-dock');
     if (dock) {
       if (_dockOpen) Sound.dockClose();   // 收起仪式：下行滑音

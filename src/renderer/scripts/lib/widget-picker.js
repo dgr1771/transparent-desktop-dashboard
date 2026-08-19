@@ -36,6 +36,7 @@ const WidgetPicker = (() => {
   let _dockOpen = false;
   let _dockArmAt = 0;          // 鼠标贴右缘的起始时刻
   let _dockCloseTimer = null;
+  let _dockTip = null;         // 边缘坞的浮动信息提示（挂 body，避免被坞容器裁剪）
 
   const metaOf = (id) => META.find(m => m.id === id);
   const displayKey = () => (window.__dashboard && window.__dashboard.displayKey) || 'primary';
@@ -295,7 +296,7 @@ const WidgetPicker = (() => {
         <div class="wp-fcard__lift">
           <div class="wp-fcard__inner">
             <div class="wp-fcard__face wp-fcard__face--back">
-              <span class="wp-fcard__idx">${m.icon}</span>
+              <span class="wp-fcard__bigicon">${m.icon}</span>
               <span class="wp-fcard__backname">${m.name}</span>
             </div>
             <div class="wp-fcard__face wp-fcard__face--front">
@@ -385,25 +386,44 @@ const WidgetPicker = (() => {
     dock.innerHTML =
       `<div class="wp-dock__head" title="看板组件坞：点击图标开启/关闭对应卡片">${'🧩'}</div>` +
       META.map(m => `
-      <div class="wp-dock__item ${isOn(m.id) ? 'wp-dock__item--on' : ''}" data-id="${m.id}" title="${m.name}：${m.desc}">
-        ${m.icon}<span class="wp-dock__label">${m.name} · ${m.desc} · 点击${isOn(m.id) ? '关闭' : '开启'}</span>
+      <div class="wp-dock__item ${isOn(m.id) ? 'wp-dock__item--on' : ''}" data-id="${m.id}">
+        ${m.icon}
       </div>`).join('') + '<div class="wp-dock__tip">贴右缘唤出</div>';
     document.body.appendChild(dock);
 
-    dock.addEventListener('click', (e) => {
-      const item = e.target.closest('.wp-dock__item');
-      if (!item) return;
-      const id = item.dataset.id;
-      if (isOn(id)) {
-        setEnabled(id, false);
-        item.classList.remove('wp-dock__item--on');
-        const label = item.querySelector('.wp-dock__label');
-        if (label) label.textContent = `${metaOf(id).name} · ${metaOf(id).desc} · 点击开启`;
-      } else {
-        const rect = item.getBoundingClientRect();
-        closeDock();
-        setEnabled(id, true, rect);
-      }
+    // 信息提示：挂在 body 的浮动层（坞容器 overflow 会裁剪内部定位的标签，
+    // 且固定在图标左侧不会被鼠标挡住）
+    const showTip = (item) => {
+      hideTip();
+      const m = metaOf(item.dataset.id);
+      if (!m) return;
+      _dockTip = document.createElement('div');
+      _dockTip.className = 'wp-docktip';
+      _dockTip.textContent = `${m.name} · ${m.desc} · 点击${isOn(m.id) ? '关闭' : '开启'}`;
+      document.body.appendChild(_dockTip);
+      const r = item.getBoundingClientRect();
+      _dockTip.style.left = (r.left - _dockTip.offsetWidth - 12) + 'px';  // 图标左侧 12px
+      _dockTip.style.top = (r.top + r.height / 2) + 'px';                 // 与图标垂直居中
+    };
+    const hideTip = () => { if (_dockTip) { _dockTip.remove(); _dockTip = null; } };
+
+    dock.querySelectorAll('.wp-dock__item').forEach(item => {
+      item.addEventListener('mouseenter', () => showTip(item));
+      item.addEventListener('mouseleave', hideTip);
+      item.addEventListener('click', () => {
+        const id = item.dataset.id;
+        if (isOn(id)) {
+          setEnabled(id, false);
+          item.classList.remove('wp-dock__item--on');
+        } else {
+          const rect = item.getBoundingClientRect();
+          hideTip();
+          closeDock();
+          setEnabled(id, true, rect);
+          return;
+        }
+        showTip(item);   // 关闭后状态变了，刷新提示文字
+      });
     });
 
     // 热区判定用 mousemove 坐标（穿透态下 Windows 仍能收到转发的 mousemove）
@@ -442,6 +462,7 @@ const WidgetPicker = (() => {
 
   function closeDock() {
     cancelDockClose();
+    if (_dockTip) { _dockTip.remove(); _dockTip = null; }
     const dock = document.getElementById('wp-dock');
     if (dock) dock.classList.remove('wp-dock--open');
     _dockOpen = false;

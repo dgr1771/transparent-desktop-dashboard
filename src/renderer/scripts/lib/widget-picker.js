@@ -43,6 +43,7 @@ const WidgetPicker = (() => {
   // ============================================================
   const Sound = (() => {
     let ctx = null;
+    let _lastChime = 0;   // 风铃限流（快速滑动防连响）
     let enabled = (() => { try { return localStorage.getItem('wp_sound') !== '0'; } catch (e) { return true; } })();
     function ac() {
       if (!ctx) {
@@ -94,6 +95,18 @@ const WidgetPicker = (() => {
       dockClose() { sweep(880, 300, 0.16, 0.028); },
       tick()      { tone(1250, 0.05, { type: 'triangle', gain: 0.04 }); },
       off()       { tone(520, 0.07, { type: 'triangle', gain: 0.035 }); tone(340, 0.1, { type: 'triangle', gain: 0.03, delay: 0.06 }); },
+      /** 滑过坞图标的风铃：大调五声音阶（任意顺序都和谐），音乐盒泛音质感 */
+      chime(i) {
+        const now = Date.now();
+        if (now - _lastChime < 35) return;   // 快速滑动时限流，防边缘抖动连响
+        _lastChime = now;
+        const PENTA = [0, 2, 4, 7, 9];       // 宫 商 角 徵 羽（半音偏移）
+        const step = PENTA[i % 5] + 12 * Math.floor((i % 10) / 5);   // 两个八度内循环
+        const f = 523.25 * Math.pow(2, step / 12);                    // C5 起
+        tone(f, 0.5, { gain: 0.045 });
+        tone(f * 2, 0.35, { gain: 0.012, delay: 0.005 });            // 高八度泛音
+        tone(f * 3, 0.2, { gain: 0.006, delay: 0.01 });              // 十二度泛音
+      },
       toggle() {
         enabled = !enabled;
         try { localStorage.setItem('wp_sound', enabled ? '1' : '0'); } catch (e) {}
@@ -529,8 +542,8 @@ const WidgetPicker = (() => {
     };
     const hideTip = () => { if (_dockTip) { _dockTip.remove(); _dockTip = null; } };
 
-    dock.querySelectorAll('.wp-dock__item').forEach(item => {
-      item.addEventListener('mouseenter', () => showTip(item));
+    dock.querySelectorAll('.wp-dock__item').forEach((item, idx) => {
+      item.addEventListener('mouseenter', () => { showTip(item); Sound.chime(idx); });
       item.addEventListener('mouseleave', hideTip);
       item.addEventListener('click', () => {
         const id = item.dataset.id;

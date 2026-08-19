@@ -673,8 +673,10 @@ app.on('window-all-closed', (e) => {
   // 不调用 app.quit()，让应用常驻托盘
 });
 
-app.whenReady().then(() => {
-  configStore = new ConfigStore();
+  app.whenReady().then(() => {
+    configStore = new ConfigStore();
+    // 图标磁盘缓存：首扫前加载，开机即命中（提取 60 个图标要数秒 CPU）
+    loadIconCache();
 
   // 迁移：旧版 customPlantImage/customMokugyoImage 把 dataURL 塞进 config.json，
   // 新版改为独立文件存储。这里把旧 dataURL 迁移到文件，config 改存 true 标志。
@@ -714,6 +716,36 @@ app.on('will-quit', () => {
   setWindowsDShortcutBlocked(false);
   globalShortcut.unregisterAll();
 });
+
+// ========== 图标磁盘缓存（模块级：registerIpcHandlers 内外都要用）==========
+const _iconCache = new Map();
+let _iconCacheSaveTimer = null;
+const iconCacheFile = () => path.join(app.getPath('userData'), 'icon-cache.json');
+const ICON_KEY = (it) => `${it.fullPath}|${it.mtimeMs}|${it.size}`;
+
+function loadIconCache() {
+  try {
+    const j = JSON.parse(fs.readFileSync(iconCacheFile(), 'utf8'));
+    for (const [k, v] of Object.entries(j)) _iconCache.set(k, v);
+    console.info(`[icon] 磁盘缓存加载 ${_iconCache.size} 项`);
+  } catch (e) {}
+}
+
+function saveIconCacheSoon() {
+  clearTimeout(_iconCacheSaveTimer);
+  _iconCacheSaveTimer = setTimeout(() => {
+    try {
+      const obj = {};
+      let n = 0;
+      for (const [k, v] of _iconCache) {
+        if (n >= 800) break;                       // 防无限膨胀
+        const p = k.slice(0, k.indexOf('|'));
+        if (fs.existsSync(p)) { obj[k] = v; n++; }  // 文件已删除的条目不落盘
+      }
+      fs.writeFileSync(iconCacheFile(), JSON.stringify(obj));
+    } catch (e) { console.error('[icon] 缓存落盘失败:', e.message); }
+  }, 5000);
+}
 
 // ========== IPC 处理 ==========
 
@@ -884,29 +916,56 @@ function registerIpcHandlers() {
    * .lnk 含自定义 IconLocation / UWP），失败兜底 Electron getFileIcon。
    * 分批 + setImmediate 让出主进程，避免同步调用连续阻塞。
    */
+  /**
+   * 批量提取图标。
+   * 按文件粒度缓存（fullPath|mtime|size → dataUrl）：整体签名失效时
+   * （桌面任一文件变动）只重提取变化的文件，其余直接命中；
+   * 缓存持久化到 userData/icon-cache.json，重启后首扫也免全量提取。
+   * （缓存表与落盘函数在模块级 _iconCache 块）
+   */
   async function extractIcons(items) {
     const iconMap = {};
     const batchSize = 6;
-    let koffiOk = 0, fallbackOk = 0;
-    for (let i = 0; i < items.length; i += batchSize) {
-      const batch = items.slice(i, i + batchSize);
+    let koffiOk = 0, fallbackOk = 0, cacheHit = 0;
+    const todo = [];
+    for (const it of items) {
+      const hit = _iconCache.get(ICON_KEY(it));
+      if (hit) { iconMap[it.fullPath] = hit; cacheHit++; }
+      else todo.push(it);
+    }
+    if (todo.length === 0) {
+      console.info(`[icon] 全部命中缓存（${items.length} 项，零提取）`);
+      return iconMap;
+    }
+    for (let i = 0; i < todo.length; i += batchSize) {
+      const batch = todo.slice(i, i + batchSize);
       await Promise.all(batch.map(async (it) => {
         try {
           // 优先 koffi SHGetFileInfo：系统级 Shell 解析，正确处理 .lnk（含自定义
           // IconLocation）、UWP 应用等，比 Electron getFileIcon 全面可靠。
           if (platform.isWin && platform.extractIconViaKoffi) {
             const dataUrl = platform.extractIconViaKoffi(it.fullPath);
-            if (dataUrl) { iconMap[it.fullPath] = dataUrl; koffiOk++; return; }
+            if (dataUrl) {
+              iconMap[it.fullPath] = dataUrl;
+              _iconCache.set(ICON_KEY(it), dataUrl);
+              koffiOk++; return;
+            }
           }
           // 兜底（Linux/Mac 或 koffi 失败）：Electron getFileIcon
           const img = await app.getFileIcon(it.fullPath, { size: 'normal' });
-          if (img && !img.isEmpty()) { iconMap[it.fullPath] = img.toDataURL(); fallbackOk++; }
+          if (img && !img.isEmpty()) {
+            const dataUrl = img.toDataURL();
+            iconMap[it.fullPath] = dataUrl;
+            _iconCache.set(ICON_KEY(it), dataUrl);
+            fallbackOk++;
+          }
         } catch (e) {}
       }));
       // 让出主进程，避免同步 koffi 调用连续阻塞过久
       await new Promise(r => setImmediate(r));
     }
-    console.info(`[icon] 提取完成: koffi成功=${koffiOk} 兜底=${fallbackOk} 共${items.length}项`);
+    saveIconCacheSoon();
+    console.info(`[icon] 提取完成: 新提取=${koffiOk + fallbackOk} 缓存命中=${cacheHit} 共${items.length}项`);
     return iconMap;
   }
 

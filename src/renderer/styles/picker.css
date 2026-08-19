@@ -7,21 +7,29 @@
 
 /* ===== C. 扑克抽取 ===== */
 
-/* 桌面卡堆（常驻入口） */
+/* 桌面卡堆（常驻入口，带呼吸微动效提示可点） */
 #wp-deck {
   position: fixed;
   bottom: 14px;
   left: 50%;
-  transform: translateX(-50%);
   width: 46px;
   height: 64px;
   z-index: 900;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  animation: wpDeckBreathe 3.8s ease-in-out infinite;
+}
+
+@keyframes wpDeckBreathe {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(-4px); }
 }
 
 #wp-deck:hover {
-  transform: translateX(-50%) translateY(-5px);
+  animation-play-state: paused;
+}
+
+#wp-deck:hover .wp-deck__card {
+  transform: translateY(-4px);
 }
 
 #wp-deck .wp-deck__card {
@@ -194,6 +202,138 @@
   box-shadow: 0 0 14px rgba(var(--accent-color), 0.35), 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 
+/* 今日运势金卡（扇形正中） */
+.wp-fcard--fortune .wp-fcard__face--back {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.07) 0 6px, transparent 6px 12px),
+    linear-gradient(135deg, #6b5420 0%, #8a6d2b 55%, #5c4718 100%);
+  border-color: rgba(255, 215, 130, 0.75);
+  box-shadow: 0 0 16px rgba(255, 200, 90, 0.35), 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.wp-fcard--fortune .wp-fcard__backname {
+  color: #ffe9b8;
+}
+
+.wp-fcard--fortune .wp-fcard__face--front {
+  border-color: rgba(255, 215, 130, 0.85);
+  box-shadow: 0 0 14px rgba(255, 200, 90, 0.4), 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+/* 运势弹层 */
+.wp-fortune {
+  position: fixed;
+  inset: 0;
+  z-index: 10070;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 6, 10, 0.35);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.wp-fortune.wp-open {
+  opacity: 1;
+}
+
+.wp-fortune__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(360px, 84vw);
+  padding: 30px 28px 24px;
+  border-radius: 20px;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.04) 0 6px, transparent 6px 12px),
+    linear-gradient(150deg, #3a2f14 0%, #241d0c 100%);
+  border: 1px solid rgba(255, 215, 130, 0.55);
+  box-shadow: 0 0 28px rgba(255, 200, 90, 0.28), 0 18px 50px rgba(0, 0, 0, 0.55);
+  transform: scale(0.9);
+  transition: transform 0.28s cubic-bezier(0.3, 1.3, 0.4, 1);
+}
+
+.wp-fortune.wp-open .wp-fortune__card {
+  transform: scale(1);
+}
+
+.wp-fortune__icon {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.wp-fortune__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffe9b8;
+  letter-spacing: 3px;
+}
+
+.wp-fortune__text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.7;
+  text-align: center;
+}
+
+.wp-fortune__meta {
+  font-size: 11px;
+  color: rgba(255, 233, 184, 0.4);
+  margin-top: 2px;
+}
+
+.wp-fortune__btns {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.wp-fortune__btns button {
+  padding: 9px 18px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 215, 130, 0.5);
+  background: rgba(255, 215, 130, 0.14);
+  color: #ffe9b8;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.wp-fortune__btns button:hover {
+  background: rgba(255, 215, 130, 0.28);
+}
+
+.wp-fortune__btns button[data-act="ok"] {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* 落地粒子 */
+.wp-particle {
+  position: fixed;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  z-index: 11000;
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(255, 235, 180, 0.8);
+}
+
+/* 音效开关（扇形提示行内） */
+.wp-sndbtn {
+  pointer-events: auto;
+  cursor: pointer;
+  margin-left: 8px;
+  opacity: 0.7;
+  font-size: 13px;
+}
+
+.wp-sndbtn:hover {
+  opacity: 1;
+}
+
 /* ===== A. 边缘坞 ===== */
 #wp-hotzone {
   position: fixed;
@@ -332,7 +472,8 @@
 
 /* ===== 动画可访问性 / 省电 ===== */
 @media (prefers-reduced-motion: reduce) {
-  .wp-card, .wp-fcard, .wp-fcard__inner, .wp-fcard__lift, #wp-dock, #wp-deck {
+  .wp-card, .wp-fcard, .wp-fcard__inner, .wp-fcard__lift, #wp-dock, #wp-deck, .wp-fortune__card {
     transition: none !important;
   }
+  #wp-deck { animation: none; transform: translateX(-50%); }
 }

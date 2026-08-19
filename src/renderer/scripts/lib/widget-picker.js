@@ -38,6 +38,118 @@ const WidgetPicker = (() => {
   let _dockCloseTimer = null;
   let _dockTip = null;         // 边缘坞的浮动信息提示（挂 body，避免被坞容器裁剪）
 
+  // ============================================================
+  // 仪式感：合成音效（WebAudio，零素材依赖；音量克制）
+  // ============================================================
+  const Sound = (() => {
+    let ctx = null;
+    let enabled = (() => { try { return localStorage.getItem('wp_sound') !== '0'; } catch (e) { return true; } })();
+    function ac() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) ctx = new AC();
+      }
+      if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+      return ctx;
+    }
+    function tone(freq, dur, opts) {
+      if (!enabled) return;
+      const { type = 'sine', gain = 0.06, delay = 0 } = opts || {};
+      try {
+        const c = ac(); if (!c) return;
+        const t = c.currentTime + delay;
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = type; o.frequency.value = freq;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(gain, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g).connect(c.destination);
+        o.start(t); o.stop(t + dur + 0.05);
+      } catch (e) {}
+    }
+    return {
+      deal()   { tone(1500 + Math.random() * 600, 0.05, { type: 'triangle', gain: 0.035 }); },
+      flip()   { tone(880, 0.07, { type: 'square', gain: 0.025 }); tone(1320, 0.05, { type: 'square', gain: 0.02, delay: 0.045 }); },
+      land()   { tone(523.25, 0.12); tone(659.25, 0.14, { delay: 0.09 }); tone(783.99, 0.22, { delay: 0.18 }); },
+      close()  { tone(640, 0.06, { type: 'triangle', gain: 0.03 }); tone(420, 0.09, { type: 'triangle', gain: 0.025, delay: 0.05 }); },
+      fortune(){ [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.28, { gain: 0.055, delay: i * 0.09 })); },
+      toggle() {
+        enabled = !enabled;
+        try { localStorage.setItem('wp_sound', enabled ? '1' : '0'); } catch (e) {}
+        return enabled;
+      },
+      get enabled() { return enabled; },
+    };
+  })();
+
+  /** 落点粒子迸发（DOM 粒子，WAAPI 一次性动画，自动清理） */
+  function burstParticles(x, y, count) {
+    if (_skipAnim()) return;
+    const n = count || 12;
+    const colors = ['#ffd782', '#ffffff', `rgb(${getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '96,165,250'})`];
+    for (let i = 0; i < n; i++) {
+      const p = document.createElement('div');
+      p.className = 'wp-particle';
+      p.style.left = x + 'px';
+      p.style.top = y + 'px';
+      p.style.background = colors[i % colors.length];
+      document.body.appendChild(p);
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 36 + Math.random() * 66;
+      const dx = Math.cos(ang) * dist;
+      const dy = Math.sin(ang) * dist - 26;   // 整体向上偏的弧线
+      try {
+        p.animate([
+          { transform: 'translate(0,0) scale(1)', opacity: 1 },
+          { transform: `translate(${dx}px, ${dy + 46}px) scale(0.15)`, opacity: 0 },
+        ], { duration: 520 + Math.random() * 260, easing: 'cubic-bezier(0.2, 0.7, 0.4, 1)' })
+          .finished.then(() => p.remove()).catch(() => p.remove());
+      } catch (e) { p.remove(); }
+    }
+  }
+
+  // ============================================================
+  // 仪式感：今日运势（每日一抽，本地文案零依赖；日期哈希保证全天稳定）
+  // ============================================================
+  const FORTUNES = [
+    { t: '宜专注',   d: '番茄钟护体，两轮专注之后，事事都会顺起来。',       w: 'pomodoro' },
+    { t: '宜知天下', d: '开工前刷三条新闻，今天的谈资就是你的运气。',       w: 'news' },
+    { t: '宜守财',   d: '不冲动消费，行情绿了也别慌——稳住就是赢。',        w: 'stock' },
+    { t: '宜清零',   d: '待办清单里躺最久的那件事，今天做掉它。',           w: 'todo' },
+    { t: '宜远行',   d: '出门前看眼天气，今天风都会顺着你吹。',             w: 'weather' },
+    { t: '宜倒数',   d: '离好事又近了一天，倒数日替你记着呢。',             w: 'countdown' },
+    { t: '宜静心',   d: '敲三下木鱼，功德 +1，烦恼 -1。',                   w: 'mokugyo' },
+    { t: '宜问牌',   d: '今日一抽塔罗，答案其实早就在你心里。',             w: 'tarot' },
+    { t: '宜整理',   d: '桌面清一清，文件夹里可能藏着惊喜。',               w: 'deskfolders' },
+    { t: '宜冲浪',   d: '热梗今天格外多，热搜榜都替你挑好了。',             w: 'hotsearch' },
+    { t: '宜记录',   d: '在日历上圈一个重点，月末回头会感谢自己。',         w: 'calendar' },
+    { t: '宜练眼',   d: '舒尔特方格来一轮，眼神都变得锋利。',               w: 'schulte' },
+    { t: '宜通达',   d: '常用链接一键直达，今天效率翻倍。',                 w: 'links' },
+    { t: '宜观察',   d: '瞄一眼系统监控，让 CPU 也歇口气。',                w: 'sysmonitor' },
+    { t: '宜启动',   d: '常用应用点开即启，好运随开机一起上线。',           w: 'apps' },
+    { t: '宜陪伴',   d: '时钟滴答，专注的你在发光。',                       w: 'clock' },
+  ];
+
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  }
+
+  /** 今天的运势（日期哈希选条，全天稳定；跨天自动换） */
+  function fortuneOf() {
+    const s = todayStr();
+    let h = 0;
+    for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return { ...FORTUNES[h % FORTUNES.length], date: s };
+  }
+
+  function fortuneDrawnToday() {
+    try {
+      const st = JSON.parse(localStorage.getItem('wp_fortune') || 'null');
+      return !!(st && st.date === todayStr());
+    } catch (e) { return false; }
+  }
+
   const metaOf = (id) => META.find(m => m.id === id);
   const displayKey = () => (window.__dashboard && window.__dashboard.displayKey) || 'primary';
 
@@ -128,6 +240,7 @@ const WidgetPicker = (() => {
   function flyIn(el, sourceRect) {
     if (!el) return Promise.resolve();
     if (!sourceRect || _skipAnim()) {
+      Sound.land();
       try { el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' }); } catch (e) {}
       return Promise.resolve();
     }
@@ -161,6 +274,9 @@ const WidgetPicker = (() => {
     return anim.finished.then(() => {
       ghost.remove();
       el.style.opacity = '';
+      // 落地仪式：琶音 + 金色粒子迸发
+      Sound.land();
+      burstParticles(target.left + target.width / 2, target.top + target.height / 2);
       try {
         el.animate([{ transform: 'scale(0.94)', opacity: 0.6 }, { transform: 'scale(1)', opacity: 1 }],
           { duration: 200, easing: 'ease-out' });
@@ -190,8 +306,14 @@ const WidgetPicker = (() => {
     _open = 'fan';
     grabMouse();
 
-    const n = META.length;
-    const spread = Math.min(9, 168 / n);                      // 每张牌的角度
+    // 牌堆：17 组件 + 正中插入「今日运势」金卡
+    const fanCards = META.slice();
+    fanCards.splice(Math.floor(META.length / 2), 0, {
+      id: 'fortune', icon: '🎴', name: '今日运势',
+      desc: fortuneDrawnToday() ? '已抽 · 点击再看' : '每日一抽 · 点击开运',
+    });
+    const n = fanCards.length;
+    const spread = Math.min(8.5, 172 / n);                    // 每张牌的角度
     const R = Math.max(240, Math.min(window.innerHeight * 0.34, 430));
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight * 0.52;
@@ -200,8 +322,8 @@ const WidgetPicker = (() => {
     const ov = document.createElement('div');
     ov.id = 'wp-fan';
     ov.className = 'no-drag wp-fan-overlay';
-    ov.innerHTML = META.map((m, i) => `
-      <div class="wp-fcard ${isOn(m.id) ? 'wp-fcard--on' : ''}" data-id="${m.id}" title="${m.name}：${m.desc}">
+    ov.innerHTML = fanCards.map((m) => `
+      <div class="wp-fcard ${m.id === 'fortune' ? 'wp-fcard--fortune' : ''} ${m.id !== 'fortune' && isOn(m.id) ? 'wp-fcard--on' : ''}" data-id="${m.id}" title="${m.name}：${m.desc}">
         <div class="wp-fcard__lift">
           <div class="wp-fcard__inner">
             <div class="wp-fcard__face wp-fcard__face--back">
@@ -211,34 +333,45 @@ const WidgetPicker = (() => {
             <div class="wp-fcard__face wp-fcard__face--front">
               <div class="wp-fcard__icon">${m.icon}</div>
               <div class="wp-fcard__name">${m.name}</div>
-              <div class="wp-fcard__state">${isOn(m.id) ? '已开启 · 点击关闭' : '点击抽取'}</div>
+              <div class="wp-fcard__state">${m.id === 'fortune' ? m.desc : (isOn(m.id) ? '已开启 · 点击关闭' : '点击抽取')}</div>
             </div>
           </div>
         </div>
-      </div>`).join('') + `<div class="wp-fan-hint">🃏 悬停看牌面 · 点击抽上桌 · Esc / 点空白处收牌</div>`;
+      </div>`).join('') +
+      `<div class="wp-fan-hint">🃏 悬停看牌面 · 点击抽上桌 · Esc / 点空白处收牌 <span class="wp-sndbtn" title="音效开关">${Sound.enabled ? '🔊' : '🔇'}</span></div>`;
     document.body.appendChild(ov);
 
-    // 发牌动画：先全部叠在卡堆处，再交错飞到扇形位
-    ov.querySelectorAll('.wp-fcard').forEach((card, i) => {
+    // 音效开关（提示行内，独立于浮层关闭逻辑）
+    ov.querySelector('.wp-sndbtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const on = Sound.toggle();
+      e.target.textContent = on ? '🔊' : '🔇';
+      if (on) Sound.flip();
+    });
+
+    // 发牌动画：先全部叠在卡堆处，再交错飞到扇形位（伴随洗牌声）
+    const cards = [...ov.querySelectorAll('.wp-fcard')];
+    cards.forEach((card) => {
       card.style.opacity = '0';
       card.style.transform = `translate(${cx}px, ${deckY}px) translate(-50%, -50%) scale(0.5)`;
     });
     requestAnimationFrame(() => requestAnimationFrame(() => {
       ov.classList.add('wp-open');
-      ov.querySelectorAll('.wp-fcard').forEach((card, i) => {
+      cards.forEach((card, i) => {
         const a = (i - (n - 1) / 2) * spread;
         card.style.transitionDelay = (i * 26) + 'ms';
         card.style.opacity = '1';
         // rotate → 半径位移 → 反向 rotate：牌沿弧排列且保持直立
         card.style.transform =
           `translate(${cx}px, ${cy}px) translate(-50%, -50%) rotate(${a}deg) translateY(${-R}px) rotate(${-a}deg)`;
+        setTimeout(() => Sound.deal(), i * 26);
       });
-      setTimeout(() => ov.querySelectorAll('.wp-fcard').forEach(c => { c.style.transitionDelay = '0ms'; }), n * 26 + 650);
+      setTimeout(() => cards.forEach(c => { c.style.transitionDelay = '0ms'; }), n * 26 + 650);
     }));
 
     // 悬停看牌：悬停翻面看完整信息（图标/名称/状态），移开翻回花背；
     // 正在抽取（drawing）的牌不受影响
-    ov.querySelectorAll('.wp-fcard').forEach(card => {
+    cards.forEach(card => {
       const inner = card.querySelector('.wp-fcard__inner');
       card.addEventListener('mouseenter', () => {
         if (!card.dataset.drawing) inner.classList.add('is-flipped');
@@ -249,10 +382,12 @@ const WidgetPicker = (() => {
     });
 
     ov.addEventListener('click', (e) => {
+      if (e.target.closest('.wp-sndbtn')) return;
       const card = e.target.closest('.wp-fcard');
       if (!card) { closeFan(); return; }   // 点空白收牌
       const id = card.dataset.id;
       const inner = card.querySelector('.wp-fcard__inner');
+      if (id === 'fortune') { showFortune(); return; }
       if (isOn(id)) {
         setEnabled(id, false);
         card.classList.remove('wp-fcard--on');
@@ -265,6 +400,7 @@ const WidgetPicker = (() => {
       const rect = card.getBoundingClientRect();
       card.dataset.drawing = '1';
       inner.classList.add('is-flipped');
+      Sound.flip();
       setTimeout(() => {
         closeFan();
         setEnabled(id, true, rect);
@@ -272,11 +408,67 @@ const WidgetPicker = (() => {
     });
   }
 
+  /** 今日运势：抽卡结果弹层（金卡仪式：琶音 + 粒子） */
+  function showFortune() {
+    document.getElementById('wp-fortune')?.remove();
+    const f = fortuneOf();
+    const isNew = !fortuneDrawnToday();
+    if (isNew) {
+      try { localStorage.setItem('wp_fortune', JSON.stringify({ date: f.date, t: f.t })); } catch (e) {}
+    }
+    const m = metaOf(f.w);
+    const suggestBtn = m && !isOn(f.w)
+      ? `<button data-act="open">开启「${m.name}」沾好运</button>` : '';
+
+    const pop = document.createElement('div');
+    pop.id = 'wp-fortune';
+    pop.className = 'no-drag wp-fortune';
+    pop.innerHTML = `
+      <div class="wp-fortune__card">
+        <div class="wp-fortune__icon">🎴</div>
+        <div class="wp-fortune__title">${f.t}</div>
+        <div class="wp-fortune__text">${f.d}</div>
+        <div class="wp-fortune__meta">— ${f.date} · 每日运势 —</div>
+        <div class="wp-fortune__btns">${suggestBtn}<button data-act="ok">知道了</button></div>
+      </div>`;
+    document.body.appendChild(pop);
+    requestAnimationFrame(() => requestAnimationFrame(() => pop.classList.add('wp-open')));
+    if (isNew) {
+      Sound.fortune();
+      burstParticles(window.innerWidth / 2, window.innerHeight / 2 - 80, 16);
+    } else {
+      Sound.flip();
+    }
+
+    pop.addEventListener('click', (e) => {
+      if (e.target === pop) { pop.remove(); return; }
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      if (btn.dataset.act === 'open') {
+        const rect = btn.getBoundingClientRect();
+        pop.remove();
+        closeFan();
+        setEnabled(f.w, true, rect);
+      } else {
+        pop.remove();
+      }
+    });
+  }
+
   function closeFan() {
     const ov = document.getElementById('wp-fan');
     if (ov) {
+      // 收牌仪式：牌交错飞回卡堆再淡出
+      const cx = window.innerWidth / 2;
+      const deckY = window.innerHeight - 60;
+      ov.querySelectorAll('.wp-fcard').forEach((c, i) => {
+        c.style.transitionDelay = Math.min(i * 14, 220) + 'ms';
+        c.style.transform = `translate(${cx}px, ${deckY}px) translate(-50%, -50%) scale(0.5)`;
+        c.style.opacity = '0';
+      });
       ov.classList.remove('wp-open');
-      setTimeout(() => ov.remove(), 200);
+      setTimeout(() => ov.remove(), 520);
+      Sound.close();
     }
     _open = null;
     releaseMouse();
@@ -400,6 +592,8 @@ const WidgetPicker = (() => {
   function initKeys() {
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
+      const pop = document.getElementById('wp-fortune');
+      if (pop) { e.stopPropagation(); pop.remove(); return; }   // 先关运势弹层，扇形保留
       if (_open === 'fan') { e.stopPropagation(); closeFan(); }
       else if (_dockOpen) closeDock();
     });

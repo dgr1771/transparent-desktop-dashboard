@@ -57,6 +57,9 @@
     // 初始化区域穿透（卡片可点、空白穿透）— 轻量，立即
     ClickThrough.init();
 
+    // 卡片开启交互三件套：组件库(Ctrl+Shift+A) / 扑克抽卡 / 边缘坞
+    if (typeof WidgetPicker !== 'undefined') WidgetPicker.init();
+
     // 应用主题和透明度 — 立即，首屏配色就位
     applyTheme(Store.get('settings')?.theme);
     applyGlobalOpacity();
@@ -212,6 +215,16 @@
         }
         // 方案揭示的卡片：位置已在 applyLayout 应用，只初始化数据
         profileRevealed.forEach(name => initWidget(name));
+
+        // 组件库/抽卡/边缘坞开启的卡片：FLIP 飞入（来源矩形由 WidgetPicker 预置）
+        const pend = window.__dashboard._pendingReveal;
+        if (pend) {
+          window.__dashboard._pendingReveal = null;
+          if (Date.now() - pend.t < 4000 && typeof WidgetPicker !== 'undefined') {
+            const el = document.querySelector(`.widget[data-widget="${pend.name}"]`);
+            if (el && el.style.display !== 'none') WidgetPicker.flyIn(el, pend.rect);
+          }
+        }
 
         // 刷新频率档位变化 → 重建所有数据定时器（各 init 有清旧守卫，安全重入）
         if (_prevRefreshRate && _prevRefreshRate !== (Store.get('settings') || {}).refreshRate) {
@@ -649,6 +662,7 @@
     autoArrange,
     timers,
     displayKey: _displayKey,
+    isWidgetVisible,
     /**
      * 数据刷新频率档位（设置-性能）：省电=间隔×2 / 标准=×1 / 迅捷=×0.5。
      * widget 的数据定时器统一用它换算基准间隔；交互类（时钟秒针/番茄钟/木鱼）不经过此函数。

@@ -533,6 +533,10 @@ function updateTrayMenu() {
       checked: interactionMode
     },
     {
+      label: '🃏 组件库 — 选取/搜索卡片 (Ctrl+Shift+A)',
+      click: () => openWidgetLibrary()
+    },
+    {
       label: '📥 收拢超出屏幕的卡片（不动已布局位置）',
       click: () => {
         for (const win of windows.values()) {
@@ -588,12 +592,46 @@ function updateTrayMenu() {
 }
 
 /**
+ * 打开组件库（Launchpad 网格选取卡片）
+ * 发给鼠标所在屏的看板窗口；找不到给主屏窗口
+ */
+function openWidgetLibrary() {
+  let target = null;
+  try {
+    const pt = screen.getCursorScreenPoint();
+    for (const win of windows.values()) {
+      if (!win || win.isDestroyed()) continue;
+      const b = win.getBounds();
+      if (pt.x >= b.x && pt.x <= b.x + b.width && pt.y >= b.y && pt.y <= b.y + b.height) {
+        target = win;
+        break;
+      }
+    }
+  } catch (e) {}
+  if (!target) {
+    for (const win of windows.values()) {
+      if (win && !win.isDestroyed() && win._isPrimary) { target = win; break; }
+    }
+  }
+  if (target && !target.isDestroyed()) {
+    target.webContents.send('library-toggle');
+    console.info('[library] 已发送 library-toggle（组件库）');
+  } else {
+    console.warn('[library] 没有可用窗口');
+  }
+}
+
+/**
  * 注册全局快捷键
  */
 function registerShortcuts() {
   // Ctrl+Shift+D 切换编辑模式
   const dOk = globalShortcut.register('CommandOrControl+Shift+D', () => toggleInteractionMode());
   console.info('[shortcut] Ctrl+Shift+D ' + (dOk ? '注册成功' : '注册失败'));
+
+  // Ctrl+Shift+A 打开组件库（选取/搜索卡片）
+  const aOk = globalShortcut.register('CommandOrControl+Shift+A', () => openWidgetLibrary());
+  console.info('[shortcut] Ctrl+Shift+A ' + (aOk ? '注册成功（组件库）' : '注册失败（组件库，可能被其他程序占用，可用托盘菜单）'));
 
   // Ctrl+Shift+H 隐藏/显示所有窗口（检查注册是否成功——失败时可用托盘左键恢复）
   const hOk = globalShortcut.register('CommandOrControl+Shift+H', () => toggleAllWindows());

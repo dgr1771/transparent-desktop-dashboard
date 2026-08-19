@@ -1,0 +1,470 @@
+/* ============================================================
+   卡片开启交互（widget-picker.js）
+   B. 组件库   — Launchpad 全屏网格
+   C. 扑克抽取 — 桌面卡堆 + 扇形展开
+   A. 边缘坞   — 右缘热区滑出图标栏
+   主题色全部走 --card-bg / --accent-color 变量
+   ============================================================ */
+
+/* ===== B. 组件库（Launchpad）===== */
+.wp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;   /* 高于编辑模式 banner(9999)，编辑态也可唤出 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 10, 18, 0.52);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.wp-overlay.wp-open {
+  opacity: 1;
+}
+
+.wp-panel {
+  width: min(880px, 88vw);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  background: rgba(var(--card-bg), 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.wp-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px 12px;
+}
+
+.wp-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.wp-count {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.wp-search {
+  flex: 1;
+  max-width: 240px;
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+}
+
+.wp-search:focus {
+  border-color: rgba(var(--accent-color), 0.7);
+}
+
+.wp-search::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.wp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px;
+  padding: 6px 20px 20px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.wp-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 128px;
+  padding: 14px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(14px) scale(0.96);
+  transition: opacity 0.32s ease, transform 0.32s cubic-bezier(0.22, 0.9, 0.24, 1),
+    border-color 0.2s, background 0.2s;
+}
+
+.wp-open .wp-card {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.wp-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(var(--accent-color), 0.55);
+}
+
+.wp-card:active {
+  transform: scale(0.97);
+}
+
+.wp-card--on {
+  border-color: rgba(var(--accent-color), 0.5);
+  background: rgba(var(--accent-color), 0.12);
+}
+
+.wp-card__icon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.wp-card__name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.wp-card__desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+
+.wp-card__badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: rgba(var(--accent-color), 0.9);
+  color: #fff;
+}
+
+.wp-hint {
+  padding: 0 20px 12px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+}
+
+/* ===== C. 扑克抽取 ===== */
+
+/* 桌面卡堆（常驻入口） */
+#wp-deck {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46px;
+  height: 64px;
+  z-index: 900;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+#wp-deck:hover {
+  transform: translateX(-50%) translateY(-5px);
+}
+
+#wp-deck .wp-deck__card {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #2a3350 0%, #1a2038 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+#wp-deck .wp-deck__card::after {
+  content: '✦';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  color: rgba(var(--accent-color), 0.85);
+}
+
+#wp-deck .wp-deck__card:nth-child(1) { transform: translate(5px, 4px) rotate(6deg); opacity: 0.75; }
+#wp-deck .wp-deck__card:nth-child(2) { transform: translate(-4px, 2px) rotate(-5deg); opacity: 0.9; }
+
+#wp-deck .wp-deck__tip {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+/* 扇形抽取浮层 */
+.wp-fan-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  background: rgba(5, 6, 10, 0.42);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.wp-fan-overlay.wp-open {
+  opacity: 1;
+}
+
+.wp-fan-hint {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  pointer-events: none;
+}
+
+.wp-fcard {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 104px;
+  height: 150px;
+  perspective: 900px;
+  cursor: pointer;
+  transition: transform 0.55s cubic-bezier(0.22, 0.9, 0.24, 1), opacity 0.3s ease;
+  will-change: transform;
+}
+
+.wp-fcard:hover {
+  z-index: 999;
+}
+
+.wp-fcard__lift {
+  width: 100%;
+  height: 100%;
+  transition: transform 0.22s ease;
+}
+
+.wp-fcard:hover .wp-fcard__lift {
+  transform: translateY(-28px) scale(1.12);
+}
+
+.wp-fcard__inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.3, 1.2, 0.4, 1);
+}
+
+.wp-fcard__inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.wp-fcard__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* 卡背：星夜纹 */
+.wp-fcard__face--back {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0 6px, transparent 6px 12px),
+    linear-gradient(135deg, #2a3350 0%, #171d33 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.wp-fcard__face--back::after {
+  content: '✦';
+  font-size: 24px;
+  color: rgba(var(--accent-color), 0.9);
+}
+
+/* 卡面：组件身份 */
+.wp-fcard__face--front {
+  transform: rotateY(180deg);
+  background: rgba(var(--card-bg), 0.96);
+  border: 1px solid rgba(var(--accent-color), 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.wp-fcard__icon {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.wp-fcard__name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.wp-fcard__state {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.wp-fcard--on .wp-fcard__face--front {
+  border-color: rgba(var(--accent-color), 0.9);
+  box-shadow: 0 0 14px rgba(var(--accent-color), 0.35), 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+/* ===== A. 边缘坞 ===== */
+#wp-hotzone {
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  z-index: 850;
+  pointer-events: none;   /* 只作视觉占位，命中判定用 mousemove 坐标 */
+}
+
+#wp-dock {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  width: 62px;
+  max-height: 84vh;
+  padding: 10px 7px;
+  border-radius: 16px 0 0 16px;
+  background: rgba(var(--card-bg), 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: none;
+  box-shadow: -6px 8px 30px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  z-index: 880;
+  transform: translateY(-50%) translateX(110%);
+  transition: transform 0.28s cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+
+#wp-dock::-webkit-scrollbar {
+  display: none;
+}
+
+#wp-dock.wp-dock--open {
+  transform: translateY(-50%) translateX(0);
+}
+
+.wp-dock__item {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.wp-dock__item:hover {
+  transform: scale(1.12);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.wp-dock__item--on {
+  border-color: rgba(var(--accent-color), 0.8);
+  background: rgba(var(--accent-color), 0.16);
+}
+
+.wp-dock__item--on::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(var(--accent-color));
+}
+
+.wp-dock__label {
+  position: absolute;
+  right: 52px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.wp-dock__item:hover .wp-dock__label {
+  opacity: 1;
+}
+
+.wp-dock__tip {
+  flex: none;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.35);
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+}
+
+/* ===== FLIP 飞入 ghost ===== */
+.wp-ghost {
+  position: fixed;
+  z-index: 11000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 16px;
+  background: rgba(var(--card-bg), 0.96);
+  border: 1px solid rgba(var(--accent-color), 0.6);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5), 0 0 18px rgba(var(--accent-color), 0.25);
+  pointer-events: none;
+}
+
+.wp-ghost__icon {
+  font-size: 34px;
+}
+
+.wp-ghost__name {
+  font-size: 13px;
+  color: #fff;
+  font-weight: 500;
+}
+
+/* ===== 动画可访问性 / 省电 ===== */
+@media (prefers-reduced-motion: reduce) {
+  .wp-card, .wp-fcard, .wp-fcard__inner, .wp-fcard__lift, #wp-dock, #wp-deck {
+    transition: none !important;
+  }
+}

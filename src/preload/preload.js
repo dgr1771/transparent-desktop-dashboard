@@ -41,6 +41,12 @@ contextBridge.exposeInMainWorld('dashboard', {
     ipcRenderer.on('preview-opacity', handler);
     return () => ipcRenderer.removeListener('preview-opacity', handler);
   },
+  // 组件库开关（Ctrl+Shift+A / 托盘 → 主进程发给鼠标所在屏的窗口）
+  onLibraryToggle: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('library-toggle', handler);
+    return () => ipcRenderer.removeListener('library-toggle', handler);
+  },
 
   // ===== 系统 =====
   getScreenSize: () => ipcRenderer.invoke('get-screen-size'),

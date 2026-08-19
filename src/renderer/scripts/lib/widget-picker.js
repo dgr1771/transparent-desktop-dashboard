@@ -1,7 +1,7 @@
 /* ============================================================
-   卡片开启交互（三套方案并存，供对比后取舍）
-   B. 组件库  — Ctrl+Shift+A / 托盘唤出，Launchpad 网格 + FLIP 飞入
-   C. 扑克抽取 — 桌面底部卡堆，点击扇形展开，翻牌飞入桌面
+   卡片开启交互（扑克抽取 + 边缘坞）
+   C. 扑克抽取 — 桌面底部卡堆 / Ctrl+Shift+A / 托盘唤出，
+      扇形展开（牌背带全称），翻牌飞入桌面
    A. 边缘坞  — 鼠标贴右缘 300ms 滑出图标栏
 
    共用：setEnabled（含空位计算 + 位置预写）、flyIn（FLIP ghost 飞行动画）
@@ -32,7 +32,7 @@ const WidgetPicker = (() => {
     { id: 'tarot',       icon: '🔮', name: '每日塔罗', desc: '每日一抽' },
   ];
 
-  let _open = null;            // 'library' | 'fan' | null
+  let _open = null;            // 'fan' | null
   let _dockOpen = false;
   let _dockArmAt = 0;          // 鼠标贴右缘的起始时刻
   let _dockCloseTimer = null;
@@ -182,102 +182,11 @@ const WidgetPicker = (() => {
   }
 
   // ============================================================
-  // B. 组件库（Launchpad 网格）
-  // ============================================================
-
-  function openLibrary() {
-    if (_open === 'library') return closeLibrary();
-    if (_open) closeFan(true);
-    _open = 'library';
-    grabMouse();
-
-    const cards = META.map(m => `
-      <div class="wp-card ${isOn(m.id) ? 'wp-card--on' : ''}" data-id="${m.id}">
-        <div class="wp-card__icon">${m.icon}</div>
-        <div class="wp-card__name">${m.name}</div>
-        <div class="wp-card__desc">${m.desc}</div>
-        ${isOn(m.id) ? '<div class="wp-card__badge">已开启</div>' : ''}
-      </div>`).join('');
-
-    const ov = document.createElement('div');
-    ov.id = 'wp-library';
-    ov.className = 'no-drag wp-overlay';
-    ov.innerHTML = `
-      <div class="wp-panel">
-        <div class="wp-head">
-          <div class="wp-title">✦ 组件库</div>
-          <div class="wp-count" id="wp-count"></div>
-          <input class="wp-search" id="wp-search" placeholder="搜索组件…" autocomplete="off">
-        </div>
-        <div class="wp-grid" id="wp-grid">${cards}</div>
-        <div class="wp-hint">点击卡片开启（飞入桌面）/ 再点关闭 · Esc 或点空白处退出</div>
-      </div>`;
-    document.body.appendChild(ov);
-    updateCount();
-
-    // 入场：网格卡片交错浮现
-    ov.querySelectorAll('.wp-card').forEach((c, i) => {
-      c.style.transitionDelay = Math.min(i * 26, 400) + 'ms';
-    });
-    requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add('wp-open')));
-    setTimeout(() => ov.querySelectorAll('.wp-card').forEach(c => { c.style.transitionDelay = '0ms'; }), 800);
-
-    const search = ov.querySelector('#wp-search');
-    search.addEventListener('input', () => {
-      const q = search.value.trim().toLowerCase();
-      ov.querySelectorAll('.wp-card').forEach(c => {
-        const m = metaOf(c.dataset.id);
-        const hit = !q || m.name.toLowerCase().includes(q) || m.id.includes(q) || m.desc.toLowerCase().includes(q);
-        c.style.display = hit ? '' : 'none';
-      });
-    });
-    search.focus();
-
-    ov.querySelector('#wp-grid').addEventListener('click', (e) => {
-      const card = e.target.closest('.wp-card');
-      if (!card) return;
-      const id = card.dataset.id;
-      if (isOn(id)) {
-        // 已开启 → 关闭（浮层保持打开，可连续管理）
-        setEnabled(id, false);
-        card.classList.remove('wp-card--on');
-        const badge = card.querySelector('.wp-card__badge');
-        if (badge) badge.remove();
-        updateCount();
-      } else {
-        // 未开启 → 记录格位矩形，关浮层，飞入桌面
-        const rect = card.getBoundingClientRect();
-        closeLibrary();
-        setEnabled(id, true, rect);
-      }
-    });
-
-    // 点空白（面板外）关闭
-    ov.addEventListener('click', (e) => { if (e.target === ov) closeLibrary(); });
-
-    function updateCount() {
-      const n = META.filter(m => isOn(m.id)).length;
-      const el = ov.querySelector('#wp-count');
-      if (el) el.textContent = `已开启 ${n} / ${META.length}`;
-    }
-  }
-
-  function closeLibrary() {
-    const ov = document.getElementById('wp-library');
-    if (!ov) { _open = null; return; }
-    ov.classList.remove('wp-open');
-    setTimeout(() => ov.remove(), 200);
-    _open = null;
-    releaseMouse();
-  }
-
-  // ============================================================
   // C. 扑克抽取（卡堆 + 扇形展开 + 翻牌）
   // ============================================================
 
   function openFan() {
     if (_open === 'fan') return closeFan();
-    if (_open) closeLibrary();
     _open = 'fan';
     grabMouse();
 
@@ -363,14 +272,14 @@ const WidgetPicker = (() => {
     });
   }
 
-  function closeFan(silent) {
+  function closeFan() {
     const ov = document.getElementById('wp-fan');
     if (ov) {
       ov.classList.remove('wp-open');
       setTimeout(() => ov.remove(), 200);
     }
     _open = null;
-    if (!silent) releaseMouse();
+    releaseMouse();
   }
 
   // ============================================================
@@ -491,8 +400,7 @@ const WidgetPicker = (() => {
   function initKeys() {
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
-      if (_open === 'library') { e.stopPropagation(); closeLibrary(); }
-      else if (_open === 'fan') { e.stopPropagation(); closeFan(); }
+      if (_open === 'fan') { e.stopPropagation(); closeFan(); }
       else if (_dockOpen) closeDock();
     });
   }
@@ -502,11 +410,11 @@ const WidgetPicker = (() => {
     buildEdgeDock();
     initKeys();
     // 主进程快捷键/托盘 → 只发给鼠标所在屏的窗口
-    if (window.dashboard && window.dashboard.onLibraryToggle) {
-      window.dashboard.onLibraryToggle(() => openLibrary());
+    if (window.dashboard && window.dashboard.onFanToggle) {
+      window.dashboard.onFanToggle(() => openFan());
     }
-    console.info('[picker] 组件库(Ctrl+Shift+A) / 抽卡(桌面卡堆) / 边缘坞(贴右缘) 就绪');
+    console.info('[picker] 抽卡(桌面卡堆/Ctrl+Shift+A) / 边缘坞(贴右缘) 就绪');
   }
 
-  return { init, isOn, setEnabled, flyIn, openLibrary, closeLibrary, openFan, closeFan };
+  return { init, isOn, setEnabled, flyIn, openFan, closeFan };
 })();

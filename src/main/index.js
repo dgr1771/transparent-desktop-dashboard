@@ -533,8 +533,8 @@ function updateTrayMenu() {
       checked: interactionMode
     },
     {
-      label: '🃏 组件库 — 选取/搜索卡片 (Ctrl+Shift+A)',
-      click: () => openWidgetLibrary()
+      label: '🃏 抽卡 — 扑克式选取组件 (Ctrl+Shift+A)',
+      click: () => openCardFan()
     },
     {
       label: '📥 收拢超出屏幕的卡片（不动已布局位置）',
@@ -592,10 +592,10 @@ function updateTrayMenu() {
 }
 
 /**
- * 打开组件库（Launchpad 网格选取卡片）
+ * 打开扑克抽卡（扇形选取组件）
  * 发给鼠标所在屏的看板窗口；找不到给主屏窗口
  */
-function openWidgetLibrary() {
+function openCardFan() {
   let target = null;
   try {
     const pt = screen.getCursorScreenPoint();
@@ -614,10 +614,10 @@ function openWidgetLibrary() {
     }
   }
   if (target && !target.isDestroyed()) {
-    target.webContents.send('library-toggle');
-    console.info('[library] 已发送 library-toggle（组件库）');
+    target.webContents.send('fan-toggle');
+    console.info('[picker] 已发送 fan-toggle（抽卡）');
   } else {
-    console.warn('[library] 没有可用窗口');
+    console.warn('[picker] 没有可用窗口');
   }
 }
 
@@ -646,8 +646,8 @@ function registerShortcuts() {
   // Ctrl+Shift+D 切换编辑模式
   registerShortcutWithRetry('CommandOrControl+Shift+D', 'Ctrl+Shift+D', () => toggleInteractionMode());
 
-  // Ctrl+Shift+A 打开组件库（选取/搜索卡片）
-  registerShortcutWithRetry('CommandOrControl+Shift+A', 'Ctrl+Shift+A（组件库）', () => openWidgetLibrary());
+  // Ctrl+Shift+A 打开扑克抽卡（扇形选取组件）
+  registerShortcutWithRetry('CommandOrControl+Shift+A', 'Ctrl+Shift+A（抽卡）', () => openCardFan());
 
   // Ctrl+Shift+H 隐藏/显示所有窗口（失败时可用托盘左键恢复）
   registerShortcutWithRetry('CommandOrControl+Shift+H', 'Ctrl+Shift+H', () => toggleAllWindows());

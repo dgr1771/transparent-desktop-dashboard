@@ -67,12 +67,33 @@ const WidgetPicker = (() => {
         o.start(t); o.stop(t + dur + 0.05);
       } catch (e) {}
     }
+    function sweep(f1, f2, dur, gain, type) {
+      if (!enabled) return;
+      try {
+        const c = ac(); if (!c) return;
+        const t = c.currentTime;
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = type || 'sine';
+        o.frequency.setValueAtTime(f1, t);
+        o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(gain || 0.03, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g).connect(c.destination);
+        o.start(t); o.stop(t + dur + 0.05);
+      } catch (e) {}
+    }
     return {
       deal()   { tone(1500 + Math.random() * 600, 0.05, { type: 'triangle', gain: 0.035 }); },
       flip()   { tone(880, 0.07, { type: 'square', gain: 0.025 }); tone(1320, 0.05, { type: 'square', gain: 0.02, delay: 0.045 }); },
       land()   { tone(523.25, 0.12); tone(659.25, 0.14, { delay: 0.09 }); tone(783.99, 0.22, { delay: 0.18 }); },
       close()  { tone(640, 0.06, { type: 'triangle', gain: 0.03 }); tone(420, 0.09, { type: 'triangle', gain: 0.025, delay: 0.05 }); },
       fortune(){ [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.28, { gain: 0.055, delay: i * 0.09 })); },
+      // 边缘坞仪式
+      dockOpen()  { sweep(320, 980, 0.18, 0.03); },
+      dockClose() { sweep(880, 300, 0.16, 0.028); },
+      tick()      { tone(1250, 0.05, { type: 'triangle', gain: 0.04 }); },
+      off()       { tone(520, 0.07, { type: 'triangle', gain: 0.035 }); tone(340, 0.1, { type: 'triangle', gain: 0.03, delay: 0.06 }); },
       toggle() {
         enabled = !enabled;
         try { localStorage.setItem('wp_sound', enabled ? '1' : '0'); } catch (e) {}
@@ -514,10 +535,23 @@ const WidgetPicker = (() => {
       item.addEventListener('click', () => {
         const id = item.dataset.id;
         if (isOn(id)) {
+          // 关闭小仪式：图标抖一下再熄灭 + 下行双音
+          Sound.off();
+          try {
+            item.animate([
+              { transform: 'rotate(0deg)' },
+              { transform: 'rotate(-12deg) scale(0.88)' },
+              { transform: 'rotate(9deg) scale(0.92)' },
+              { transform: 'rotate(0deg) scale(1)' },
+            ], { duration: 280, easing: 'ease-out' });
+          } catch (e) {}
           setEnabled(id, false);
           item.classList.remove('wp-dock__item--on');
         } else {
+          // 开启小仪式：轻嗒 + 图标处小粒子（落地还有琶音+大粒子）
+          Sound.tick();
           const rect = item.getBoundingClientRect();
+          burstParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, 8);
           hideTip();
           closeDock();
           setEnabled(id, true, rect);
@@ -550,6 +584,16 @@ const WidgetPicker = (() => {
     if (!dock) return;
     _dockOpen = true;
     dock.classList.add('wp-dock--open');
+    // 滑出仪式：上扬滑音 + 图标逐个弹出（迷你发牌）
+    Sound.dockOpen();
+    dock.querySelectorAll('.wp-dock__item').forEach((it, i) => {
+      try {
+        it.animate([
+          { transform: 'translateX(22px) scale(0.4)', opacity: 0 },
+          { transform: 'translateX(0) scale(1)', opacity: 1 },
+        ], { duration: 260, delay: Math.min(i * 18, 260), easing: 'cubic-bezier(0.3, 1.35, 0.45, 1)', fill: 'backwards' });
+      } catch (e) {}
+    });
   }
 
   function scheduleDockClose() {
@@ -565,7 +609,10 @@ const WidgetPicker = (() => {
     cancelDockClose();
     if (_dockTip) { _dockTip.remove(); _dockTip = null; }
     const dock = document.getElementById('wp-dock');
-    if (dock) dock.classList.remove('wp-dock--open');
+    if (dock) {
+      if (_dockOpen) Sound.dockClose();   // 收起仪式：下行滑音
+      dock.classList.remove('wp-dock--open');
+    }
     _dockOpen = false;
     _dockArmAt = 0;
   }

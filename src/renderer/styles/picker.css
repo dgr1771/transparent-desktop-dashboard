@@ -396,7 +396,8 @@
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
-  transition: transform 0.15s, border-color 0.15s, background 0.15s;
+  /* 回弹曲线：悬停放大带一点 overshoot，和抽卡的弹簧感同语言 */
+  transition: transform 0.16s cubic-bezier(0.3, 1.6, 0.5, 1), border-color 0.15s, background 0.15s;
 }
 
 .wp-dock__item:hover {

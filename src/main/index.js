@@ -622,20 +622,35 @@ function openWidgetLibrary() {
 }
 
 /**
+ * 注册全局快捷键（失败自动重试 3 次，间隔 3 秒）。
+ * 刚杀掉的旧实例会短暂占着热键（RegisterHotKey 释放有延迟），
+ * 更新/快速重启场景下首次注册常失败——重试可自愈，无需用户手动重启。
+ */
+function registerShortcutWithRetry(accel, label, fn, left = 3) {
+  if (globalShortcut.register(accel, fn)) {
+    console.info(`[shortcut] ${label} 注册成功`);
+    return;
+  }
+  if (left <= 0 || app.isQuiting) {
+    console.info(`[shortcut] ${label} 注册失败（可能被其他程序占用）`);
+    return;
+  }
+  console.info(`[shortcut] ${label} 首次注册失败（旧实例热键未释放？），${3 - left + 1}/3 次重试中...`);
+  setTimeout(() => registerShortcutWithRetry(accel, label, fn, left - 1), 3000);
+}
+
+/**
  * 注册全局快捷键
  */
 function registerShortcuts() {
   // Ctrl+Shift+D 切换编辑模式
-  const dOk = globalShortcut.register('CommandOrControl+Shift+D', () => toggleInteractionMode());
-  console.info('[shortcut] Ctrl+Shift+D ' + (dOk ? '注册成功' : '注册失败'));
+  registerShortcutWithRetry('CommandOrControl+Shift+D', 'Ctrl+Shift+D', () => toggleInteractionMode());
 
   // Ctrl+Shift+A 打开组件库（选取/搜索卡片）
-  const aOk = globalShortcut.register('CommandOrControl+Shift+A', () => openWidgetLibrary());
-  console.info('[shortcut] Ctrl+Shift+A ' + (aOk ? '注册成功（组件库）' : '注册失败（组件库，可能被其他程序占用，可用托盘菜单）'));
+  registerShortcutWithRetry('CommandOrControl+Shift+A', 'Ctrl+Shift+A（组件库）', () => openWidgetLibrary());
 
-  // Ctrl+Shift+H 隐藏/显示所有窗口（检查注册是否成功——失败时可用托盘左键恢复）
-  const hOk = globalShortcut.register('CommandOrControl+Shift+H', () => toggleAllWindows());
-  console.info('[shortcut] Ctrl+Shift+H ' + (hOk ? '注册成功' : '注册失败（可能被其他程序占用，请用托盘左键单击恢复）'));
+  // Ctrl+Shift+H 隐藏/显示所有窗口（失败时可用托盘左键恢复）
+  registerShortcutWithRetry('CommandOrControl+Shift+H', 'Ctrl+Shift+H', () => toggleAllWindows());
 }
 
 // ========== App 生命周期 ==========

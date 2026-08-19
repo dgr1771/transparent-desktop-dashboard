@@ -291,10 +291,13 @@ const WidgetPicker = (() => {
     ov.id = 'wp-fan';
     ov.className = 'no-drag wp-fan-overlay';
     ov.innerHTML = META.map((m, i) => `
-      <div class="wp-fcard ${isOn(m.id) ? 'wp-fcard--on' : ''}" data-id="${m.id}">
+      <div class="wp-fcard ${isOn(m.id) ? 'wp-fcard--on' : ''}" data-id="${m.id}" title="${m.name}：${m.desc}">
         <div class="wp-fcard__lift">
           <div class="wp-fcard__inner">
-            <div class="wp-fcard__face wp-fcard__face--back"></div>
+            <div class="wp-fcard__face wp-fcard__face--back">
+              <span class="wp-fcard__idx">${m.icon}</span>
+              <span class="wp-fcard__backname">${m.name}</span>
+            </div>
             <div class="wp-fcard__face wp-fcard__face--front">
               <div class="wp-fcard__icon">${m.icon}</div>
               <div class="wp-fcard__name">${m.name}</div>
@@ -302,7 +305,7 @@ const WidgetPicker = (() => {
             </div>
           </div>
         </div>
-      </div>`).join('') + `<div class="wp-fan-hint">🃏 从牌堆抽一张组件上桌 · Esc / 点空白处收牌</div>`;
+      </div>`).join('') + `<div class="wp-fan-hint">🃏 悬停看牌面 · 点击抽上桌 · Esc / 点空白处收牌</div>`;
     document.body.appendChild(ov);
 
     // 发牌动画：先全部叠在卡堆处，再交错飞到扇形位
@@ -323,6 +326,18 @@ const WidgetPicker = (() => {
       setTimeout(() => ov.querySelectorAll('.wp-fcard').forEach(c => { c.style.transitionDelay = '0ms'; }), n * 26 + 650);
     }));
 
+    // 悬停看牌：悬停翻面看完整信息（图标/名称/状态），移开翻回花背；
+    // 正在抽取（drawing）的牌不受影响
+    ov.querySelectorAll('.wp-fcard').forEach(card => {
+      const inner = card.querySelector('.wp-fcard__inner');
+      card.addEventListener('mouseenter', () => {
+        if (!card.dataset.drawing) inner.classList.add('is-flipped');
+      });
+      card.addEventListener('mouseleave', () => {
+        if (!card.dataset.drawing) inner.classList.remove('is-flipped');
+      });
+    });
+
     ov.addEventListener('click', (e) => {
       const card = e.target.closest('.wp-fcard');
       if (!card) { closeFan(); return; }   // 点空白收牌
@@ -338,6 +353,7 @@ const WidgetPicker = (() => {
       }
       // 抽牌：翻面 → 飞入桌面 → 收牌
       const rect = card.getBoundingClientRect();
+      card.dataset.drawing = '1';
       inner.classList.add('is-flipped');
       setTimeout(() => {
         closeFan();
@@ -366,9 +382,11 @@ const WidgetPicker = (() => {
     const dock = document.createElement('div');
     dock.id = 'wp-dock';
     dock.className = 'no-drag';
-    dock.innerHTML = META.map(m => `
-      <div class="wp-dock__item ${isOn(m.id) ? 'wp-dock__item--on' : ''}" data-id="${m.id}">
-        ${m.icon}<span class="wp-dock__label">${m.name} · ${isOn(m.id) ? '关闭' : '开启'}</span>
+    dock.innerHTML =
+      `<div class="wp-dock__head" title="看板组件坞：点击图标开启/关闭对应卡片">${'🧩'}</div>` +
+      META.map(m => `
+      <div class="wp-dock__item ${isOn(m.id) ? 'wp-dock__item--on' : ''}" data-id="${m.id}" title="${m.name}：${m.desc}">
+        ${m.icon}<span class="wp-dock__label">${m.name} · ${m.desc} · 点击${isOn(m.id) ? '关闭' : '开启'}</span>
       </div>`).join('') + '<div class="wp-dock__tip">贴右缘唤出</div>';
     document.body.appendChild(dock);
 
@@ -380,7 +398,7 @@ const WidgetPicker = (() => {
         setEnabled(id, false);
         item.classList.remove('wp-dock__item--on');
         const label = item.querySelector('.wp-dock__label');
-        if (label) label.textContent = `${metaOf(id).name} · 开启`;
+        if (label) label.textContent = `${metaOf(id).name} · ${metaOf(id).desc} · 点击开启`;
       } else {
         const rect = item.getBoundingClientRect();
         closeDock();
@@ -438,12 +456,12 @@ const WidgetPicker = (() => {
     const deck = document.createElement('div');
     deck.id = 'wp-deck';
     deck.className = 'no-drag';
-    deck.title = '抽取组件（扑克牌模式）';
+    deck.title = '抽取组件（扑克牌模式）：点击展开牌堆，悬停看牌面';
     deck.innerHTML = `
       <div class="wp-deck__card"></div>
       <div class="wp-deck__card"></div>
       <div class="wp-deck__card"></div>
-      <div class="wp-deck__tip">抽卡</div>`;
+      <div class="wp-deck__tip">抽卡 · 开组件</div>`;
     deck.addEventListener('click', () => (_open === 'fan' ? closeFan() : openFan()));
     document.body.appendChild(deck);
   }

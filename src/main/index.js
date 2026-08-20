@@ -523,11 +523,11 @@ function updateTrayMenu() {
             } catch (e) { console.error('[layout-profile] 切换失败:', e.message); }
           }
         }))
-      : [{ label: '暂无方案（编辑模式退出时保存）', enabled: false }]
+      : [{ label: '暂无方案（布局编辑退出时保存）', enabled: false }]
   };
   const menuTemplate = [
     {
-      label: interactionMode ? '✏️ 编辑模式中（可拖动卡片）— 点击切回穿透' : '🖱️ 切换编辑/穿透模式 (Ctrl+Shift+D)',
+      label: interactionMode ? '✏️ 布局编辑中（可拖动/缩放卡片）— 点击退出' : '✏️ 窗口布局编辑模式 (Ctrl+Shift+D)',
       click: () => toggleInteractionMode(),
       type: 'checkbox',
       checked: interactionMode

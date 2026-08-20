@@ -84,16 +84,18 @@
     PICKER_MODES.forEach(mode => {
       const card = document.createElement('div');
       card.dataset.pickerMode = mode.key;
+      // 配色跟随设置页浅色主题（.item-label/#1f4e4a、.hint/#5a8a85），
+      // 不用白色文字——浅色底上不可见
       card.style.cssText = `
         padding:10px 12px;border-radius:10px;cursor:pointer;
-        background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);
+        background:rgba(255,255,255,0.6);border:2px solid rgba(31,78,74,0.15);
         transition:border-color 0.15s;
       `;
       card.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#fff">
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1f4e4a">
           <span style="font-size:17px">${mode.emoji}</span>${mode.name}
         </div>
-        <div style="font-size:11.5px;color:rgba(255,255,255,0.55);line-height:1.6;margin-top:5px">${mode.desc}</div>
+        <div style="font-size:11.5px;color:#5a8a85;line-height:1.6;margin-top:5px">${mode.desc}</div>
       `;
       card.addEventListener('click', () => selectPickerMode(mode.key));
       container.appendChild(card);
@@ -106,8 +108,8 @@
     if (!container) return;
     container.querySelectorAll('[data-picker-mode]').forEach(el => {
       el.style.borderColor = el.dataset.pickerMode === key
-        ? 'rgba(10,186,181,0.9)'
-        : 'rgba(255,255,255,0.1)';
+        ? '#0ABAB5'
+        : 'rgba(31,78,74,0.15)';
     });
   }
 

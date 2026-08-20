@@ -38,6 +38,7 @@ const WidgetPicker = (() => {
   let _dockCloseTimer = null;
   let _dockTip = null;         // 边缘坞的浮动信息提示（挂 body，复用单元素，避免逐悬停建删 DOM）
   let _mmGate = 0;             // 边缘坞 mousemove 限频时间戳（30Hz）
+  let _mode = null;            // 卡片开启方式：'fan' 塔罗牌抽卡（默认）| 'dock' 边缘坞
 
   // ============================================================
   // 仪式感：合成音效（WebAudio，零素材依赖；音量克制）
@@ -584,13 +585,14 @@ const WidgetPicker = (() => {
     });
 
     // 热区判定用 mousemove 坐标（穿透态下 Windows 仍能收到转发的 mousemove）。
+    // 仅边缘坞模式生效（塔罗牌模式下右缘不触发热区）。
     // 限频 30Hz：热区判定/收起调度不需要逐事件响应，高回报率鼠标（500-1000Hz）
     // 下逐事件跑 DOM 查询+定时器操作是可感知的卡顿来源
     document.addEventListener('mousemove', (e) => {
       const now = performance.now();
       if (now - _mmGate < 33) return;
       _mmGate = now;
-      if (_open || document.querySelector('.widget.dragging')) { _dockArmAt = 0; return; }
+      if (_mode !== 'dock' || _open || document.querySelector('.widget.dragging')) { _dockArmAt = 0; return; }
       const nearEdge = e.clientX >= window.innerWidth - 8;
       if (nearEdge) {
         if (!_dockArmAt) _dockArmAt = Date.now();
@@ -679,12 +681,26 @@ const WidgetPicker = (() => {
     buildDeck();
     buildEdgeDock();
     initKeys();
-    // 主进程快捷键/托盘 → 只发给鼠标所在屏的窗口
-    if (window.dashboard && window.dashboard.onFanToggle) {
-      window.dashboard.onFanToggle(() => openFan());
+    applyMode(Store.get('settings')?.pickerMode);
+    // 主进程快捷键/托盘 → 只发给鼠标所在屏的窗口，按当前模式路由
+    if (window.dashboard && window.dashboard.onPickerToggle) {
+      window.dashboard.onPickerToggle(() => (_mode === 'dock' ? openDock() : openFan()));
     }
-    console.info('[picker] 抽卡(桌面卡堆/Ctrl+Shift+A) / 边缘坞(贴右缘) 就绪');
+    console.info('[picker] 卡片开启方式:', _mode === 'dock' ? '边缘坞(贴右缘)' : '塔罗牌抽卡(卡堆/Ctrl+Shift+A)');
   }
 
-  return { init, isOn, setEnabled, flyIn, openFan, closeFan };
+  /** 卡片开启方式切换（设置-外观；两种方式互斥）
+   *  fan  = 桌面底部卡堆 + Ctrl+Shift+A/托盘唤出扇形
+   *  dock = 贴右缘热区滑出图标坞（桌面无常驻元素） */
+  function applyMode(mode) {
+    const m = mode === 'dock' ? 'dock' : 'fan';
+    if (m === _mode) return;
+    _mode = m;
+    const deck = document.getElementById('wp-deck');
+    if (deck) deck.style.display = (m === 'fan') ? '' : 'none';
+    if (m === 'dock') closeFan();   // 切换时收掉可能开着的另一套 UI
+    else closeDock();
+  }
+
+  return { init, isOn, setEnabled, flyIn, openFan, closeFan, applyMode };
 })();

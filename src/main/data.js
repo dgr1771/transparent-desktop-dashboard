@@ -524,9 +524,11 @@ function registerDataHandlers(configStore) {
     const prev = configStore.getAll();
     const profilesChanged = JSON.stringify(prev.layoutProfiles) !== JSON.stringify(data.layoutProfiles)
       || prev.activeProfile !== data.activeProfile;
+    // 卡片开启方式变化 → 托盘菜单标签（抽卡/边缘坞）同步
+    const pickerModeChanged = prev.settings?.pickerMode !== data.settings?.pickerMode;
     configStore.setAll(data);
-    // 布局方案/当前方案变化才重建托盘菜单（防木鱼等高频写入放大）
-    if (profilesChanged && global.__refreshTrayMenu) global.__refreshTrayMenu();
+    // 布局方案/当前方案/开启方式变化才重建托盘菜单（防木鱼等高频写入放大）
+    if ((profilesChanged || pickerModeChanged) && global.__refreshTrayMenu) global.__refreshTrayMenu();
     // 广播给除发送者外的窗口：多显示器各窗口 Store 缓存互不知情，
     // 不广播会 last-writer-wins 互相回滚布局
     if (global.__broadcastConfigUpdated) global.__broadcastConfigUpdated(e.sender.id);

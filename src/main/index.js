@@ -533,8 +533,10 @@ function updateTrayMenu() {
       checked: interactionMode
     },
     {
-      label: '🃏 抽卡 — 扑克式选取组件 (Ctrl+Shift+A)',
-      click: () => openCardFan()
+      label: ((configStore && configStore.getAll().settings?.pickerMode) === 'dock')
+        ? '🧩 唤出边缘坞 (Ctrl+Shift+A)'
+        : '🃏 抽卡 — 扇形选卡 (Ctrl+Shift+A)',
+      click: () => openPicker()
     },
     {
       label: '📥 收拢超出屏幕的卡片（不动已布局位置）',
@@ -592,10 +594,10 @@ function updateTrayMenu() {
 }
 
 /**
- * 打开扑克抽卡（扇形选取组件）
+ * 打开卡片开启入口（渲染层按设置的模式路由：塔罗牌抽卡 / 边缘坞）
  * 发给鼠标所在屏的看板窗口；找不到给主屏窗口
  */
-function openCardFan() {
+function openPicker() {
   let target = null;
   try {
     const pt = screen.getCursorScreenPoint();
@@ -614,8 +616,8 @@ function openCardFan() {
     }
   }
   if (target && !target.isDestroyed()) {
-    target.webContents.send('fan-toggle');
-    console.info('[picker] 已发送 fan-toggle（抽卡）');
+    target.webContents.send('picker-toggle');
+    console.info('[picker] 已发送 picker-toggle');
   } else {
     console.warn('[picker] 没有可用窗口');
   }
@@ -646,8 +648,8 @@ function registerShortcuts() {
   // Ctrl+Shift+D 切换编辑模式
   registerShortcutWithRetry('CommandOrControl+Shift+D', 'Ctrl+Shift+D', () => toggleInteractionMode());
 
-  // Ctrl+Shift+A 打开扑克抽卡（扇形选取组件）
-  registerShortcutWithRetry('CommandOrControl+Shift+A', 'Ctrl+Shift+A（抽卡）', () => openCardFan());
+  // Ctrl+Shift+A 打开卡片开启入口（按设置的模式：塔罗牌抽卡 / 边缘坞）
+  registerShortcutWithRetry('CommandOrControl+Shift+A', 'Ctrl+Shift+A（选卡）', () => openPicker());
 
   // Ctrl+Shift+H 隐藏/显示所有窗口（失败时可用托盘左键恢复）
   registerShortcutWithRetry('CommandOrControl+Shift+H', 'Ctrl+Shift+H', () => toggleAllWindows());

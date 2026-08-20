@@ -64,6 +64,53 @@
     });
   }
 
+  // ===== 卡片开启方式选择器（塔罗牌抽卡 / 边缘坞）=====
+  const PICKER_MODES = [
+    {
+      key: 'fan', emoji: '🎴', name: '塔罗牌抽卡（默认）',
+      desc: '桌面底部常驻一个小卡堆，点击扇形展开组件牌阵——牌背有名称，悬停翻面看说明，点击抽牌飞入桌面；每日还有一张「今日运势」金卡。快捷键 Ctrl+Shift+A 或托盘「抽卡」也能唤出。',
+    },
+    {
+      key: 'dock', emoji: '🧩', name: '边缘坞',
+      desc: '鼠标贴屏幕右缘停留约 0.3 秒，右侧滑出组件图标坞——悬停图标左侧显示名称与说明，滑过有风铃音，点击开关组件。桌面不占任何常驻位置。',
+    },
+  ];
+  let _selectedPickerMode = 'fan';
+
+  function initPickerModePicker() {
+    const container = document.getElementById('pickermode-picker');
+    if (!container) return;
+    container.innerHTML = '';
+    PICKER_MODES.forEach(mode => {
+      const card = document.createElement('div');
+      card.dataset.pickerMode = mode.key;
+      card.style.cssText = `
+        padding:10px 12px;border-radius:10px;cursor:pointer;
+        background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);
+        transition:border-color 0.15s;
+      `;
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#fff">
+          <span style="font-size:17px">${mode.emoji}</span>${mode.name}
+        </div>
+        <div style="font-size:11.5px;color:rgba(255,255,255,0.55);line-height:1.6;margin-top:5px">${mode.desc}</div>
+      `;
+      card.addEventListener('click', () => selectPickerMode(mode.key));
+      container.appendChild(card);
+    });
+  }
+
+  function selectPickerMode(key) {
+    _selectedPickerMode = key;
+    const container = document.getElementById('pickermode-picker');
+    if (!container) return;
+    container.querySelectorAll('[data-picker-mode]').forEach(el => {
+      el.style.borderColor = el.dataset.pickerMode === key
+        ? 'rgba(10,186,181,0.9)'
+        : 'rgba(255,255,255,0.1)';
+    });
+  }
+
   // ===== 绿植选择器 =====
   let _selectedPlant = 'fern';
   let _customPlantImage = false;   // 是否有自定义植物图（图片数据单独存文件，不塞 config）
@@ -156,6 +203,7 @@
 
     // 先初始化主题选择器（生成色块），再 renderForm（回填选中状态）
     initThemePicker();
+    initPickerModePicker();
     initPlantPicker();
     renderForm(config);
 
@@ -438,6 +486,7 @@
 
     // 主题
     selectThemeInPicker(cfg.settings?.theme);
+    selectPickerMode(cfg.settings?.pickerMode || 'fan');
     selectPlantInPicker(cfg.plant || 'grass');
     // 全屏天气特效开关
     const wfxToggle = document.getElementById('toggle-weatherFx');
@@ -659,6 +708,7 @@
         theme: _selectedTheme,
         weatherFx: document.getElementById('toggle-weatherFx').classList.contains('on'),
         refreshRate: document.getElementById('refresh-rate').value,
+        pickerMode: _selectedPickerMode,
         plantEnabled: document.getElementById('toggle-plant').classList.contains('on'),
         ai: {
           mode: document.getElementById('ai-mode').value,

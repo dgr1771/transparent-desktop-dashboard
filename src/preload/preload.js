@@ -41,11 +41,11 @@ contextBridge.exposeInMainWorld('dashboard', {
     ipcRenderer.on('preview-opacity', handler);
     return () => ipcRenderer.removeListener('preview-opacity', handler);
   },
-  // 抽卡开关（Ctrl+Shift+A / 托盘 → 主进程发给鼠标所在屏的窗口）
-  onFanToggle: (callback) => {
+  // 卡片开启入口（Ctrl+Shift+A / 托盘 → 主进程发给鼠标所在屏的窗口，渲染层按模式路由）
+  onPickerToggle: (callback) => {
     const handler = () => callback();
-    ipcRenderer.on('fan-toggle', handler);
-    return () => ipcRenderer.removeListener('fan-toggle', handler);
+    ipcRenderer.on('picker-toggle', handler);
+    return () => ipcRenderer.removeListener('picker-toggle', handler);
   },
 
   // ===== 系统 =====

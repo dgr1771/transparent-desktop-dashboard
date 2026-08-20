@@ -67,6 +67,7 @@ class ConfigStore {
       settings: {
         globalOpacity: 1,
         theme: 'deepblue',             // 主题颜色：deepblue/midnight/emerald/rose/purple/amber/ocean/slate
+        pickerMode: 'fan',             // 卡片开启方式：fan 塔罗牌抽卡（默认）/ dock 边缘坞
         plantEnabled: true,            // 桌面绿植开关
         refreshRate: 'standard',       // 数据刷新频率：eco 省电(间隔×2) / standard / fast 迅捷(×0.5)
         weatherFx: true,               // 桌面植物关联天气的全屏特效（雨/雪/阳光/风/雷暴/雾）

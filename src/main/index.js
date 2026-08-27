@@ -679,6 +679,8 @@ app.on('window-all-closed', (e) => {
     configStore = new ConfigStore();
     // 图标磁盘缓存：首扫前加载，开机即命中（提取 60 个图标要数秒 CPU）
     loadIconCache();
+    // 光灵状态端点：让光灵能读到看板布局/卡片信息
+    try { require('./status-endpoint').startStatusEndpoint(9601, () => configStore.get()); } catch (e) { /* 可选 */ }
 
   // 迁移：旧版 customPlantImage/customMokugyoImage 把 dataURL 塞进 config.json，
   // 新版改为独立文件存储。这里把旧 dataURL 迁移到文件，config 改存 true 标志。

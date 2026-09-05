@@ -39,6 +39,23 @@ process.on('unhandledRejection', (reason) => {
   try { console.error('[unhandledRejection]', reason); } catch (e) {}
 });
 
+// ===== 崩溃诊断（闪退排查）=====
+// 1) 原生级崩溃（V8 OOM / CHECK 失败，异常码 0x80000003 这类）JS 接不住，
+//    用 crashReporter 落 .dmp 到 userData/CrashDumps，不上传服务器
+try {
+  const { crashReporter } = require('electron');
+  crashReporter.start({
+    uploadToServer: false,
+    compress: false,
+    submitURL: '',
+  });
+} catch (e) {}
+// 2) 任何形式的退出都留痕：正常退出 / 原生崩溃（OS 直接杀）都好区分
+process.on('exit', (code) => {
+  try { require('fs').appendFileSync(require('path').join(app.getPath('userData'), 'main.log'),
+    `[exit] 主进程退出 code=${code} at ${new Date().toISOString()}\n`); } catch (e) {}
+});
+
 // 禁用 GPU 磁盘缓存（Chromium 的 shader/disk cache）
 // 这个缓存目录经常因进程异常退出被锁（报 0x5 拒绝访问），导致应用无法启动。
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
@@ -189,6 +206,11 @@ function createWindowForDisplay(display) {
   // 存储 displayId 到窗口对象，方便后续查找
   win._displayId = displayId;
   win._isPrimary = display.id === screen.getPrimaryDisplay().id;
+
+  // 渲染进程死亡留痕（闪退排查：区分主进程死还是渲染层死）
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[crash] 渲染进程死亡:', JSON.stringify(details));
+  });
 
   // 平台特定的窗口初始化
   platform.initWindowForPlatform(win);
@@ -675,6 +697,11 @@ app.on('window-all-closed', (e) => {
   // 不调用 app.quit()，让应用常驻托盘
 });
 
+// 子进程（GPU/工具进程）死亡留痕——闪退排查
+app.on('child-process-gone', (_e, details) => {
+  try { console.error('[crash] 子进程死亡:', JSON.stringify(details)); } catch (e) {}
+});
+
   app.whenReady().then(() => {
     configStore = new ConfigStore();
     // 图标磁盘缓存：首扫前加载，开机即命中（提取 60 个图标要数秒 CPU）
@@ -715,7 +742,8 @@ app.on('window-all-closed', (e) => {
 });
 
 // 退出时清理（不再操作桌面图标——从不修改，无需恢复）
-app.on('will-quit', () => {
+app.on('will-quit', (e) => {
+  console.info('[exit] will-quit 触发（正常退出流程）');
   app.isQuiting = true;
   setWindowsDShortcutBlocked(false);
   globalShortcut.unregisterAll();

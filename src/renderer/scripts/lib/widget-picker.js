@@ -26,8 +26,6 @@ const WidgetPicker = (() => {
     { id: 'links',       icon: '🔗', name: '链接',     desc: '常用网站快捷入口' },
     { id: 'schulte',     icon: '🔠', name: '方格',     desc: '舒尔特注意力训练' },
     { id: 'apps',        icon: '🚀', name: '应用',     desc: '桌面程序快捷方式' },
-    { id: 'deskfolders', icon: '📁', name: '文件夹',   desc: '桌面文件夹' },
-    { id: 'deskfiles',   icon: '📄', name: '文件',     desc: '桌面文件' },
     { id: 'mokugyo',     icon: '🐟', name: '木鱼',     desc: '敲一敲，攒功德' },
     { id: 'tarot',       icon: '🔮', name: '每日塔罗', desc: '每日一抽' },
   ];
@@ -156,13 +154,11 @@ const WidgetPicker = (() => {
     { t: '宜倒数',   d: '离好事又近了一天，倒数日替你记着呢。',             w: 'countdown' },
     { t: '宜静心',   d: '敲三下木鱼，功德 +1，烦恼 -1。',                   w: 'mokugyo' },
     { t: '宜问牌',   d: '今日一抽塔罗，答案其实早就在你心里。',             w: 'tarot' },
-    { t: '宜整理',   d: '桌面清一清，文件夹里可能藏着惊喜。',               w: 'deskfolders' },
     { t: '宜冲浪',   d: '热梗今天格外多，热搜榜都替你挑好了。',             w: 'hotsearch' },
     { t: '宜记录',   d: '在日历上圈一个重点，月末回头会感谢自己。',         w: 'calendar' },
     { t: '宜练眼',   d: '舒尔特方格来一轮，眼神都变得锋利。',               w: 'schulte' },
     { t: '宜通达',   d: '常用链接一键直达，今天效率翻倍。',                 w: 'links' },
     { t: '宜观察',   d: '瞄一眼系统监控，让 CPU 也歇口气。',                w: 'sysmonitor' },
-    { t: '宜启动',   d: '常用应用点开即启，好运随开机一起上线。',           w: 'apps' },
     { t: '宜陪伴',   d: '时钟滴答，专注的你在发光。',                       w: 'clock' },
   ];
 

@@ -98,14 +98,6 @@
       if (typeof WeatherFX !== "undefined" && Store.get('settings')?.weatherFx !== false) WeatherFX.init();
     }, 350);
 
-    // 第四批（~600ms 后）：桌面整理卡片 — 图标提取已改为 Electron 原生
-    // getFileIcon（进程内毫秒级，无 PowerShell），延后到首屏渲染后即可
-    setTimeout(() => {
-      if (isWidgetVisible('apps') || isWidgetVisible('deskfolders') || isWidgetVisible('deskfiles')) {
-        DesktopWidget.init();
-      }
-    }, 600);
-
     // 自动避让：不再用 MutationObserver 全局监听（太耗 CPU）
     // 改为只在 refreshAllWidgets 后触发一次（数据更新时才检查）
     // 首次加载后做一次
@@ -588,8 +580,6 @@
     if (typeof HotSearchWidget !== 'undefined' && HotSearchWidget.update) HotSearchWidget.update();
     if (typeof SysMonitorWidget !== 'undefined' && SysMonitorWidget.update) SysMonitorWidget.update();
     if (typeof CalendarWidget !== 'undefined' && CalendarWidget.update) CalendarWidget.update();
-    // 刷新桌面扫描（检测新建/删除的文件）
-    if (typeof DesktopWidget !== 'undefined' && DesktopWidget.refreshAll) DesktopWidget.refreshAll();
     // 内容可能变化，触发自动避让检测
     if (typeof AutoResize !== 'undefined') AutoResize.schedule();
   }
@@ -645,11 +635,6 @@
       mokugyo: () => MokugyoWidget.init(),
       tarot: () => TarotWidget.init(),
     };
-    // desktop 特殊处理
-    if (name === 'apps' || name === 'deskfolders' || name === 'deskfiles') {
-      DesktopWidget.init();
-      return;
-    }
     if (map[name]) {
       try { map[name](); } catch (e) { console.error('[Dashboard] 初始化失败:', name, e); }
     }

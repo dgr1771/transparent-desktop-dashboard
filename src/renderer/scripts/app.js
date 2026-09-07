@@ -158,7 +158,7 @@
           '本屏卡片布局数:', Object.keys((Store.get('displayLayout') || {})[_displayKey] || {}).length);
         applyTheme(Store.get('settings')?.theme);
         applyGlobalOpacity();
-        // 卡片开启方式变更（塔罗牌抽卡 ↔ 边缘坞）→ 立即切换入口
+        // 卡片开启方式变更（牌堆抽卡 ↔ 边缘坞）→ 立即切换入口
         if (typeof WidgetPicker !== 'undefined') WidgetPicker.applyMode(Store.get('settings')?.pickerMode);
         // 布局可能被切换（布局方案应用），重新应用并拉回可视区
         // ⚠️ 必须取当前屏的布局（getDisplayLayout），传整个 displayLayout 多屏对象

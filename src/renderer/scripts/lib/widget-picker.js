@@ -38,7 +38,7 @@ const WidgetPicker = (() => {
   let _dockCloseTimer = null;
   let _dockTip = null;         // 边缘坞的浮动信息提示（挂 body，复用单元素，避免逐悬停建删 DOM）
   let _mmGate = 0;             // 边缘坞 mousemove 限频时间戳（30Hz）
-  let _mode = null;            // 卡片开启方式：'fan' 塔罗牌抽卡（默认）| 'dock' 边缘坞
+  let _mode = null;            // 卡片开启方式：'fan' 牌堆抽卡（默认）| 'dock' 边缘坞
 
   // ============================================================
   // 仪式感：合成音效（WebAudio，零素材依赖；音量克制）
@@ -342,12 +342,14 @@ const WidgetPicker = (() => {
     _open = 'fan';
     grabMouse();
 
-    // 牌堆：17 组件 + 正中插入「今日运势」金卡
+    // 牌堆：17 组件 + 正中插入「今日运势」金卡 + 末位「回收站」功能牌
     const fanCards = META.slice();
     fanCards.splice(Math.floor(META.length / 2), 0, {
       id: 'fortune', icon: '🎴', name: '今日运势',
       desc: fortuneDrawnToday() ? '已抽 · 点击再看' : '每日一抽 · 点击开运',
     });
+    fanCards.push({ id: 'recycle', icon: '🗑️', name: '回收站', desc: '点击打开回收站' });
+    const special = (id) => id === 'fortune' || id === 'recycle';
     const n = fanCards.length;
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight * 0.52;
@@ -374,7 +376,7 @@ const WidgetPicker = (() => {
     ov.id = 'wp-fan';
     ov.className = 'no-drag wp-fan-overlay';
     ov.innerHTML = fanCards.map((m) => `
-      <div class="wp-fcard ${m.id === 'fortune' ? 'wp-fcard--fortune' : ''} ${m.id !== 'fortune' && isOn(m.id) ? 'wp-fcard--on' : ''}" data-id="${m.id}" title="${m.name}：${m.desc}">
+      <div class="wp-fcard ${m.id === 'fortune' ? 'wp-fcard--fortune' : ''} ${!special(m.id) && isOn(m.id) ? 'wp-fcard--on' : ''}" data-id="${m.id}" title="${m.name}：${m.desc}">
         <div class="wp-fcard__lift">
           <div class="wp-fcard__inner">
             <div class="wp-fcard__face wp-fcard__face--back">
@@ -384,7 +386,7 @@ const WidgetPicker = (() => {
             <div class="wp-fcard__face wp-fcard__face--front">
               <div class="wp-fcard__icon">${m.icon}</div>
               <div class="wp-fcard__name">${m.name}</div>
-              <div class="wp-fcard__state">${m.id === 'fortune' ? m.desc : (isOn(m.id) ? '已开启 · 点击关闭' : '点击抽取')}</div>
+              <div class="wp-fcard__state">${special(m.id) ? m.desc : (isOn(m.id) ? '已开启 · 点击关闭' : '点击抽取')}</div>
             </div>
           </div>
         </div>
@@ -440,6 +442,18 @@ const WidgetPicker = (() => {
       const id = card.dataset.id;
       const inner = card.querySelector('.wp-fcard__inner');
       if (id === 'fortune') { showFortune(); return; }
+      if (id === 'recycle') {
+        // 回收站功能牌：翻面 → 打开回收站 → 收牌
+        card.dataset.drawing = '1';
+        inner.classList.add('is-flipped');
+        Sound.flip();
+        setTimeout(() => {
+          closeFan();
+          if (window.dashboard && window.dashboard.openRecycleBin) window.dashboard.openRecycleBin();
+          else console.error('[picker] openRecycleBin 不可用');
+        }, 300);
+        return;
+      }
       if (isOn(id)) {
         setEnabled(id, false);
         card.classList.remove('wp-fcard--on');
@@ -601,7 +615,7 @@ const WidgetPicker = (() => {
     });
 
     // 热区判定用 mousemove 坐标（穿透态下 Windows 仍能收到转发的 mousemove）。
-    // 仅边缘坞模式生效（塔罗牌模式下右缘不触发热区）。
+    // 仅边缘坞模式生效（抽卡模式下右缘不触发热区）。
     // 限频 30Hz：热区判定/收起调度不需要逐事件响应，高回报率鼠标（500-1000Hz）
     // 下逐事件跑 DOM 查询+定时器操作是可感知的卡顿来源
     document.addEventListener('mousemove', (e) => {
@@ -702,7 +716,7 @@ const WidgetPicker = (() => {
     if (window.dashboard && window.dashboard.onPickerToggle) {
       window.dashboard.onPickerToggle(() => (_mode === 'dock' ? openDock() : openFan()));
     }
-    console.info('[picker] 卡片开启方式:', _mode === 'dock' ? '边缘坞(贴右缘)' : '塔罗牌抽卡(卡堆/Ctrl+Shift+A)');
+    console.info('[picker] 卡片开启方式:', _mode === 'dock' ? '边缘坞(贴右缘)' : '牌堆抽卡(卡堆/Ctrl+Shift+A)');
   }
 
   /** 卡片开启方式切换（设置-外观；两种方式互斥）

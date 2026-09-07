@@ -616,7 +616,7 @@ function updateTrayMenu() {
 }
 
 /**
- * 打开卡片开启入口（渲染层按设置的模式路由：启动台 / 边缘坞）
+ * 打开卡片开启入口（渲染层按设置的模式路由：牌堆抽卡 / 边缘坞）
  * 发给鼠标所在屏的看板窗口；找不到给主屏窗口
  */
 function openPicker() {
@@ -670,7 +670,7 @@ function registerShortcuts() {
   // Ctrl+Shift+D 切换编辑模式
   registerShortcutWithRetry('CommandOrControl+Shift+D', 'Ctrl+Shift+D', () => toggleInteractionMode());
 
-  // Ctrl+Shift+A 打开卡片开启入口（按设置的模式：启动台 / 边缘坞）
+  // Ctrl+Shift+A 打开卡片开启入口（按设置的模式：牌堆抽卡 / 边缘坞）
   registerShortcutWithRetry('CommandOrControl+Shift+A', 'Ctrl+Shift+A（选卡）', () => openPicker());
 
   // Ctrl+Shift+H 隐藏/显示所有窗口（失败时可用托盘左键恢复）
@@ -917,7 +917,7 @@ function registerIpcHandlers() {
     }
   });
 
-  // 打开回收站（启动台的「回收站」功能牌）
+  // 打开回收站（抽卡牌堆的「回收站」功能牌）
   ipcMain.handle('recycle-bin:open', async () => {
     try {
       const err = await shell.openPath('shell:RecycleBinFolder');

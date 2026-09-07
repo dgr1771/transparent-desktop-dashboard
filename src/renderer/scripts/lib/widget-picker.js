@@ -386,7 +386,7 @@ const WidgetPicker = (() => {
             <div class="wp-fcard__face wp-fcard__face--front">
               <div class="wp-fcard__icon">${m.icon}</div>
               <div class="wp-fcard__name">${m.name}</div>
-              <div class="wp-fcard__state">${special(m.id) ? m.desc : (isOn(m.id) ? '已开启 · 点击关闭' : '点击添加')}</div>
+              <div class="wp-fcard__state">${special(m.id) ? m.desc : (isOn(m.id) ? '已开启 · 点击关闭' : '点击抽取')}</div>
             </div>
           </div>
         </div>
@@ -458,7 +458,7 @@ const WidgetPicker = (() => {
         setEnabled(id, false);
         card.classList.remove('wp-fcard--on');
         const st = card.querySelector('.wp-fcard__state');
-        if (st) st.textContent = '点击添加';
+        if (st) st.textContent = '点击抽取';
         inner.classList.remove('is-flipped');
         return;
       }
@@ -686,12 +686,12 @@ const WidgetPicker = (() => {
     const deck = document.createElement('div');
     deck.id = 'wp-deck';
     deck.className = 'no-drag';
-    deck.title = '启动台：点击展开，选择要添加的组件';
+    deck.title = '抽取组件（扑克牌模式）：点击展开牌堆，悬停看牌面';
     deck.innerHTML = `
       <div class="wp-deck__card"></div>
       <div class="wp-deck__card"></div>
       <div class="wp-deck__card"></div>
-      <div class="wp-deck__tip">启动台 · 加组件</div>`;
+      <div class="wp-deck__tip">抽卡 · 开组件</div>`;
     deck.addEventListener('click', () => (_open === 'fan' ? closeFan() : openFan()));
     document.body.appendChild(deck);
   }
@@ -716,7 +716,7 @@ const WidgetPicker = (() => {
     if (window.dashboard && window.dashboard.onPickerToggle) {
       window.dashboard.onPickerToggle(() => (_mode === 'dock' ? openDock() : openFan()));
     }
-    console.info('[picker] 启动台状态:', _mode === 'dock' ? '边缘坞(贴右缘)' : '启动台(桌面入口/Ctrl+Shift+A)');
+    console.info('[picker] 卡片开启方式:', _mode === 'dock' ? '边缘坞(贴右缘)' : '牌堆抽卡(卡堆/Ctrl+Shift+A)');
   }
 
   /** 卡片开启方式切换（设置-外观；两种方式互斥）

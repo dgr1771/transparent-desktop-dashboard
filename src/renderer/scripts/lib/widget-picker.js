@@ -342,14 +342,13 @@ const WidgetPicker = (() => {
     _open = 'fan';
     grabMouse();
 
-    // 牌堆：17 组件 + 正中插入「今日运势」金卡 + 末位「回收站」功能牌
+    // 牌堆：17 组件 + 正中插入「今日运势」金卡
     const fanCards = META.slice();
     fanCards.splice(Math.floor(META.length / 2), 0, {
       id: 'fortune', icon: '🎴', name: '今日运势',
       desc: fortuneDrawnToday() ? '已抽 · 点击再看' : '每日一抽 · 点击开运',
     });
-    fanCards.push({ id: 'recycle', icon: '🗑️', name: '回收站', desc: '点击打开回收站' });
-    const special = (id) => id === 'fortune' || id === 'recycle';
+    const special = (id) => id === 'fortune';
     const n = fanCards.length;
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight * 0.52;
@@ -442,18 +441,6 @@ const WidgetPicker = (() => {
       const id = card.dataset.id;
       const inner = card.querySelector('.wp-fcard__inner');
       if (id === 'fortune') { showFortune(); return; }
-      if (id === 'recycle') {
-        // 回收站功能牌：翻面 → 打开回收站 → 收牌
-        card.dataset.drawing = '1';
-        inner.classList.add('is-flipped');
-        Sound.flip();
-        setTimeout(() => {
-          closeFan();
-          if (window.dashboard && window.dashboard.openRecycleBin) window.dashboard.openRecycleBin();
-          else console.error('[picker] openRecycleBin 不可用');
-        }, 300);
-        return;
-      }
       if (isOn(id)) {
         setEnabled(id, false);
         card.classList.remove('wp-fcard--on');

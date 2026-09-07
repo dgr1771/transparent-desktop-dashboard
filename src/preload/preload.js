@@ -88,8 +88,6 @@ contextBridge.exposeInMainWorld('dashboard', {
   // ===== 桌面整理 =====
   scanDesktop: () => ipcRenderer.invoke('desktop:scan'),
   openDesktopItem: (path) => ipcRenderer.invoke('desktop:open', path),
-  // 打开回收站（抽卡牌堆「回收站」功能牌）
-  openRecycleBin: () => ipcRenderer.invoke('recycle-bin:open'),
 
   // ===== 插件系统 =====
   // 读取 plugins/ 目录下所有插件的 manifest + 源码（由渲染进程动态注入）

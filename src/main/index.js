@@ -917,21 +917,6 @@ function registerIpcHandlers() {
     }
   });
 
-  // 打开回收站（抽卡牌堆的「回收站」功能牌）
-  ipcMain.handle('recycle-bin:open', async () => {
-    try {
-      const err = await shell.openPath('shell:RecycleBinFolder');
-      if (err) throw new Error(err);
-      console.info('[recycle-bin] 已打开');
-    } catch (e) {
-      console.error('[recycle-bin] openPath 失败，回退 explorer:', e.message);
-      try {
-        require('child_process').exec('explorer.exe shell:RecycleBinFolder');
-      } catch (e2) { console.error('[recycle-bin] explorer 回退失败:', e2.message); }
-    }
-    return true;
-  });
-
   /**
    * 获取真实桌面路径（OneDrive 重定向后用注册表读取）
    */

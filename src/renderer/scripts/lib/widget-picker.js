@@ -349,11 +349,26 @@ const WidgetPicker = (() => {
       desc: fortuneDrawnToday() ? '已抽 · 点击再看' : '每日一抽 · 点击开运',
     });
     const n = fanCards.length;
-    const spread = Math.min(8.5, 172 / n);                    // 每张牌的角度
-    const R = Math.max(240, Math.min(window.innerHeight * 0.34, 430));
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight * 0.52;
     const deckY = window.innerHeight - 60;                    // 发牌起点（卡堆位置）
+
+    // 牌桌摊牌布局：两行铺开，相邻牌只轻压边缘，带散落旋转/错位——
+    // 弧形扇牌相邻重叠 60%+ 难点选，摊牌式每张牌的名牌区完整可见
+    const perRow = Math.ceil(n / 2);
+    const spacing = Math.min(88, (window.innerWidth - 140) / perRow);
+    const CARD_W = 104, CARD_H = 150;
+    const rowStart = (count) => cx - ((count - 1) * spacing) / 2;
+    const rowY = [cy - 185, cy - 10];
+    const seat = (i) => {
+      const row = i < perRow ? 0 : 1;
+      const col = i - row * perRow;
+      const count = row === 0 ? perRow : n - perRow;
+      const x = rowStart(count) + col * spacing + (((i * 37) % 13) - 6);   // 确定性横向散落 ±6px
+      const y = rowY[row] + (((i * 53) % 15) - 7);                          // 纵向错位 ±7px
+      const rot = ((((i * 29) % 7) - 3) * 0.7);                             // 旋转 ±2.1°
+      return { x: x - CARD_W / 2, y, rot };
+    };
 
     const ov = document.createElement('div');
     ov.id = 'wp-fan';
@@ -385,25 +400,26 @@ const WidgetPicker = (() => {
       if (on) Sound.flip();
     });
 
-    // 发牌动画：先全部叠在卡堆处，再交错飞到扇形位（伴随洗牌声）
+    // 发牌动画：先全部叠在卡堆处，再交错飞到摊牌位（伴随洗牌声）。
+    // 用 setTimeout 而非 rAF：窗口被遮挡时 rAF 永久停摆（远程桌面/录制场景会卡在透明态），setTimeout 只被限速不会停
     const cards = [...ov.querySelectorAll('.wp-fcard')];
     cards.forEach((card) => {
       card.style.opacity = '0';
       card.style.transform = `translate(${cx}px, ${deckY}px) translate(-50%, -50%) scale(0.5)`;
     });
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    setTimeout(() => {
       ov.classList.add('wp-open');
       cards.forEach((card, i) => {
-        const a = (i - (n - 1) / 2) * spread;
+        const p = seat(i);
         card.style.transitionDelay = (i * 26) + 'ms';
         card.style.opacity = '1';
-        // rotate → 半径位移 → 反向 rotate：牌沿弧排列且保持直立
+        // 发牌到牌桌摊牌位：散落错位 + 轻微旋转，保持直立可读
         card.style.transform =
-          `translate(${cx}px, ${cy}px) translate(-50%, -50%) rotate(${a}deg) translateY(${-R}px) rotate(${-a}deg)`;
+          `translate(${p.x}px, ${p.y}px) rotate(${p.rot}deg)`;
         setTimeout(() => Sound.deal(), i * 26);
       });
       setTimeout(() => cards.forEach(c => { c.style.transitionDelay = '0ms'; }), n * 26 + 650);
-    }));
+    }, 60);
 
     // 悬停看牌：悬停翻面看完整信息（图标/名称/状态），移开翻回花背；
     // 正在抽取（drawing）的牌不受影响

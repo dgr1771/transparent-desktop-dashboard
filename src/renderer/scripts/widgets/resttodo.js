@@ -6,8 +6,11 @@
 const RestTodoWidget = {
   init() {
     if (window.__dashboard.timers.resttodo) clearInterval(window.__dashboard.timers.resttodo);
+    // SSE 即时刷新：总线任何写入（光灵语音加待办）≤3 秒反映到卡片（轮询仅兜底）
+    if (this._unsubBus) this._unsubBus();
+    if (window.dashboard.onBusUpdated) this._unsubBus = window.dashboard.onBusUpdated(() => this.update());
     this.update();
-    window.__dashboard.timers.resttodo = setInterval(() => this.update(), window.__dashboard.refreshMs(60 * 1000));
+    window.__dashboard.timers.resttodo = setInterval(() => this.update(), window.__dashboard.refreshMs(5 * 60 * 1000));
     // 事件委托：勾选完成 / 撤销完成（onclick 赋值幂等，重复 init 不累积监听器）
     const el = document.querySelector('.widget[data-widget="resttodo"] .widget__inner');
     if (el) {

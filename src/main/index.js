@@ -709,6 +709,15 @@ app.on('child-process-gone', (_e, details) => {
     // 光灵状态端点：让光灵能读到看板布局/卡片信息
     try { require('./status-endpoint').startStatusEndpoint(9601, () => configStore.getAll()); } catch (e) { /* 可选 */ }
 
+    // workspace-hub 任务总线 SSE：任何写入（光灵语音加待办等）即时广播渲染层刷新三卡
+    try {
+      require('./data').startBusEventWatcher(() => {
+        for (const win of windows.values()) {
+          if (win && !win.isDestroyed()) win.webContents.send('bus-updated', Date.now());
+        }
+      });
+    } catch (e) { console.warn('[hub] SSE 监听启动失败:', e.message); }
+
   // 迁移：旧版 customPlantImage/customMokugyoImage 把 dataURL 塞进 config.json，
   // 新版改为独立文件存储。这里把旧 dataURL 迁移到文件，config 改存 true 标志。
   (function migrateCustomImages() {

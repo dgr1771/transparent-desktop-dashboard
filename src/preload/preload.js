@@ -87,6 +87,12 @@ contextBridge.exposeInMainWorld('dashboard', {
   fetchToday3: () => ipcRenderer.invoke('data:today3'),
   completeRestTodo: (id) => ipcRenderer.invoke('tasks:complete', id),
   setToday3: (items) => ipcRenderer.invoke('tasks:set-today', items),
+  // 总线写入即时推送（SSE，主进程广播）；返回退订函数
+  onBusUpdated: (callback) => {
+    const handler = (_e, ts) => callback(ts);
+    ipcRenderer.on('bus-updated', handler);
+    return () => ipcRenderer.removeListener('bus-updated', handler);
+  },
 
   // ===== 设置窗口专用 =====
   openExternal: (url) => ipcRenderer.invoke('open-external', url),

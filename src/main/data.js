@@ -405,6 +405,47 @@ async function getRestCountdowns() {
   return { items: Array.isArray(r) ? r : [], updated: new Date().toISOString() };
 }
 
+// SSE 长连接：总线任何写入即时收到 seq，触发回调刷新看板三卡。
+// 断线指数退避重连（2s→60s 封顶）；60s 轮询保留为兜底，SSE 断了也不会丢更新。
+const busSse = { req: null, timer: null, retryMs: 2000, running: false };
+
+function startBusEventWatcher(onChange) {
+  if (busSse.running) return; // 幂等
+  busSse.running = true;
+  const connect = () => {
+    const req = http.get(HUB_BASE + '/events', { headers: { accept: 'text/event-stream' } }, res => {
+      busSse.retryMs = 2000; // 连上即复位退避
+      let buf = '';
+      res.on('data', c => {
+        buf += c;
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const chunk = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const m = chunk.match(/^data: (.+)$/m);
+          if (m) {
+            try {
+              const d = JSON.parse(m[1]);
+              if (typeof d.seq === 'number') onChange(d.seq);
+            } catch (e) { /* 忽略残包 */ }
+          }
+        }
+      });
+      res.on('error', scheduleReconnect);
+    });
+    req.on('error', scheduleReconnect);
+    busSse.req = req;
+  };
+  const scheduleReconnect = () => {
+    if (!busSse.running) return;
+    if (busSse.req) { busSse.req.destroy(); busSse.req = null; }
+    clearTimeout(busSse.timer);
+    busSse.timer = setTimeout(connect, busSse.retryMs);
+    busSse.retryMs = Math.min(busSse.retryMs * 2, 60000);
+  };
+  connect();
+}
+
 // ============================================================
 // 热搜 - 今日头条热榜（JSON，无需 key、无需 cookie）
 // ============================================================
@@ -713,4 +754,4 @@ function registerDataHandlers(configStore) {
 }
 
 
-module.exports = { registerDataHandlers, getWeather, getStocks, getNews, getIpLocation, getHotSearch, getSysMonitor, getRestTodos, getRestCountdowns, hubReq };
+module.exports = { registerDataHandlers, getWeather, getStocks, getNews, getIpLocation, getHotSearch, getSysMonitor, getRestTodos, getRestCountdowns, hubReq, startBusEventWatcher };

@@ -6,8 +6,11 @@
 const Today3Widget = {
   init() {
     if (window.__dashboard.timers.today3) clearInterval(window.__dashboard.timers.today3);
+    // SSE 即时刷新：总线任何写入（光灵语音加待办）≤3 秒反映到卡片（轮询仅兜底）
+    if (this._unsubBus) this._unsubBus();
+    if (window.dashboard.onBusUpdated) this._unsubBus = window.dashboard.onBusUpdated(() => this.update());
     this.update();
-    window.__dashboard.timers.today3 = setInterval(() => this.update(), window.__dashboard.refreshMs(5 * 60 * 1000));
+    window.__dashboard.timers.today3 = setInterval(() => this.update(), window.__dashboard.refreshMs(15 * 60 * 1000));
     // 事件委托：点击条目切换完成态
     const el = document.querySelector('.widget[data-widget="today3"] .widget__inner');
     if (el) {

@@ -1067,7 +1067,7 @@ function registerIpcHandlers() {
 
       if (it.isDir) {
         result.folders.push(item);
-      } else if (['.lnk', '.exe', '.desktop', '.app'].includes(it.ext)) {
+      } else if (['.lnk', '.exe', '.desktop', '.app', '.url'].includes(it.ext)) {
         // .lnk 可能指向文件夹（如"桌面文件.lnk"指向某目录）
         if (it.ext === '.lnk' && platform.isWin) {
           try {

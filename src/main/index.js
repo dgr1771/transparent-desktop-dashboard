@@ -250,8 +250,8 @@ function createWindowForDisplay(display) {
   // isMinimized/!isVisible 并 restore），且不保存 id 会在窗口销毁后泄漏。
   // 统一由 startProtectionTimers 兜底（全局遍历 + 重设穿透）。
 
-  // 开发模式：只给主屏窗口开 DevTools
-  if (process.argv.includes('--dev') && win._isPrimary) {
+  // 开发模式：只给主屏窗口开 DevTools（被 workspace-hub 宿主拉起时保持安静，HUB_CHILD=1）
+  if (process.argv.includes('--dev') && win._isPrimary && !process.env.HUB_CHILD) {
     win.webContents.openDevTools({ mode: 'detach' });
   }
 

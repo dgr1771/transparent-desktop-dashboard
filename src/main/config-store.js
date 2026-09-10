@@ -93,6 +93,9 @@ class ConfigStore {
           pomodoro: true,
           links: true,
           schulte: true,
+          apps: true,
+          deskfolders: true,
+          deskfiles: true,
           mokugyo: false,
           tarot: false
         }

@@ -359,6 +359,53 @@ function decodeXml(s) {
 }
 
 // ============================================================
+// workspace-hub 任务总线（127.0.0.1:8765，本机 REST）
+// 读：待办/倒数日/今日三件事；写：完成勾选/设置三件事。
+// 自带 http 小函数（data.js 的通用 fetch 是 GET-only），零重试、5s 超时。
+// 返回约定与本项目一致：成功 {items|...}，失败 {error}，不 throw。
+// ============================================================
+
+const HUB_BASE = 'http://127.0.0.1:8765';
+
+function hubReq(method, p, body) {
+  return new Promise(resolve => {
+    const payload = body === undefined ? null : JSON.stringify(body);
+    const req = http.request(HUB_BASE + p, {
+      method,
+      headers: payload ? { 'content-type': 'application/json' } : {}
+    }, res => {
+      let buf = '';
+      res.on('data', c => { buf += c; });
+      res.on('end', () => {
+        try {
+          const data = buf ? JSON.parse(buf) : {};
+          if (res.statusCode >= 400) resolve({ error: data.error || `总线 HTTP ${res.statusCode}` });
+          else resolve(data);
+        } catch (e) {
+          resolve({ error: `总线响应解析失败：${e.message}` });
+        }
+      });
+    });
+    req.on('error', e => { console.info('[hub] 总线请求失败', method, p, e.message); resolve({ error: `总线未连接（${e.message}）` }); });
+    req.setTimeout(5000, () => { req.destroy(new Error('总线请求超时')); });
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+async function getRestTodos() {
+  const r = await hubReq('GET', '/todos?status=all');
+  if (r.error) return r;
+  return { items: Array.isArray(r) ? r : [], updated: new Date().toISOString() };
+}
+
+async function getRestCountdowns() {
+  const r = await hubReq('GET', '/countdowns');
+  if (r.error) return r;
+  return { items: Array.isArray(r) ? r : [], updated: new Date().toISOString() };
+}
+
+// ============================================================
 // 热搜 - 今日头条热榜（JSON，无需 key、无需 cookie）
 // ============================================================
 
@@ -565,6 +612,13 @@ function registerDataHandlers(configStore) {
 
   ipcMain.handle('data:sysmonitor', async () => getSysMonitor());
 
+  // ===== workspace-hub 任务总线 =====
+  ipcMain.handle('data:resttodo', async () => getRestTodos());
+  ipcMain.handle('data:restcountdown', async () => getRestCountdowns());
+  ipcMain.handle('data:today3', async () => hubReq('GET', '/today'));
+  ipcMain.handle('tasks:complete', (e, id) => hubReq('POST', `/todos/${encodeURIComponent(String(id))}/complete`));
+  ipcMain.handle('tasks:set-today', (e, items) => hubReq('PUT', '/today', { items }));
+
   // ============================================================
   // AI 能力（BYOK：云端自选服务商只填 Key / 本地算力默认 Ollama）
   // 所有服务商统一 OpenAI 兼容 /chat/completions，一套代码全通。
@@ -659,4 +713,4 @@ function registerDataHandlers(configStore) {
 }
 
 
-module.exports = { registerDataHandlers, getWeather, getStocks, getNews, getIpLocation, getHotSearch, getSysMonitor };
+module.exports = { registerDataHandlers, getWeather, getStocks, getNews, getIpLocation, getHotSearch, getSysMonitor, getRestTodos, getRestCountdowns, hubReq };

@@ -93,6 +93,10 @@
       if (isWidgetVisible('schulte')) SchulteWidget.init();
       if (isWidgetVisible('mokugyo')) MokugyoWidget.init();
       if (isWidgetVisible('tarot')) TarotWidget.init();
+      // workspace-hub 任务总线三卡
+      if (isWidgetVisible('resttodo')) RestTodoWidget.init();
+      if (isWidgetVisible('restcountdown')) RestCountdownWidget.init();
+      if (isWidgetVisible('today3')) Today3Widget.init();
       // 桌面绿植 + 天气特效（图片/Canvas 资源）
       if (typeof Plants !== "undefined" && Store.get('settings')?.plantEnabled !== false) Plants.init();
       if (typeof WeatherFX !== "undefined" && Store.get('settings')?.weatherFx !== false) WeatherFX.init();
@@ -230,7 +234,7 @@
 
         // 刷新频率档位变化 → 重建所有数据定时器（各 init 有清旧守卫，安全重入）
         if (_prevRefreshRate && _prevRefreshRate !== (Store.get('settings') || {}).refreshRate) {
-          ['weather', 'stock', 'news', 'hotsearch', 'sysmonitor', 'calendar', 'countdown', 'desktop']
+          ['weather', 'stock', 'news', 'hotsearch', 'sysmonitor', 'calendar', 'countdown', 'desktop', 'resttodo', 'restcountdown', 'today3']
             .filter(n => isWidgetVisible(n))
             .forEach(n => initWidget(n));
         }
@@ -588,6 +592,10 @@
     if (typeof HotSearchWidget !== 'undefined' && HotSearchWidget.update) HotSearchWidget.update();
     if (typeof SysMonitorWidget !== 'undefined' && SysMonitorWidget.update) SysMonitorWidget.update();
     if (typeof CalendarWidget !== 'undefined' && CalendarWidget.update) CalendarWidget.update();
+    // workspace-hub 任务总线三卡
+    if (typeof RestTodoWidget !== 'undefined' && RestTodoWidget.update) RestTodoWidget.update();
+    if (typeof RestCountdownWidget !== 'undefined' && RestCountdownWidget.update) RestCountdownWidget.update();
+    if (typeof Today3Widget !== 'undefined' && Today3Widget.update) Today3Widget.update();
     // 刷新桌面扫描（检测新建/删除的文件）
     if (typeof DesktopWidget !== 'undefined' && DesktopWidget.refreshAll) DesktopWidget.refreshAll();
     // 内容可能变化，触发自动避让检测
@@ -644,6 +652,9 @@
       schulte: () => SchulteWidget.init(),
       mokugyo: () => MokugyoWidget.init(),
       tarot: () => TarotWidget.init(),
+      resttodo: () => RestTodoWidget.init(),
+      restcountdown: () => RestCountdownWidget.init(),
+      today3: () => Today3Widget.init(),
     };
     // desktop 特殊处理
     if (name === 'apps' || name === 'deskfolders' || name === 'deskfiles') {

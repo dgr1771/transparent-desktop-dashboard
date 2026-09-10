@@ -8,3 +8,4 @@ tmp/
 dist*/
 rel-*/
 release-*/
+__pycache__/

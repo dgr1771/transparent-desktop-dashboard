@@ -197,7 +197,10 @@
     { key: 'news',       name: '📰 新闻',    desc: 'AI 资讯' },
     { key: 'hotsearch',  name: '🔥 热搜',    desc: '头条热榜' },
     { key: 'mokugyo',    name: '🪵 敲木鱼', desc: '点击积累功德' },
-    { key: 'tarot',      name: '🔮 每日塔罗', desc: '每日运势小游戏' }
+    { key: 'tarot',      name: '🔮 每日塔罗', desc: '每日运势小游戏' },
+    { key: 'resttodo',   name: '🗒️ 总线待办', desc: '光灵语音写入' },
+    { key: 'restcountdown', name: '⌛ 总线倒数日', desc: '光灵语音写入' },
+    { key: 'today3',     name: '🎯 今日三件事', desc: '复盘今日焦点' }
   ];
 
   document.addEventListener('DOMContentLoaded', async () => {

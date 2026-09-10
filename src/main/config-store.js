@@ -97,7 +97,10 @@ class ConfigStore {
           deskfolders: true,
           deskfiles: true,
           mokugyo: false,
-          tarot: false
+          tarot: false,
+          resttodo: true,
+          restcountdown: true,
+          today3: true
         }
       },
       weather: {

@@ -30,6 +30,9 @@ const WidgetPicker = (() => {
     { id: 'deskfiles',   icon: '📄', name: '文件',     desc: '桌面文件' },
     { id: 'mokugyo',     icon: '🐟', name: '木鱼',     desc: '敲一敲，攒功德' },
     { id: 'tarot',       icon: '🔮', name: '每日塔罗', desc: '每日一抽' },
+    { id: 'resttodo',     icon: '🗒️', name: '总线待办', desc: '光灵语音写入的待办' },
+    { id: 'restcountdown', icon: '⌛', name: '总线倒数日', desc: '光灵语音写入的倒数日' },
+    { id: 'today3',       icon: '🎯', name: '今日三件事', desc: '复盘定出的今日焦点' },
   ];
 
   let _open = null;            // 'fan' | null

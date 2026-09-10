@@ -30,7 +30,10 @@ const Store = {
           deskfolders: true,
           deskfiles: true,
           mokugyo: false,
-          tarot: false
+          tarot: false,
+          resttodo: true,
+          restcountdown: true,
+          today3: true
         }
       },
       weather: { city: '北京', apiKey: '' },

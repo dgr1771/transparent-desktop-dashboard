@@ -31,9 +31,6 @@ const Store = {
           deskfiles: true,
           mokugyo: false,
           tarot: false,
-          resttodo: true,
-          restcountdown: true,
-          today3: true
         }
       },
       weather: { city: '北京', apiKey: '' },

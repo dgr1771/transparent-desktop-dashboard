@@ -921,14 +921,21 @@ function registerIpcHandlers() {
   async function getRealDesktopPath() {
     if (_cachedDesktopPath) return _cachedDesktopPath;  // 桌面路径不变，缓存避免重复 reg query
     if (platform.isWin) {
-      try {
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const out = await promisify(exec)('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders" /v Desktop', { encoding: 'utf8', timeout: 2000 });
-        const m = (out.stdout || '').match(/Desktop\s+REG_[A-Z_]+\s+(.+)/);
-        if (m) { _cachedDesktopPath = m[1].trim(); return _cachedDesktopPath; }
-      } catch (e) {}
-      _cachedDesktopPath = pathDesk.join(app.getPath('home'), 'Desktop');
+      // 依次尝试 User Shell Folders（OneDrive 迁移后会正确更新）→ Shell Folders（旧键，
+      // 可能残留已删除的 OneDrive 路径）→ 默认 ~/Desktop。
+      // 每个候选都做存在性校验——注册表指向不存在目录时绝不采用（桌面三卡收不到东西的根因）。
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const tryReg = async (key) => {
+        try {
+          const out = await promisify(exec)(`reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\${key}" /v Desktop`, { encoding: 'utf8', timeout: 2000 });
+          const m = (out.stdout || '').match(/Desktop\s+REG_[A-Z_]+\s+(.+)/);
+          const p = m ? m[1].trim() : '';
+          return p && fsDesk.existsSync(p) ? p : null;
+        } catch (e) { return null; }
+      };
+      _cachedDesktopPath = (await tryReg('User Shell Folders')) || (await tryReg('Shell Folders'))
+        || pathDesk.join(app.getPath('home'), 'Desktop');
       return _cachedDesktopPath;
     } else if (platform.isLinux) {
       // 优先中文桌面，否则英文

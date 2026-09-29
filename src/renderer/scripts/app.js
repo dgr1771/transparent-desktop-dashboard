@@ -588,9 +588,6 @@
     if (typeof HotSearchWidget !== 'undefined' && HotSearchWidget.update) HotSearchWidget.update();
     if (typeof SysMonitorWidget !== 'undefined' && SysMonitorWidget.update) SysMonitorWidget.update();
     if (typeof CalendarWidget !== 'undefined' && CalendarWidget.update) CalendarWidget.update();
-    if (typeof RestTodoWidget !== 'undefined' && RestTodoWidget.update) RestTodoWidget.update();
-    if (typeof RestCountdownWidget !== 'undefined' && RestCountdownWidget.update) RestCountdownWidget.update();
-    if (typeof Today3Widget !== 'undefined' && Today3Widget.update) Today3Widget.update();
     // 刷新桌面扫描（检测新建/删除的文件）
     if (typeof DesktopWidget !== 'undefined' && DesktopWidget.refreshAll) DesktopWidget.refreshAll();
     // 内容可能变化，触发自动避让检测

@@ -12,10 +12,10 @@
 
 ## 关键路径
 - 源码：`src/main|preload|renderer`（renderer/scripts/widgets/ 15 个功能组件）
-- 运行时 userData：`C:\Users\67842\AppData\Roaming\transparent-desktop-dashboard`
+- 运行时 userData：`%APPDATA%\transparent-desktop-dashboard（日志 main.log、配置 config.json）`
   - `config.json` — 股票代码、AI 设置、布局方案、天气城市
   - `main.log` — 主进程日志（股票/天气/AI/桌面扫描打点，**排障第一入口**）
-- 安装位：`C:\Users\67842\AppData\Local\Programs\transparent-desktop-dashboard`；安装包历史在 `release\`（0.9.48 起全量保留，一键回退任意版本）
+- 安装位：`%LOCALAPPDATA%\Programs\transparent-desktop-dashboard`；安装包历史在 `release\`（0.9.48 起全量保留，一键回退任意版本）
 
 ## 编号铁律（改动前必扫相关条目）
 

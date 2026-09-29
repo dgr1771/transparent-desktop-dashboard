@@ -13,11 +13,24 @@
 """
 import sys, os, time, argparse
 
-HOST = "192.168.1.54"
-USER = "dgr"
-PASS = "1"
-DEB  = r"C:\Users\67842\ZCodeProject\transparent-desktop-dashboard\release\com.dashboard.transparent_0.8.40_amd64.deb"
-REMOTE_DIR = "/home/dgr/Downloads"
+# 凭据与目标机从环境变量读取，不进仓库：
+#   set DEPLOY_HOST=<目标机IP> & set DEPLOY_USER=<用户> & set DEPLOY_PASS=<密码>
+HOST = os.environ.get("DEPLOY_HOST", "")
+USER = os.environ.get("DEPLOY_USER", "")
+PASS = os.environ.get("DEPLOY_PASS", "")
+if not (HOST and USER and PASS):
+    print("请先设置 DEPLOY_HOST / DEPLOY_USER / DEPLOY_PASS 环境变量（凭据不入库）")
+    sys.exit(1)
+DEB  = os.environ.get("DEPLOY_DEB", "")  # deb 路径，默认取 release\ 下最新
+if not DEB:
+    rel = os.path.join(os.path.dirname(os.path.abspath(__file__)), "release")
+    debs = sorted(f for f in os.listdir(rel) if f.endswith(".deb")) if os.path.isdir(rel) else []
+    if debs:
+        DEB = os.path.join(rel, debs[-1])
+    else:
+        print("release 下没有 deb，请设置 DEPLOY_DEB 或先打包")
+        sys.exit(1)
+REMOTE_DIR = f"/home/{USER}/Downloads"
 
 import paramiko
 from scp import SCPClient
